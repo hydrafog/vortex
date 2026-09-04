@@ -5,14 +5,6 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 
-/**
- * App-state deserialization hygiene — guards against a misbehaving or
- * hostile peer injecting out-of-range or malformed fields.
- *
- * Pairs with `l3/daemon/src/core/appstate.rs::out_of_range_battery_drops_to_none`
- * so both sides apply the same 0..=100 filter and a peer can't render
- * "1000%" or "-5%" in either UI.
- */
 class AppStateTest {
 
     @Test

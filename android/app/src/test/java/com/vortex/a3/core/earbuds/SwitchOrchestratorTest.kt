@@ -11,11 +11,6 @@ import org.junit.jupiter.api.Test
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicLong
 
-/**
- * State-machine-only tests for [SwitchOrchestrator]. The
- * [AudioDeviceController] is faked so we exercise the CAS transitions
- * and frame dispatch without touching a real Bluetooth stack.
- */
 class SwitchOrchestratorTest {
 
     private val peerPub = ByteArray(32) { (it + 1).toByte() }
@@ -33,8 +28,6 @@ class SwitchOrchestratorTest {
         )
 
         assertTrue(orch.request(peerPub, mac))
-        // Fast-switch: connect attempts fire immediately, no need to
-        // wait for an Approve/Released round-trip first.
         waitFor { sent.any { it.op is AudioOp.Done } }
         assertEquals(SwitchState.Idle, orch.state.value)
         assertTrue(ctrl.connectCount.get() >= 1L, "controller.connect should have fired at least once")
@@ -42,9 +35,6 @@ class SwitchOrchestratorTest {
 
     @Test
     fun `peer Reject ends the initiator flow with Failed then Idle`() = runBlocking {
-        // Fast-switch protocol: the initiator starts BT connect retries
-        // immediately. We use connectOk=false so the loop is still
-        // running (in retry pauses) when the Reject arrives.
         val ctrl = FakeController(connectOk = false)
         val store = FakePeerStore()
         val sent = ConcurrentLinkedQueue<AudioOpFrame>()
@@ -55,7 +45,6 @@ class SwitchOrchestratorTest {
 
         orch.onIncoming(peerPub, AudioOpFrame(2L, AudioOp.Reject(RejectReason.InCall), mac, 0L))
 
-        // Failed state surfaces after the Reject is processed.
         waitFor { orch.state.value is SwitchState.Failed }
         val s = orch.state.value as SwitchState.Failed
         assertTrue(s.reason.contains("in_call", ignoreCase = true) ||
@@ -73,13 +62,8 @@ class SwitchOrchestratorTest {
         waitForFrameKind(sent, "request")
         waitFor { sent.any { it.op is AudioOp.Done } }
 
-        // Duplicate Released with stale nonce — must be dropped silently
-        // by the replay-rejection check in onIncoming, not even reach
-        // the state machine.
         orch.onIncoming(peerPub, AudioOpFrame(0L, AudioOp.Released, mac, 0L))
         delay(50)
-        // State is Idle (we already finished); the duplicate didn't
-        // accidentally retransition us.
         assertEquals(SwitchState.Idle, orch.state.value)
     }
 
@@ -90,11 +74,9 @@ class SwitchOrchestratorTest {
         val sent = ConcurrentLinkedQueue<AudioOpFrame>()
         val orch = SwitchOrchestrator(ctrl, store, sender = { _, f -> sent.add(f); Result.success(Unit) })
 
-        // Peer asks us (responder side).
         orch.onIncoming(peerPub, AudioOpFrame(10L, AudioOp.Request, mac, 0L))
 
         waitFor { sent.any { it.op is AudioOp.Released } }
-        // Order: Approve before Released.
         val ops = sent.toList().map { it.op::class.simpleName }
         val approveIdx = ops.indexOf("Approve")
         val releasedIdx = ops.indexOf("Released")
@@ -105,11 +87,6 @@ class SwitchOrchestratorTest {
 
     @Test
     fun `concurrent initiator and responder - second request rejected with Busy`() = runBlocking {
-        // Owner-vote: only one flow at a time. While initiator is in
-        // flight, an incoming Request must be rejected with Busy.
-        // We need the initiator's connect retries to still be running
-        // when the peer Request arrives — connectOk=false keeps the
-        // loop in retry pauses for the test window.
         val ctrl = FakeController(connectOk = false)
         val store = FakePeerStore()
         val sent = ConcurrentLinkedQueue<AudioOpFrame>()
@@ -118,7 +95,6 @@ class SwitchOrchestratorTest {
         orch.request(peerPub, mac)
         waitForFrameKind(sent, "request")
 
-        // Peer ALSO asks at the same time. Should get Busy.
         orch.onIncoming(peerPub, AudioOpFrame(20L, AudioOp.Request, mac, 0L))
 
         waitFor { sent.any { it.op is AudioOp.Reject } }
@@ -128,7 +104,6 @@ class SwitchOrchestratorTest {
 
     @Test
     fun `acceptance Reject - external policy denies incoming Request`() = runBlocking {
-        // E.g. Phase 2: a call is active → reject with InCall.
         val ctrl = FakeController(connectOk = true)
         val store = FakePeerStore()
         val sent = ConcurrentLinkedQueue<AudioOpFrame>()
@@ -146,7 +121,6 @@ class SwitchOrchestratorTest {
         assertEquals(0L, ctrl.disconnectCount.get(), "must NOT disconnect when rejected")
     }
 
-    // ---- test infra ----
 
     private suspend fun waitFor(timeoutMs: Long = 1500, predicate: () -> Boolean) {
         val deadline = System.currentTimeMillis() + timeoutMs
@@ -167,10 +141,10 @@ class SwitchOrchestratorTest {
     ) : AudioDeviceHandle {
         val connectCount = AtomicLong(0)
         val disconnectCount = AtomicLong(0)
-        override fun prewarm() { /* noop */ }
+        override fun prewarm() {  }
         override fun isConnected(mac: String): Boolean = false
-        override fun invalidate(mac: String) { /* noop */ }
-        override fun close() { /* noop */ }
+        override fun invalidate(mac: String) {  }
+        override fun close() {  }
         override suspend fun connect(mac: String): Result<Unit> {
             connectCount.incrementAndGet()
             return if (connectOk) Result.success(Unit)

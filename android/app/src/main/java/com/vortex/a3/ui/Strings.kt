@@ -4,16 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.compositionLocalOf
 
-/**
- * Minimal Compose-friendly i18n: one CompositionLocal carries the active
- * locale; each composable reads the string via [str]. The translations
- * keys mirror those of the Tauri side (src/lib/locales) so the
- * two UIs stay aligned.
- *
- * No Android resource layer — switching locale just re-emits the
- * CompositionLocal and Compose recomposes automatically; no Activity
- * recreate, no AppCompat dependency.
- */
 enum class VortexLocale(val code: String, val label: String) {
     Uzbek("uz", "O'zbekcha"),
     English("en", "English"),

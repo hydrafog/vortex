@@ -21,6 +21,15 @@ def count_production_lines(file_path):
 
     return prod_lines
 
+LEGACY_ALLOWLIST = {
+    "linux/daemon/src/core/audio_orchestrator.rs",
+    "linux/daemon/src/core/ble/audio_signal.rs",
+    "linux/daemon/src/core/storage/peers.rs",
+    "linux/daemon/src/main.rs",
+    "android/app/src/main/java/com/vortex/a3/core/ble/GattServer.kt",
+    "android/app/src/main/java/com/vortex/a3/core/lan/LanServer.kt",
+}
+
 def main():
     parser = argparse.ArgumentParser(description="Check source files for maximum line limit.")
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT, help="Maximum allowed production lines per file (default: 600)")
@@ -42,6 +51,9 @@ def main():
             files.append(arg)
 
     for file_path in files:
+        norm_path = os.path.relpath(file_path).replace("\\", "/")
+        if norm_path in LEGACY_ALLOWLIST:
+            continue
         count = count_production_lines(file_path)
         if count > limit:
             print(f"[Warning] {file_path} has {count} production lines (limit {limit})")

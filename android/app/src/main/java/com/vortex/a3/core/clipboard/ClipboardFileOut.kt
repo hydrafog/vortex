@@ -5,17 +5,9 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
 
-/** A file the phone is sending to the laptop (bytes + display name + MIME). */
 data class ClipboardOutgoingFile(val bytes: ByteArray, val name: String, val mime: String)
 
-/**
- * Reads an arbitrary clipboard / shared `content://` URI into a
- * [ClipboardOutgoingFile] for phone→laptop FILE sync. Used by both the Quick
- * Settings quick-send and the share-sheet target. Returns null if it isn't
- * readable or exceeds the LAN size cap.
- */
 object ClipboardFileReader {
-    /** Mirrors the Rust `clipboard_mirror::MAX_FILE_BYTES`. */
     const val MAX_FILE_BYTES = 64L * 1024 * 1024
 
     private const val TAG = "ClipboardFileOut"

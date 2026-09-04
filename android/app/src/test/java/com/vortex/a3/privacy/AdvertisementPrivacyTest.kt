@@ -10,26 +10,6 @@ import org.junit.jupiter.api.Test
 import kotlin.test.fail
 import java.io.File
 
-/**
- * Phase 9 — pre-trust BLE advertisement privacy gate (spec §3.1 T-BLE-1).
- *
- * Asserts the contract that a Vortex Device advertises only:
- *
- *   - the Vortex Service UUID,
- *   - a 10-byte service-data payload (version + flags + 8-byte instance ID
- *     or truncated presence token),
- *   - a generic display label (`"Vortex Android"`) — never the user's
- *     device name, hostname, account name, `device_id`, or `static_pub`.
- *
- * Two complementary checks:
- *
- *   1. Encoded payload bounds: AdvPayload.encode() output is exactly 10
- *      bytes and begins with the V1 version + a well-formed flag byte.
- *   2. Static source scan over Advertiser.kt: confirms
- *      `setIncludeDeviceName(false)` is set, no manufacturer-data field is
- *      attached, and no identity material (`identity.staticPub`,
- *      `identity.deviceId`, `static_priv`) appears in the advertise path.
- */
 class AdvertisementPrivacyTest {
 
     @Test
@@ -43,7 +23,6 @@ class AdvertisementPrivacyTest {
         assertEquals(Ble.V1_VERSION, bytes[0], "byte 0 must be V1 version")
         assertTrue(AdvFlags(bytes[1]).isPairable, "byte 1 must be pairable flag")
 
-        // Byte 2..10 MUST be the 8-byte instance ID supplied; nothing else.
         for (i in 0 until 8) {
             assertEquals(instanceId[i], bytes[2 + i], "instance id mismatch at byte ${2 + i}")
         }
@@ -69,18 +48,6 @@ class AdvertisementPrivacyTest {
         assertTrue(advertiserSrc.isFile, "Advertiser.kt not found at $advertiserSrc")
         val text = advertiserSrc.readText()
 
-        // 1. The primary ADV_IND record MUST NOT include the device name.
-        //    This is the always-on broadcast — anything in it is observable
-        //    by any nearby radio without provoking a SCAN_REQ first. We
-        //    require at least one explicit `setIncludeDeviceName(false)`
-        //    call on the advertise-data builder.
-        //
-        //    Note: spec §5.1.2 originally required SCAN_RSP to also drop
-        //    the device name, but the product decision was to expose the
-        //    Bluetooth alias in SCAN_RSP so the Linux scan list can show
-        //    "Redmi 9" instead of a generic "Android phone" (Advertiser.kt
-        //    §73-80 documents the trade-off and accepts it). So this test
-        //    no longer asserts on SCAN_RSP — only the always-on ADV_IND.
         val devNameOff = Regex("""setIncludeDeviceName\s*\(\s*false\s*\)""")
         val offCount = devNameOff.findAll(text).count()
         assertTrue(
@@ -89,7 +56,6 @@ class AdvertisementPrivacyTest {
                 "found $offCount occurrences",
         )
 
-        // 2. No identity material may appear in the advertise path.
         val forbidden = listOf(
             "identity.staticPub",
             "identity.deviceId",
@@ -110,22 +76,6 @@ class AdvertisementPrivacyTest {
         assertTrue(manifest.isFile, "AndroidManifest.xml not found at $manifest")
         val text = manifest.readText()
 
-        // V1 may NOT request fingerprinting-grade permissions on the
-        // pre-trust path. Each of these would let a Vortex build silently
-        // accumulate identity surface beyond the protocol's promise.
-        //
-        // READ_PHONE_STATE is INTENTIONALLY off this list as of
-        // Phase 2: the call-handoff orchestrator needs to observe
-        // ringing/active/idle to reroute the buds, and that's only
-        // ever useful AFTER trust exists (we hand the buds to a
-        // paired peer). The permission is requested at install time
-        // because Android has no narrower API for call state.
-        //
-        // READ_CONTACTS came off the list with the phone-companion
-        // mirrors (Contacts page + caller-name resolution in the call
-        // banner): like call state, contact data only ever flows to an
-        // already-paired peer over the Noise transport, never on the
-        // pre-trust path.
         val forbiddenPermissions = listOf(
             "READ_PRIVILEGED_PHONE_STATE",
             "GET_ACCOUNTS",
@@ -137,9 +87,6 @@ class AdvertisementPrivacyTest {
         }
     }
 
-    // ----------------------------------------------------------------
-    // helpers
-    // ----------------------------------------------------------------
 
     private fun locateAppDir(): File {
         var dir = File(System.getProperty("user.dir"))

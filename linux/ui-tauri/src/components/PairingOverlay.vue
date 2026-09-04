@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// The full-screen, continuity-style pairing experience: radar scan →
-// connecting → emoji security check → success / aborted. Driven by the real
-// pairing state in useHome; ported from the Vortex Pairing design. Theme-aware
-// via the app's CSS tokens (dark/light handled globally).
 import { computed, watch, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { Laptop, Smartphone, ShieldCheck, AlertTriangle, Loader2, X } from "lucide-vue-next";
@@ -24,8 +20,6 @@ import { sasToGlyphs } from "@/lib/sasEmoji";
 
 const { t } = useI18n();
 
-// Which screen of the flow is live. Derived purely from the pairing state so it
-// always reflects the backend.
 type Screen = "proximity" | "scan" | "connecting" | "emoji" | "success" | "aborted" | null;
 const screen = computed<Screen>(() => {
   if (pairingPeer.value) {
@@ -41,7 +35,6 @@ const screen = computed<Screen>(() => {
 
 const proximityName = computed(() => proximityHit.value?.name || t("device.android"));
 
-// Auto-dismiss the success screen after a beat — no "Done" button needed.
 let successTimer: ReturnType<typeof setTimeout> | undefined;
 watch(screen, (s) => {
   clearTimeout(successTimer);
@@ -51,7 +44,6 @@ onUnmounted(() => clearTimeout(successTimer));
 
 const glyphs = computed(() => (pairingSas.value ? sasToGlyphs(pairingSas.value) : []));
 
-// Radar rows from live BLE scan hits. RSSI → qualitative proximity + bars.
 const radarDevices = computed(() =>
   scanHits.value.map((h) => {
     const rssi = h.rssi ?? -100;
@@ -65,13 +57,10 @@ function close() {
   showPairPhoneModal.value = false;
   if (pairingPeer.value) dismissPairing();
 }
-// Click on the dimmed backdrop: dismiss the scan modal or the proximity sheet
-// (never a mid-handshake screen — those need an explicit decision).
 function onBackdrop() {
   if (screen.value === "scan") close();
   else if (screen.value === "proximity") dismissProximity();
 }
-// Confetti particles for the success burst.
 const confetti = Array.from({ length: 22 }, (_, i) => {
   const ang = (Math.PI * 2 * i) / 22 + (i % 3) * 0.2;
   const dist = 90 + (i % 5) * 26;
@@ -234,7 +223,6 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
 .vp-card-danger { border-color: hsl(0 70% 55% / 0.35); }
 @keyframes vp-modalIn { 0% { transform: scale(0.92) translateY(14px); opacity: 0 } 100% { transform: scale(1) translateY(0); opacity: 1 } }
 
-/* proximity bottom sheet */
 .vp-backdrop--sheet { align-items: flex-end; }
 .vp-sheet {
   width: 480px; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-bottom: none;
@@ -266,13 +254,11 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
 .vp-glow { animation: vp-textGlow 2.4s ease-in-out infinite; }
 @keyframes vp-textGlow { 0%, 100% { opacity: 0.6 } 50% { opacity: 1 } }
 
-/* badge */
 .vp-badge {
   display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; border-radius: 999px;
   background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); font-size: 11.5px; font-weight: 700; letter-spacing: 0.4px;
 }
 
-/* emoji tiles */
 .vp-tiles { display: flex; justify-content: center; gap: 16px; margin-top: 30px; }
 .vp-tile-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .vp-tile {
@@ -283,7 +269,6 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
 .vp-tile-name { font-size: 12.5px; font-weight: 600; color: hsl(var(--muted-foreground)); letter-spacing: 0.2px; }
 @keyframes vp-floatTile { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-7px) } }
 
-/* buttons — smooth, springy hover */
 .vp-btn { width: 100%; border-radius: 999px; font-size: 14.5px; font-weight: 700; cursor: pointer; font-family: inherit; border: none; transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), filter 0.32s ease, background-color 0.32s ease, color 0.32s ease, box-shadow 0.32s ease; }
 .vp-btn-primary { margin-top: 32px; padding: 15px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); box-shadow: 0 10px 26px hsl(var(--primary) / 0.35); }
 .vp-btn-primary:hover { transform: translateY(-2px); filter: brightness(1.06); box-shadow: 0 16px 34px hsl(var(--primary) / 0.5); }
@@ -292,12 +277,10 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
 .vp-btn-quiet:hover { background: hsl(var(--foreground) / 0.07); color: hsl(var(--foreground)); }
 .vp-btn-quiet:active { background: hsl(var(--foreground) / 0.1); }
 
-/* waiting indicator (emoji screen) */
 .vp-waiting { display: inline-flex; align-items: center; gap: 8px; margin-top: 28px; font-size: 13.5px; font-weight: 600; color: hsl(var(--muted-foreground)); }
 .vp-spin { animation: vp-rot 0.9s linear infinite; color: hsl(var(--primary)); }
 @keyframes vp-rot { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
 
-/* connecting */
 .vp-link { position: relative; width: 300px; height: 120px; margin: 0 auto; }
 .vp-halo { position: absolute; top: 60px; width: 104px; height: 104px; border-radius: 999px; transform: translate(-50%, -50%); background: radial-gradient(circle, hsl(var(--primary) / 0.3), transparent 68%); animation: vp-halo 2.8s ease-in-out infinite; }
 @keyframes vp-halo { 0%, 100% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.35 } 50% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.7 } }
@@ -311,7 +294,6 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
 .vp-locktag { position: absolute; left: 150px; top: 24px; transform: translate(-50%, 0); width: 26px; height: 26px; border-radius: 8px; background: hsl(var(--card)); border: 1px solid hsl(var(--primary) / 0.4); display: flex; align-items: center; justify-content: center; color: hsl(var(--primary)); animation: vp-bob 2.2s ease-in-out infinite; }
 @keyframes vp-bob { 0%, 100% { transform: translate(-50%, 0) } 50% { transform: translate(-50%, -3px) } }
 
-/* check / success */
 .vp-check { position: relative; width: 104px; height: 104px; margin: 0 auto; animation: vp-pop 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 .vp-check-ring { position: absolute; inset: 0; border-radius: 999px; background: hsl(var(--primary) / 0.14); border: 1.5px solid hsl(var(--primary) / 0.4); }
 .vp-check-draw { animation: vp-draw 0.5s cubic-bezier(0.6, 0, 0.3, 1) 0.35s both; }
@@ -323,10 +305,8 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
 .vp-confetti.round { border-radius: 999px; }
 @keyframes vp-confetti { 0% { transform: translate(0, 0) scale(0.4); opacity: 0 } 18% { opacity: 1 } 100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)); opacity: 0 } }
 
-/* warn / aborted */
 .vp-warn { width: 74px; height: 74px; margin: 0 auto; border-radius: 999px; background: hsl(0 70% 55% / 0.13); border: 1.5px solid hsl(0 70% 55% / 0.4); display: flex; align-items: center; justify-content: center; color: #e5484d; animation: vp-pop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 
-/* radar */
 .vp-radar { position: relative; width: 236px; height: 236px; margin: 22px auto 6px; }
 .vp-radar-disk { position: absolute; inset: 0; border-radius: 999px; overflow: hidden; background: radial-gradient(circle at 50% 50%, hsl(var(--primary) / 0.1), hsl(var(--primary) / 0.02) 55%, transparent 72%); border: 1px solid hsl(var(--border)); box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.3); }
 .vp-ring { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 999px; border: 1px solid hsl(var(--border)); }
@@ -339,7 +319,6 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
 .vp-radar-core { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 56px; height: 56px; border-radius: 999px; background: hsl(var(--secondary)); border: 1px solid hsl(var(--primary) / 0.45); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 30px hsl(var(--primary) / 0.35); z-index: 2; }
 .vp-logo-dot { width: 22px; height: 22px; border-radius: 6px; background: hsl(var(--primary)); box-shadow: 0 0 14px hsl(var(--primary) / 0.7); }
 
-/* radar list */
 .vp-list { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
 .vp-empty { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; font-size: 13px; color: hsl(var(--muted-foreground)); }
 .vp-dot-pulse { width: 8px; height: 8px; border-radius: 999px; background: hsl(var(--primary)); animation: vp-blink 1.4s ease-in-out infinite; }

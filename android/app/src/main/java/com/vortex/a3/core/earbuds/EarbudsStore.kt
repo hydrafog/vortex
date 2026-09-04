@@ -2,16 +2,6 @@ package com.vortex.a3.core.earbuds
 
 import android.content.Context
 
-/**
- * Persists the user's chosen earbud — address + display name — so the
- * card is shown on the home screen even when the buds are disconnected.
- * Mirrors the Linux-side `earbuds_store.rs` JSON file; SharedPrefs is
- * the natural fit on Android.
- *
- * The pairing protocol layer is untouched: this only records the user's
- * UI choice. EncryptedSharedPreferences is overkill (the BD_ADDR is not
- * a secret — Android Settings displays it) so we use plain SharedPrefs.
- */
 data class SavedEarbuds(val address: String, val name: String)
 
 object EarbudsStore {

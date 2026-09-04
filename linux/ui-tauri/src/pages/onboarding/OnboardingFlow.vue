@@ -1,9 +1,4 @@
 <script setup lang="ts">
-// First-run onboarding controller: top bar (logo + back + skip), progress bar,
-// and the 9 step screens. Each step renders its own CTA and emits `next`; the
-// final "All set" emits `start`, which marks the intro done and routes into the
-// app (Devices → "Add phone"). The canvas is deliberately always dark so the
-// illustrations read correctly regardless of the theme the user just picked.
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -20,7 +15,7 @@ import "./onboarding.css";
 const { t } = useI18n();
 const router = useRouter();
 
-const LAST = 10; // 0 lang/theme · 1 what-is · 2–8 features · 9 privacy · 10 all-set
+const LAST = 10;
 const step = ref(0);
 
 const current = computed(() => {
@@ -45,7 +40,7 @@ function next() {
   go(step.value + 1);
 }
 function skip() {
-  go(9); // jump to the privacy slide, then on to "all set"
+  go(9);
 }
 function finish() {
   markIntroDone();
@@ -79,9 +74,6 @@ function finish() {
 </template>
 
 <style scoped>
-/* Ambient glow is baked into a STATIC multi-radial gradient (no blur filter,
-   no animation) — under software rendering (DMABUF off) an animated blur cooks
-   the CPU, while a static gradient costs essentially nothing. */
 .onb-root { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; overflow: hidden; color: #F2F4F6; background-color: #0E0E10; background-image: radial-gradient(70% 55% at 18% 8%, rgba(46, 204, 113, 0.10), transparent 60%), radial-gradient(65% 55% at 88% 100%, rgba(46, 204, 113, 0.08), transparent 60%), radial-gradient(120% 70% at 50% -10%, rgba(46, 204, 113, 0.05), transparent 55%); }
 .onb-top { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; flex: none; z-index: 5; position: relative; }
 .onb-brand { display: flex; align-items: center; gap: 11px; }

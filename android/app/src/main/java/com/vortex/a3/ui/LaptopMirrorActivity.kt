@@ -15,18 +15,10 @@ import android.widget.FrameLayout
 import com.vortex.a3.core.mirror.LaptopMirror
 import com.vortex.a3.core.mirror.LaptopMirrorClient
 
-/**
- * Fullscreen viewer for the LAPTOP's screen (laptop→phone mirror). Launched by
- * [LaptopMirror] once the laptop accepts our "view laptop screen" request. Hosts
- * an aspect-ratio-correct [SurfaceView] (16:9 — the laptop sends 720p, so we
- * letterbox instead of stretching) and drives a [LaptopMirrorClient] decode loop
- * on a worker thread. Pinch to zoom, drag to pan, double-tap to reset.
- */
 class LaptopMirrorActivity : Activity() {
     private var client: LaptopMirrorClient? = null
     private var worker: Thread? = null
 
-    // Zoom/pan transform state, applied to the SurfaceView.
     private var scale = 1f
     private lateinit var surface: AspectRatioSurfaceView
 
@@ -42,7 +34,6 @@ class LaptopMirrorActivity : Activity() {
             return
         }
 
-        // Black backdrop + a centered, aspect-correct surface (letterboxed).
         val root = FrameLayout(this).apply { setBackgroundColor(0xFF000000.toInt()) }
         surface = AspectRatioSurfaceView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
@@ -54,7 +45,6 @@ class LaptopMirrorActivity : Activity() {
         root.addView(surface)
         setContentView(root)
 
-        // Let the stack close us when the laptop stops casting.
         LaptopMirror.viewerCloser = { runOnUiThread { finish() } }
 
         attachZoomPan(root)
@@ -76,7 +66,6 @@ class LaptopMirrorActivity : Activity() {
         })
     }
 
-    /** Pinch-to-zoom (1x–5x), drag-to-pan while zoomed, double-tap to reset. */
     private fun attachZoomPan(root: FrameLayout) {
         val scaleDetector = ScaleGestureDetector(
             this,
@@ -124,7 +113,6 @@ class LaptopMirrorActivity : Activity() {
         }
     }
 
-    /** Keep the zoomed surface from being dragged past its own edges. */
     private fun clampPan() {
         val maxX = (surface.width * (scale - 1f)) / 2f
         val maxY = (surface.height * (scale - 1f)) / 2f
@@ -136,8 +124,6 @@ class LaptopMirrorActivity : Activity() {
         super.onDestroy()
         LaptopMirror.viewerCloser = null
         stopClient()
-        // Viewer gone → tell the stack to stop requesting the cast (the laptop
-        // sees the request drop and releases its screen capture + portal).
         LaptopMirror.onViewerClosed(applicationContext)
     }
 
@@ -155,14 +141,7 @@ class LaptopMirrorActivity : Activity() {
     }
 }
 
-/**
- * A [SurfaceView] that measures itself to a fixed aspect ratio (default 16:9,
- * the laptop's 720p stream) and fits inside the available space — so the video
- * is letterboxed, never stretched.
- */
 private class AspectRatioSurfaceView(context: Context) : SurfaceView(context) {
-    // 16:9 only until the decoder tells us otherwise. In extend mode the laptop
-    // sends a portrait monitor, and assuming landscape stretched it badly.
     private var aspectW = 16
     private var aspectH = 9
 
@@ -183,10 +162,8 @@ private class AspectRatioSurfaceView(context: Context) : SurfaceView(context) {
         val target = aspectW.toFloat() / aspectH
         val avail = availW.toFloat() / availH
         val (w, h) = if (avail > target) {
-            // Parent wider than the video → letterbox left/right, limit by height.
             ((availH * target).toInt()) to availH
         } else {
-            // Parent taller → limit by width.
             availW to ((availW / target).toInt())
         }
         setMeasuredDimension(w, h)

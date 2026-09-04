@@ -105,28 +105,17 @@ fn xx_and_ik_stress_loop() {
     let mut sorted_xx = xx_transcripts.clone();
     sorted_xx.sort();
     sorted_xx.dedup();
-    assert_eq!(
-        sorted_xx.len(),
-        iterations,
-        "XX transcripts collided across {iterations} runs",
-    );
+    assert_eq!(sorted_xx.len(), iterations, "XX transcripts collided across {iterations} runs",);
 
     let mut sorted_ik = ik_transcripts.clone();
     sorted_ik.sort();
     sorted_ik.dedup();
-    assert_eq!(
-        sorted_ik.len(),
-        iterations,
-        "IK transcripts collided across {iterations} runs",
-    );
+    assert_eq!(sorted_ik.len(), iterations, "IK transcripts collided across {iterations} runs",);
 
     // XX and IK must never collide either (different prologues + patterns).
     for (i, xx_h) in xx_transcripts.iter().enumerate() {
         for (j, ik_h) in ik_transcripts.iter().enumerate() {
-            assert_ne!(
-                xx_h, ik_h,
-                "XX[{i}] == IK[{j}] — pattern domain separation broken",
-            );
+            assert_ne!(xx_h, ik_h, "XX[{i}] == IK[{j}] — pattern domain separation broken",);
         }
     }
 }

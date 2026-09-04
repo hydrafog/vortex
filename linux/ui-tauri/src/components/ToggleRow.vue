@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import type { Component } from "vue";
 
-// A compact settings row: icon + title + hint on the left act as the label,
-// an iOS-style switch on the right. The whole card is clickable so the row
-// itself toggles the value. Keeps the settings list short as it grows.
 defineProps<{
   icon: Component;
   title: string;

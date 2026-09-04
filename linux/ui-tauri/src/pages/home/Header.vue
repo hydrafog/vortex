@@ -3,7 +3,6 @@ import { useI18n } from "vue-i18n";
 import { ArrowRightLeft } from "lucide-vue-next";
 import logo from "@/assets/vortex_logo.png";
 
-// Settings moved to the left rail (AppShell); the header is just the brand.
 const { t } = useI18n();
 </script>
 

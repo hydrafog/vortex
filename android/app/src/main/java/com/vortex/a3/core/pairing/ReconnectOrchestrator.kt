@@ -17,15 +17,6 @@ import com.vortex.a3.core.status.PeerStatus
 import com.vortex.a3.core.storage.PeerStore
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * Per-device Noise IK **responder** state machine for trusted reconnect
- * (spec §7).
- *
- * The responder accepts an incoming IK msg1, looks up the peer's static
- * public key in the [PeerStore], rejects if untrusted, and otherwise
- * produces msg2. After IK completes the orchestrator handles ping/pong
- * liveness probes (frame `0x30/0x01` → `0x30/0x02`) for that device.
- */
 class ReconnectOrchestrator(
     private val identity: IdentityRecord,
     private val peerStore: PeerStore,
@@ -35,30 +26,14 @@ class ReconnectOrchestrator(
         val device: BluetoothDevice,
         val peerStaticPub: ByteArray,
         val transcriptHash: ByteArray,
-        /**
-         * Noise transport-mode cipher pair derived from the IK
-         * handshake. The responder's `sender` cipher is what we use to
-         * AEAD-seal outgoing AUDIO_SIGNAL notifications; the `receiver`
-         * cipher would decrypt anything the initiator sends back over
-         * the same channel.
-         *
-         * This is intentionally created from `handshake.split()` only —
-         * the protocol bytes on the wire are unchanged. We just stop
-         * discarding the cipher state at the very end of the handshake.
-         */
         val ciphers: CipherStatePair,
     )
 
-    /** Per-peer status snapshot emitted whenever a ping arrives. */
     data class PeerStatusEvent(
         val peerStaticPub: ByteArray,
         val status: PeerStatus,
     )
 
-    /**
-     * Provider for our own status. Set by VortexService so the
-     * orchestrator can emit a fresh battery reading in every pong.
-     */
     var localStatusProvider: () -> LocalStatus = {
         LocalStatus(
             battery = com.vortex.a3.core.status.BatteryPct(null),
@@ -66,8 +41,6 @@ class ReconnectOrchestrator(
         )
     }
 
-    // CopyOnWriteArrayList: lock-free iteration during emit, safe to
-    // add() concurrently. Same rationale as `listeners` below.
     private val statusListeners: MutableList<(PeerStatusEvent) -> Unit> =
         java.util.concurrent.CopyOnWriteArrayList()
     fun addStatusListener(listener: (PeerStatusEvent) -> Unit) {
@@ -86,13 +59,6 @@ class ReconnectOrchestrator(
     }
 
     private val states: MutableMap<String, IkState> = ConcurrentHashMap()
-    // CopyOnWriteArrayList instead of an ad-hoc synchronized list so
-    // iteration during dispatch never blocks add/remove, and adding a
-    // listener mid-dispatch is safe (the in-flight iteration uses its
-    // own snapshot). This pairs with the ConcurrentHashMap on `states`
-    // — both are lock-free for the read path, so a forgetDevice() call
-    // racing with onReconnectFrame() can't leave the listener loop
-    // walking a recycled IkState object.
     private val listeners: MutableList<(ReconnectOutcome) -> Unit> =
         java.util.concurrent.CopyOnWriteArrayList()
 
@@ -104,7 +70,6 @@ class ReconnectOrchestrator(
         states.remove(device.address)
     }
 
-    /** Process an incoming Reconnect Control frame; return the response to notify, or null. */
     fun onReconnectFrame(device: BluetoothDevice, frame: Frame): Frame? {
         return when (frame.type) {
             FrameType.RECONNECT_HANDSHAKE -> {
@@ -123,12 +88,6 @@ class ReconnectOrchestrator(
     private fun handleIkMsg1(device: BluetoothDevice, payload: ByteArray): Frame? {
         Log.i(TAG, "IK msg1 from ${device.address}: ${payload.size} bytes")
 
-        // PRS-bound reconnect (H5): the initiator mixes the peer's PRS
-        // into the IK prologue, so we must do the same here. We don't
-        // yet know which trusted peer is reaching out — try each one's
-        // PRS as the prologue until readMessage succeeds. For V1 the
-        // typical trust count is 1-2 so the linear scan is cheap;
-        // every wrong PRS fails fast (AEAD verify ≈ microseconds).
         val trustedList = try { peerStore.list() } catch (_: Exception) { emptyList() }
         if (trustedList.isEmpty()) {
             Log.w(TAG, "no trusted peers — rejecting IK")
@@ -147,23 +106,16 @@ class ReconnectOrchestrator(
             val ptLen = try {
                 candidate.readMessage(payload, 0, payload.size, readBuf, 0)
             } catch (_: Exception) {
-                // Wrong PRS — AEAD verify of `s` decryption fails. Try
-                // the next trusted peer.
                 candidate.destroy()
                 -1
             }
             if (ptLen >= 0) {
                 val pub = ByteArray(32).also { candidate.remotePublicKey.getPublicKey(it, 0) }
-                // Final consistency check: the initiator's static_pub
-                // (recovered from the decrypted `s` token) must match
-                // the peer whose PRS we tried. If anything is off we
-                // refuse — should never happen under honest peers.
                 if (!pub.contentEquals(peer.peerStaticPub)) {
                     Log.w(TAG, "IK static/PRS mismatch (race?); rejecting")
                     candidate.destroy()
                     continue
                 }
-                // M6: peer counter from msg1 payload.
                 val peerCounter: Long = if (ptLen >= 8) {
                     java.nio.ByteBuffer.wrap(readBuf, 0, 8)
                         .order(java.nio.ByteOrder.BIG_ENDIAN)
@@ -189,8 +141,6 @@ class ReconnectOrchestrator(
         }
         val nextCounter = peerStore.bumpCounter(peerStaticPub, peerCounter)
 
-        // Produce msg2. Payload is our updated counter so the peer
-        // can compare and detect their side's potential rollback.
         val counterPayload = java.nio.ByteBuffer.allocate(8)
             .order(java.nio.ByteOrder.BIG_ENDIAN)
             .putLong(nextCounter)
@@ -200,37 +150,24 @@ class ReconnectOrchestrator(
             handshake.writeMessage(writeBuf, 0, counterPayload, 0, counterPayload.size)
         } catch (e: Exception) {
             Log.e(TAG, "IK msg2 write failed", e)
-            handshake.destroy() // zero key material on the error path
+            handshake.destroy()
             return null
         }
 
         val transcript = handshake.handshakeHash.copyOf()
-        // Promote handshake → transport. The wire bytes for this peer
-        // are unchanged (msg1/msg2 already exchanged); we just retain
-        // the cipher pair that `split()` derives at the end. Initiator
-        // and responder agree on the directionality, so our `sender`
-        // matches the initiator's `receiver` (and vice versa).
         val ciphers: CipherStatePair = try {
             handshake.split()
         } catch (e: Exception) {
             Log.e(TAG, "split() failed", e)
-            handshake.destroy() // zero key material on the error path
+            handshake.destroy()
             return null
         }
-        // split() copied what the transport ciphers need; the handshake's own
-        // static-priv copy + ephemeral are dead now — zero them rather than
-        // leaving them for GC (which never wipes).
         handshake.destroy()
         Log.i(TAG, "✅ IK complete for ${device.address}")
-        // Redaction (spec §3.5 T-LOC-3): log only short prefixes of public
-        // protocol values so field logs cannot be used to correlate stable
-        // identities across sessions.
         Log.i(TAG, "   peer_static_pub = ${peerStaticPub.toHexPrefix()}")
         Log.i(TAG, "   transcript_hash = ${transcript.toHexPrefix()}")
 
         states[device.address] = IkState.Established(peerStaticPub, transcript)
-        // CopyOnWriteArrayList — iteration is lock-free over a snapshot,
-        // safe to interleave with add()/forgetDevice() on other threads.
         for (l in listeners) l(ReconnectOutcome(device, peerStaticPub, transcript, ciphers))
         return Frame(FrameType.RECONNECT_HANDSHAKE, HANDSHAKE_MSG2, writeBuf.copyOf(n))
     }
@@ -245,10 +182,6 @@ class ReconnectOrchestrator(
         return Frame(FrameType.TRANSPORT_KEEPALIVE, FrameSub.PONG, nonce.copyOf())
     }
 
-    /**
-     * Build a fresh IK responder whose prologue mixes in [prs]. Caller
-     * iterates over candidate trusted peers and tries each PRS in turn.
-     */
     private fun buildResponder(prs: ByteArray): HandshakeState {
         require(prs.size == 32) { "PRS must be 32 bytes" }
         val prologue = ByteArray(NoiseRunner.PROLOGUE_IK.size + 32)
@@ -269,7 +202,6 @@ class ReconnectOrchestrator(
         private fun ByteArray.toHex(): String =
             joinToString("") { "%02x".format(it) }
 
-        /** Short prefix only, suitable for diagnostic logs (spec §3.5). */
         private fun ByteArray.toHexPrefix(): String =
             take(4).joinToString("") { "%02x".format(it) } + "…"
     }

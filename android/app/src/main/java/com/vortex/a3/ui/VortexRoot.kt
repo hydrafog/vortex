@@ -38,13 +38,6 @@ import com.vortex.a3.ui.screens.SettingsScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-/**
- * Observable UI state the root composable renders. A plain holder that
- * bundles MainActivity's StateFlows so the Compose tree takes one param
- * instead of ~15. MainActivity still owns the underlying flows (and their
- * producers) — this just hands the consumer a typed view. The two dialog
- * flags are mutable so the dialogs can dismiss themselves.
- */
 class MainUiState(
     val advertise: StateFlow<AdvertiseState>,
     val identity: StateFlow<IdentityRecord?>,
@@ -61,18 +54,9 @@ class MainUiState(
     val autostartHintDismissed: StateFlow<Boolean>,
     val showNotifAccessDialog: MutableStateFlow<Boolean>,
     val showAutostartDialog: MutableStateFlow<Boolean>,
-    /** Bluetooth adapter is off/absent → drives the home "turn on BT" banner. */
     val bluetoothOff: StateFlow<Boolean>,
 )
 
-/**
- * The actions the root composable invokes, implemented by MainActivity
- * (they touch orchestrators, launchers, and system settings). Bundled so
- * the tree takes one param instead of ~15. `isAggressiveOem` is a constant
- * (ROM doesn't change at runtime); `isIgnoringBatteryOptimizations` is a
- * lambda because it must be re-read on recomposition (the user can grant
- * the whitelist while the app is open).
- */
 class VortexActions(
     val onForgetPeer: (TrustedPeer) -> Unit,
     val onOpenAutostart: () -> Unit,
@@ -83,26 +67,16 @@ class VortexActions(
     val onRescanEarbuds: () -> Unit,
     val onClosePicker: () -> Unit,
     val onRemoveSavedEarbuds: () -> Unit,
-    /** Lock/unlock the laptop; the Boolean is its CURRENT locked state
-     *  (true → user wants to unlock, behind a biometric confirm). */
     val onToggleLaptopLock: (Boolean) -> Unit,
     val onApprove: (PairingOrchestrator.HandshakeOutcome) -> Unit,
     val onReject: (PairingOrchestrator.HandshakeOutcome) -> Unit,
     val onOpenNotificationAccess: () -> Unit,
-    /** Deep-link to system Accessibility settings to enable screen control. */
     val onOpenScreenControl: () -> Unit,
-    /** Ask the system to turn Bluetooth on (one-tap dialog). */
     val onEnableBluetooth: () -> Unit,
     val isAggressiveOem: Boolean,
     val isIgnoringBatteryOptimizations: () -> Boolean,
 )
 
-/**
- * Root of the Vortex UI: theme + status-bar appearance, then routes
- * between the home screen and settings, plus the pairing-approval /
- * setup-prompt dialogs. Extracted from MainActivity.onCreate's setContent
- * so the activity stays focused on lifecycle + wiring.
- */
 @Composable
 fun VortexRoot(
     activity: ComponentActivity,
@@ -114,7 +88,6 @@ fun VortexRoot(
     val activeTheme = settings.theme.collectAsState().value
     val colorScheme =
         if (activeTheme == ThemeMode.Light) VortexLightColors else VortexDarkColors
-    // Status-bar icons follow the theme — dark icons on light, light on dark.
     SideEffect {
         val window = activity.window
         val isLight = activeTheme == ThemeMode.Light
@@ -132,7 +105,6 @@ fun VortexRoot(
                 var showSettings by remember { mutableStateOf(false) }
                 var showNotes by remember { mutableStateOf(false) }
                 remember { com.vortex.a3.core.notes.NoteStore.init(activity); 0 }
-                // Shared smart-switch setting (persisted + cross-device LWW).
                 remember { SmartSwitchSetting.init(activity); 0 }
                 val smartSwitchOn = SmartSwitchSetting.enabled.collectAsState().value
                 remember { NotificationMirrorSetting.init(activity); 0 }
@@ -143,20 +115,13 @@ fun VortexRoot(
                 remember { com.vortex.a3.core.lan.FileAutoAcceptSetting.init(activity); 0 }
                 val fileAutoAcceptOn =
                     com.vortex.a3.core.lan.FileAutoAcceptSetting.enabled.collectAsState().value
-                // Re-evaluated each time Settings opens (the user may have just
-                // run the ADB grant); a hint tells them to re-open if so.
                 val clipboardAutoGranted = remember(showSettings) {
                     ClipboardAccess.isBackgroundReadGranted(activity)
                 }
-                // Re-checked each time Settings opens (the user may have just
-                // toggled the accessibility service in system settings).
                 val screenControlOn = remember(showSettings) {
                     com.vortex.a3.service.VortexInputService.isEnabled(activity)
                 }
                 if (showNotes) {
-                    // System back pops to Home instead of leaving the app.
-                    // NotesScreen's own handlers (close the editor) compose
-                    // later, so they still win while the editor is open.
                     BackHandler { showNotes = false }
                     com.vortex.a3.ui.screens.NotesScreen(onBack = { showNotes = false })
                 } else if (showSettings) {
@@ -169,9 +134,6 @@ fun VortexRoot(
                         smartSwitchOn = smartSwitchOn,
                         onSmartSwitchChange = {
                             SmartSwitchSetting.setLocal(it)
-                            // Push over BLE (~200ms, low energy) with a LAN
-                            // re-announce as fallback, so the laptop adopts
-                            // almost immediately instead of waiting a beat.
                             VortexService.requestStatePush()
                         },
                         notifMirrorOn = notifMirrorOn,

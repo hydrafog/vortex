@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// One SMS conversation row (the Messages list). Presentation only — the
-// avatar initial + relative-time formatting live here; the parent owns the
-// data window and handles the `open` it emits. The display name + unread
-// state are already resolved into the `conv` it receives.
 import { useI18n } from "vue-i18n";
 import type { SmsMessage } from "@/composables/useMessages";
 import Avatar from "@/components/Avatar.vue";

@@ -23,43 +23,17 @@ import com.vortex.a3.service.VortexService
 import java.net.HttpURLConnection
 import java.net.URL
 
-/**
- * The LAPTOP's now-playing on this phone: a MediaStyle notification (system
- * media carousel + lockscreen) built from the `media_title/artist/app/art_url`
- * fields of the laptop's AppState heartbeat. Its ⏮⏯⏭ buttons queue a
- * [VortexService.requestLaptopMedia] transport command that rides the next
- * snapshot back to the laptop (seq-deduped there, executed via MPRIS).
- *
- * MediaStyle on purpose: MIUI renders it at the full media-carousel card
- * height, with the cover art drawn behind the title — the same card the
- * phone's own YouTube gets. 121fe9b once traded that away for a compact
- * custom row precisely BECAUSE the card can't be shrunk; the tall art-backed
- * card is what we want here, so that trade is reversed.
- *
- * Mirror-image of the laptop's now-playing pill (the phone's media on the
- * laptop). A proxy [MediaSession] backs the notification so the system renders
- * it as real media and headset/buds keys reach the laptop — it never plays
- * audio, and the smart-switch's session scans exclude our own package so the
- * proxy can't confuse them.
- */
 object LaptopMediaNotification {
     private const val TAG = "LaptopMedia"
     private const val CHANNEL_ID = "vortex_laptop_media"
-    private const val NOTIF_ID = 0x4C4D5541 // "LMUA"
+    private const val NOTIF_ID = 0x4C4D5541
     private const val ACTION_MEDIA = "com.vortex.a3.LAPTOP_MEDIA"
     private const val EXTRA_OP = "op"
 
-    /** Cancel the notification when the laptop stops updating us (link down /
-     *  app gone). Heartbeats land every ~12s on both transports. */
     private const val STALE_MS = 45_000L
 
-    /** Longest edge we keep cover art at. MediaSession ships the bitmap
-     *  through a Binder transaction to every media consumer on the phone, so
-     *  a full-size download would be both slow and refused. */
     private const val ART_MAX_PX = 512
 
-    /** Refuse an art download bigger than this — the URL comes off the wire
-     *  and a media card is never worth an unbounded read. */
     private const val ART_MAX_BYTES = 2 * 1024 * 1024
 
     private val main = Handler(Looper.getMainLooper())
@@ -68,18 +42,11 @@ object LaptopMediaNotification {
     @Volatile private var session: MediaSession? = null
     @Volatile private var receiverRegistered = false
     @Volatile private var appCtx: Context? = null
-    /** What's currently shown, so unchanged heartbeats don't re-notify. */
     @Volatile private var shownKey: String? = null
-    /** Last rendered content — lets a play/pause tap flip the ⏸/▶ icon
-     *  OPTIMISTICALLY instead of waiting for the laptop's confirming
-     *  heartbeat (which can be ~12s out), and lets the art fetch redraw the
-     *  same card once the bitmap lands. */
     @Volatile private var last: Shown? = null
 
-    /** One-entry art cache — only one track is ever on screen. */
     @Volatile private var artUrl: String? = null
     @Volatile private var artBitmap: Bitmap? = null
-    /** URL a worker thread is currently fetching; nulled when it finishes. */
     @Volatile private var artFetching: String? = null
 
     private data class Shown(
@@ -90,7 +57,6 @@ object LaptopMediaNotification {
         val playing: Boolean,
     )
 
-    /** Feed every inbound laptop AppState here. Empty [title] clears. */
     fun update(
         ctx: Context,
         title: String,
@@ -106,11 +72,10 @@ object LaptopMediaNotification {
             clear()
             return
         }
-        // Freshness window: cancel if the heartbeats stop arriving.
         main.removeCallbacks(staleSweep)
         main.postDelayed(staleSweep, STALE_MS)
         val key = "$title|$artist|$playing|$artUrl"
-        if (shownKey == key) return // unchanged heartbeat → no re-notify
+        if (shownKey == key) return
         try {
             show(c, title, artist, app, artUrl, playing)
             shownKey = key
@@ -144,17 +109,11 @@ object LaptopMediaNotification {
         }
         registerReceiver(ctx)
         val s = ensureSession(ctx)
-        // Null until the download lands; the fetch redraws this card when it
-        // does, so the first beat of a new track shows text-then-art rather
-        // than blocking the state handler on the network.
         val art = art(artUrl)
-        // No ALBUM on purpose — MIUI renders it as an extra text row that
-        // just repeats the player name.
         s.setMetadata(
             MediaMetadata.Builder()
                 .putString(MediaMetadata.METADATA_KEY_TITLE, title)
                 .putString(MediaMetadata.METADATA_KEY_ARTIST, artist.ifEmpty { app })
-                // What MIUI's carousel draws behind the card.
                 .putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, art)
                 .build(),
         )
@@ -194,8 +153,6 @@ object LaptopMediaNotification {
             .setShowActionsInCompactView(0, 1, 2)
         val notif = Notification.Builder(ctx, CHANNEL_ID)
             .setSmallIcon(com.vortex.a3.R.drawable.ic_notification_vortex)
-            // Real cover art when we have it; the brand spiral otherwise —
-            // without SOMETHING here the style renders an empty gray square.
             .setLargeIcon(
                 if (art != null) Icon.createWithBitmap(art)
                 else Icon.createWithResource(ctx, com.vortex.a3.R.drawable.vortex_logo),
@@ -207,10 +164,6 @@ object LaptopMediaNotification {
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
-            // Not swipeable: this card is a live remote control, not an event.
-            // It leaves ONLY when the laptop says the music stopped (empty
-            // title) or the heartbeats dry up (the stale sweep) — so it can
-            // never be lost mid-track and leave the ⏮⏯⏭ unreachable.
             .setOngoing(true)
             .addAction(
                 Notification.Action.Builder(
@@ -240,9 +193,6 @@ object LaptopMediaNotification {
         nm.notify(NOTIF_ID, notif)
     }
 
-    /** Cached art for [url], kicking off the download on a miss. Null means
-     *  "not yet" (or "never" — a failed fetch caches null so we don't retry
-     *  the same dead URL on every 12s heartbeat). */
     private fun art(url: String): Bitmap? {
         if (url.isEmpty()) return null
         if (artUrl == url) return artBitmap
@@ -260,9 +210,6 @@ object LaptopMediaNotification {
             artUrl = url
             artBitmap = bmp
             artFetching = null
-            // Redraw the SAME card so the art appears in place. Skipped if the
-            // track moved on while we were downloading — that newer track's
-            // own beat already drew it.
             main.post {
                 val c = appCtx ?: return@post
                 val s = last ?: return@post
@@ -277,7 +224,6 @@ object LaptopMediaNotification {
         return null
     }
 
-    /** GET [url] and decode it down to [ART_MAX_PX]. Off the main thread. */
     private fun download(url: String): Bitmap? {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 5_000
@@ -293,8 +239,6 @@ object LaptopMediaNotification {
         } finally {
             conn.disconnect()
         }
-        // Two-pass decode: measure, then sample down, so a big JPEG never
-        // lands in memory at full size.
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         var sample = 1
@@ -319,7 +263,6 @@ object LaptopMediaNotification {
         )
     }
 
-    /** Read the whole stream, or null if it runs past [cap]. */
     private fun java.io.InputStream.readAtMost(cap: Int): ByteArray? {
         val out = java.io.ByteArrayOutputStream()
         val buf = ByteArray(16 * 1024)
@@ -334,9 +277,6 @@ object LaptopMediaNotification {
         }
     }
 
-    /** The proxy session — created once; its transport callbacks (lockscreen /
-     *  media-carousel buttons and headset keys while it's active) queue the
-     *  same laptop command the notification buttons do. */
     private fun ensureSession(ctx: Context): MediaSession {
         session?.let { return it }
         synchronized(this) {
@@ -360,8 +300,6 @@ object LaptopMediaNotification {
         val c = appCtx ?: return
         Log.i(TAG, "laptop media op: $op")
         VortexService.requestLaptopMedia(c, op)
-        // Optimistic ⏸/▶ flip — the laptop's confirming heartbeat corrects
-        // us within a second or two if the command didn't land.
         if (op == CallControl.Action.MEDIA_PLAY_PAUSE) {
             last?.let { s -> update(c, s.title, s.artist, s.app, s.artUrl, !s.playing) }
         }
@@ -374,11 +312,6 @@ object LaptopMediaNotification {
             val r = object : BroadcastReceiver() {
                 override fun onReceive(c: Context?, i: Intent?) {
                     when (val op = i?.getStringExtra(EXTRA_OP) ?: return) {
-                        // setOngoing should make this unreachable, but MIUI has
-                        // its own ideas about what may be swiped. Forget what
-                        // we drew so the very next heartbeat puts the card
-                        // straight back instead of leaving the laptop's music
-                        // running with no controls.
                         "dismissed" -> shownKey = null
                         else -> sendOp(op)
                     }

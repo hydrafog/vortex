@@ -1,6 +1,4 @@
 <script setup lang="ts">
-// Steps 2–8 — one feature per slide: animated art + title + body. Data-driven
-// by `index` (0–6) so all seven features share this one component.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import EarbudsArt from "../art/EarbudsArt.vue";

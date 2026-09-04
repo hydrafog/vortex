@@ -6,11 +6,6 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/**
- * Wire interop with `l3/daemon/src/core/audio_op.rs`. Both sides MUST
- * agree on the exact JSON shape; mismatches surface as silent drops
- * (frame fails to decode → orchestrator times out → bad UX).
- */
 class AudioOpTest {
 
     @Test
@@ -64,9 +59,6 @@ class AudioOpTest {
 
     @Test
     fun `cross-language interop — accepts rust-side format`() {
-        // Byte-for-byte the JSON the Rust side emits (serde tag=kind +
-        // snake_case enum). If this test fails, the wire format
-        // diverged.
         val rustJson = """{"nonce":1,"op":{"kind":"reject","reason":"recent_switch"},"mac":"a","ts":0}"""
             .toByteArray(Charsets.UTF_8)
         val f = AudioOpFrame.fromJsonBytes(rustJson)
@@ -78,7 +70,6 @@ class AudioOpTest {
 
     @Test
     fun `unknown reject reason fails decode`() {
-        // Rust side also errors on unknown reason; matching V1 behaviour.
         val bad = """{"nonce":1,"op":{"kind":"reject","reason":"future_reason"},"mac":"x","ts":0}"""
             .toByteArray(Charsets.UTF_8)
         val f = AudioOpFrame.fromJsonBytes(bad)

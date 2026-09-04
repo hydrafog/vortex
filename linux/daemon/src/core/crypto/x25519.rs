@@ -1,21 +1,13 @@
-//! X25519 wrapper per spec §4.1.
-
 use x25519_dalek::{PublicKey, StaticSecret};
 
-/// X25519 32-byte private scalar (RFC 7748 representation).
 pub type X25519SecBytes = [u8; 32];
-/// X25519 32-byte public key.
 pub type X25519PubBytes = [u8; 32];
 
-/// Newtype around private scalar bytes. Implements [`Drop`] so the bytes
-/// are zeroized when this value is dropped.
 #[derive(Clone)]
 pub struct X25519Sec(pub X25519SecBytes);
 
 impl Drop for X25519Sec {
     fn drop(&mut self) {
-        // Best-effort zeroize: write a deterministic pattern through a
-        // volatile pointer write so the optimizer doesn't elide it.
         for b in self.0.iter_mut() {
             unsafe { std::ptr::write_volatile(b, 0) };
         }
@@ -31,10 +23,6 @@ impl std::fmt::Debug for X25519Sec {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct X25519Pub(pub X25519PubBytes);
 
-/// Derive the X25519 public key from a private scalar (RFC 7748).
-///
-/// X25519 clamps the scalar internally. Callers MAY pass any 32 bytes;
-/// the resulting public key is well-defined.
 pub fn public_from_private(private: &X25519SecBytes) -> X25519PubBytes {
     let sk = StaticSecret::from(*private);
     PublicKey::from(&sk).to_bytes()
@@ -44,7 +32,6 @@ pub fn public_from_private(private: &X25519SecBytes) -> X25519PubBytes {
 mod tests {
     use super::*;
 
-    /// RFC 7748 §6.1 Alice keypair vector.
     #[test]
     fn rfc_7748_alice() {
         let priv_bytes: [u8; 32] = [

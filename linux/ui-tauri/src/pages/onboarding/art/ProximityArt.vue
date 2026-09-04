@@ -1,6 +1,4 @@
 <script setup lang="ts">
-// The phone drifts toward/away from the laptop, whose lock badge flips
-// closed → open — "proximity lock". Ported from the design's feature-4 stage.
 </script>
 
 <template>

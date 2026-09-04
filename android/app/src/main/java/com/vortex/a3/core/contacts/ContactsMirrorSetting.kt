@@ -6,12 +6,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/**
- * Whether this phone shares its contacts list with the paired laptop's
- * companion Contacts page. LOCAL-only (like [com.vortex.a3.core.notif.NotificationMirrorSetting]):
- * turning it off just stops the outgoing sync. SharedPreferences singleton,
- * default ON.
- */
 object ContactsMirrorSetting {
     private const val PREFS = "vortex_ui_settings"
     private const val KEY = "contacts_share_enabled"

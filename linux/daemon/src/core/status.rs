@@ -1,18 +1,6 @@
-//! Device status payloads exchanged on the transport-keepalive channel.
-//!
-//! Each side reports a 2-byte status tail after the 8-byte ping/pong
-//! nonce, so the UIs on both sides can render real-time battery /
-//! device-class info without a separate frame type.
-//!
-//! Wire layout (10-byte total ping/pong payload):
-//!   | 0  | 8 | random nonce                      |
-//!   | 8  | 1 | battery %  (0..=100, 0xFF unknown)|
-//!   | 9  | 1 | device_class                      |
-
 use std::fs;
 use std::path::PathBuf;
 
-/// Device-class enum carried as a single byte in the keepalive tail.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeviceClass {
@@ -35,7 +23,6 @@ impl DeviceClass {
     }
 }
 
-/// Battery percentage or `None` if the device can't report.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BatteryPct(pub Option<u8>);
 
@@ -52,8 +39,6 @@ impl BatteryPct {
     }
 }
 
-/// Local device's current status — what we'll embed in our outgoing
-/// keepalive frames.
 #[derive(Debug, Clone, Copy)]
 pub struct LocalStatus {
     pub battery: BatteryPct,
@@ -61,17 +46,12 @@ pub struct LocalStatus {
 }
 
 impl LocalStatus {
-    /// Append the 2-byte status tail to a vec already containing the
-    /// 8-byte ping/pong nonce.
     pub fn append_to(&self, out: &mut Vec<u8>) {
         out.push(self.battery.to_byte());
         out.push(self.class as u8);
     }
 }
 
-/// Read the laptop's battery percentage from `/sys/class/power_supply`.
-/// Returns the first `BAT*/capacity` value found. None if no battery
-/// (desktop) or read failure.
 pub fn read_local_battery() -> BatteryPct {
     let dir = match fs::read_dir("/sys/class/power_supply") {
         Ok(d) => d,
@@ -96,11 +76,6 @@ pub fn read_local_battery() -> BatteryPct {
     BatteryPct(None)
 }
 
-/// Whether the laptop is currently plugged in. PRIMARY signal is the AC
-/// adapter (`type=Mains`, `online=1`) — plugged-in is true even when the
-/// battery reports "Not charging" (topped off / under a charge-limit
-/// threshold), which is the common desktop/laptop case. Falls back to the
-/// battery `status` ("Charging"/"Full") when there's no Mains supply.
 pub fn read_local_charging() -> bool {
     let dir = match fs::read_dir("/sys/class/power_supply") {
         Ok(d) => d,
@@ -109,19 +84,13 @@ pub fn read_local_charging() -> bool {
     let mut bat_charging = false;
     for entry in dir.flatten() {
         let path: PathBuf = entry.path();
-        // AC adapter / Mains online=1 → plugged in, regardless of the battery
-        // actively charging (it may sit at "Not charging" near full).
         let ty = fs::read_to_string(path.join("type")).unwrap_or_default();
         if ty.trim().eq_ignore_ascii_case("Mains") {
-            if fs::read_to_string(path.join("online"))
-                .map(|o| o.trim() == "1")
-                .unwrap_or(false)
-            {
+            if fs::read_to_string(path.join("online")).map(|o| o.trim() == "1").unwrap_or(false) {
                 return true;
             }
             continue;
         }
-        // Battery status fallback (machines without a Mains supply node).
         let name = entry.file_name();
         if name.to_string_lossy().starts_with("BAT") {
             if let Ok(s) = fs::read_to_string(path.join("status")) {
@@ -135,18 +104,10 @@ pub fn read_local_charging() -> bool {
     bat_charging
 }
 
-/// Helper for callers that just want to build the local-side payload
-/// quickly.
 pub fn local_laptop_status() -> LocalStatus {
-    LocalStatus {
-        battery: read_local_battery(),
-        class: DeviceClass::Laptop,
-    }
+    LocalStatus { battery: read_local_battery(), class: DeviceClass::Laptop }
 }
 
-/// Decode the 2-byte status tail of a peer's keepalive payload.
-/// Returns `None` if the payload is shorter than 10 bytes (legacy
-/// peer that doesn't yet carry status).
 pub fn decode_peer_status(payload: &[u8]) -> Option<(BatteryPct, DeviceClass)> {
     if payload.len() < 10 {
         return None;

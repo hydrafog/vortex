@@ -54,25 +54,16 @@ const FORBIDDEN_TOKENS: &[(&str, &str)] = &[
 /// Log-macro / stdout patterns that cause secret bytes to be written out.
 /// `decide(&sas_string)` is allowed (it is the user-facing UI prompt
 /// callback, not a log sink) so we narrow to the formatting macros.
-const LOG_SINKS: &[&str] = &[
-    "info!",
-    "warn!",
-    "error!",
-    "debug!",
-    "trace!",
-    "println!",
-    "eprintln!",
-    "print!",
-    "eprint!",
-];
+const LOG_SINKS: &[&str] =
+    &["info!", "warn!", "error!", "debug!", "trace!", "println!", "eprintln!", "print!", "eprint!"];
 
 /// Source files that are *expected* to mention the secrets in non-log
 /// contexts (struct fields, function bodies, etc.). The static scan
 /// already filters by log-sink presence, but we additionally hard-skip
 /// these tests / fixtures so the scan stays focused on production code.
 const SCAN_SKIP: &[&str] = &[
-    "tests/",   // this file and other integration tests
-    "/bin/",    // vector_gen — emits secrets to JSON intentionally
+    "tests/", // this file and other integration tests
+    "/bin/",  // vector_gen — emits secrets to JSON intentionally
 ];
 
 #[test]
@@ -179,10 +170,9 @@ impl<'a> MakeWriter<'a> for CapturingWriter {
 fn primitives_do_not_emit_secrets_to_tracing() {
     // Known transcript hash (32 bytes) — fixed so we can recompute the
     // derived secrets and search for them in the captured log buffer.
-    let transcript_hash = hex::decode(
-        "a6f9b27ec9c5b0acf7df9c3c5c7d6c9e8a3b4d5e6f7080910a1b2c3d4e5f6071",
-    )
-    .expect("valid hex");
+    let transcript_hash =
+        hex::decode("a6f9b27ec9c5b0acf7df9c3c5c7d6c9e8a3b4d5e6f7080910a1b2c3d4e5f6071")
+            .expect("valid hex");
     let prs = derive_prs(&transcript_hash);
     let ses = derive_ses(&transcript_hash);
     let (_, sas) = derive_sas(&transcript_hash);
@@ -239,10 +229,7 @@ fn primitives_do_not_emit_secrets_to_tracing() {
             leaks.push(format!("{name} leaked into tracing buffer"));
         }
     }
-    assert!(
-        leaks.is_empty(),
-        "log redaction failed: {leaks:?}\ncaptured:\n{text}",
-    );
+    assert!(leaks.is_empty(), "log redaction failed: {leaks:?}\ncaptured:\n{text}",);
 }
 
 #[test]

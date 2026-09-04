@@ -5,7 +5,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** UI theme. Dark by default — matches the Linux side's default. */
 enum class ThemeMode(val code: String) {
     Dark("dark"), Light("light");
     companion object {
@@ -13,16 +12,6 @@ enum class ThemeMode(val code: String) {
     }
 }
 
-/**
- * Persisted per-device UI preferences (locale + theme), pulled out of
- * MainActivity so the activity stays focused on lifecycle + wiring.
- *
- * Backed by the shared `vortex_ui_settings` prefs. Exposes observable
- * [locale] / [theme] the Compose tree collects, plus setters that persist
- * with a change-timestamp (so cross-device last-writer-wins can adopt or
- * override). These stay device-local — they are intentionally NOT synced
- * over the wire (see VortexService's AppState provider).
- */
 class UiSettingsStore(context: Context) {
     private val prefs =
         context.getSharedPreferences("vortex_ui_settings", Context.MODE_PRIVATE)
@@ -33,10 +22,7 @@ class UiSettingsStore(context: Context) {
     private val _theme = MutableStateFlow(ThemeMode.Dark)
     val theme: StateFlow<ThemeMode> = _theme.asStateFlow()
 
-    /** Seed [locale] + [theme] from prefs. Call once at startup. */
     fun load() {
-        // Locale priority (matches the Tauri side):
-        //   1. explicit override in prefs, 2. system locale, 3. English.
         val code = prefs.getString("locale", null)
         _locale.value = when {
             code != null -> VortexLocale.fromCode(code)

@@ -4,10 +4,8 @@ import com.vortex.a3.core.crypto.X25519
 import java.nio.ByteBuffer
 import java.security.SecureRandom
 
-/** V1 identity record version byte. */
 const val IDENTITY_VERSION: Byte = 0x01
 
-/** `platform` byte (spec §3.1). */
 enum class Platform(val byte: Byte) {
     Android(0x01.toByte()),
     Linux(0x02.toByte());
@@ -17,13 +15,12 @@ enum class Platform(val byte: Byte) {
     }
 }
 
-/** One Vortex device identity per spec §3.1. */
 data class IdentityRecord(
     val version: Byte,
-    val deviceId: ByteArray,    // 16 bytes
-    val staticPriv: ByteArray,  // 32 bytes
-    val staticPub: ByteArray,   // 32 bytes
-    val createdAt: Long,        // Unix seconds
+    val deviceId: ByteArray,
+    val staticPriv: ByteArray,
+    val staticPub: ByteArray,
+    val createdAt: Long,
     val platform: Platform,
 ) {
     init {
@@ -32,7 +29,6 @@ data class IdentityRecord(
         require(staticPub.size == X25519.PUB_LEN) { "static_pub must be ${X25519.PUB_LEN} bytes" }
     }
 
-    /** Encode as a 90-byte record per §3.1. */
     fun encode(): ByteArray {
         val buf = ByteBuffer.allocate(90)
         buf.put(version)
@@ -66,7 +62,6 @@ data class IdentityRecord(
     }
 
     companion object {
-        /** Build an identity from an externally-supplied private scalar. */
         fun fromPrivate(
             platform: Platform,
             deviceId: ByteArray,
@@ -81,7 +76,6 @@ data class IdentityRecord(
             platform = platform,
         )
 
-        /** Generate a fresh identity using the platform CSPRNG. */
         fun generate(platform: Platform): IdentityRecord {
             val rng = SecureRandom()
             val deviceId = ByteArray(16).also { rng.nextBytes(it) }
@@ -91,7 +85,6 @@ data class IdentityRecord(
     }
 }
 
-/** JSON-friendly view that omits `static_priv` (CLI / log output). */
 data class IdentityPublicView(
     val version: Byte,
     val deviceIdHex: String,

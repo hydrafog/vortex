@@ -1,7 +1,4 @@
 <script setup lang="ts">
-// Step 0 — language. Wired to the real app preference: setLocale() switches the
-// UI language live (every string re-renders). Theme is left to Settings so the
-// onboarding canvas can stay reliably dark for the illustrations.
 import { useI18n } from "vue-i18n";
 import { Check } from "lucide-vue-next";
 import { setLocale, LOCALES, type LocaleCode } from "@/lib/i18n";

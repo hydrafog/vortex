@@ -1,7 +1,4 @@
 <script setup lang="ts">
-// "File sharing" — a photo/file leaves the phone (left), arcs across, and lands
-// in the laptop (right) where a download bar fills and a check confirms it. Reads
-// as instant-share style send-a-file-across, in sync.
 </script>
 
 <template>
@@ -49,30 +46,26 @@
 <style scoped>
 .stage { position: relative; width: 300px; height: 132px; display: inline-flex; align-items: center; justify-content: center; animation: vxo-featIn 0.45s cubic-bezier(0.34, 1.3, 0.5, 1) both; }
 
-/* phone with a little file list */
 .phone { width: 56px; height: 96px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center; flex: none; }
 .pscreen { width: 42px; height: 80px; border-radius: 10px; background: #14241b; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 0 9px; }
 .file { display: block; width: 100%; height: 9px; border-radius: 3px; background: rgba(255, 255, 255, 0.16); }
 .file.hot { background: #2ECC71; box-shadow: 0 0 12px rgba(46, 204, 113, 0.55); animation: hotPulse 2.6s ease-in-out infinite; }
 @keyframes hotPulse { 0%, 14% { opacity: 1 } 22% { opacity: 0.25 } 100% { opacity: 1 } }
 
-/* flying file */
 .fly { position: absolute; left: 54px; top: 50%; z-index: 4; width: 26px; height: 26px; border-radius: 7px; background: #2ECC71; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(46, 204, 113, 0.45); animation: fileFly 2.6s ease-in-out infinite; }
 @keyframes fileFly {
   0%, 14% { transform: translate(0, -50%) scale(0.5); opacity: 0 }
   24%     { transform: translate(6px, -50%) scale(1); opacity: 1 }
-  50%     { transform: translate(128px, -50%) scale(1); opacity: 1 }   /* arrived at laptop centre */
-  60%     { transform: translate(128px, -50%) scale(1); opacity: 1 }   /* hold */
-  70%     { transform: translate(128px, -50%) scale(0.5); opacity: 0 } /* dissolves into the tray */
+  50%     { transform: translate(128px, -50%) scale(1); opacity: 1 }
+  60%     { transform: translate(128px, -50%) scale(1); opacity: 1 }
+  70%     { transform: translate(128px, -50%) scale(0.5); opacity: 0 }
   100%    { transform: translate(128px, -50%) scale(0.5); opacity: 0 }
 }
 
-/* chevrons */
 .link { width: 38px; display: flex; align-items: center; justify-content: center; gap: 5px; flex: none; }
 .chev { width: 8px; height: 8px; border-top: 2px solid #2ECC71; border-right: 2px solid #2ECC71; transform: rotate(45deg); opacity: 0; animation: linkFlow 2.6s ease-in-out infinite; }
 @keyframes linkFlow { 0%, 18% { opacity: 0; transform: rotate(45deg) translateX(-3px) } 34% { opacity: 1 } 50% { opacity: 1 } 64%, 100% { opacity: 0; transform: rotate(45deg) translateX(3px) } }
 
-/* laptop receiving */
 .laptop { display: flex; flex-direction: column; align-items: center; flex: none; }
 .lid { width: 116px; height: 74px; border-radius: 10px; background: #14241b; border: 1px solid rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center; }
 .tray { position: relative; width: 64px; display: flex; flex-direction: column; align-items: center; gap: 9px; }

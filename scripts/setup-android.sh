@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-# 📱 Vortex-Lab Android environment helper
 # NOTE: This script does not auto-download Android Studio.
 
 set -u

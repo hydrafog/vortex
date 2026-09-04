@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// Final step — "you're ready". The button finishes the intro; the parent
-// marks it done and routes to the Devices page (where "Add phone" lives).
-// One firm callout before pairing: other BLE phone-link apps
-// hold the same radio and can block Vortex's connection, so close them.
 import { useI18n } from "vue-i18n";
 import { Bluetooth } from "lucide-vue-next";
 

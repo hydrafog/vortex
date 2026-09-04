@@ -28,12 +28,6 @@ import com.vortex.a3.core.pairing.PairingOrchestrator
 import com.vortex.a3.core.pairing.SasEmoji
 import com.vortex.a3.ui.str
 
-/**
- * Manual SAS-approval dialog shown when the peer side has accepted
- * an inbound pairing request. The user compares the six-digit code
- * shown here with the one displayed on the laptop's Vortex UI and
- * approves only if they match.
- */
 @Composable
 fun SasApprovalDialog(
     outcome: PairingOrchestrator.HandshakeOutcome,
@@ -41,7 +35,7 @@ fun SasApprovalDialog(
     onReject: () -> Unit,
 ) {
     AlertDialog(
-        onDismissRequest = { /* explicit decision required */ },
+        onDismissRequest = {  },
         containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Text(str("sas.title"), color = MaterialTheme.colorScheme.onSurface, fontWeight = FW.SemiBold)
@@ -54,9 +48,6 @@ fun SasApprovalDialog(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(modifier = Modifier.height(20.dp))
-                // The 6-digit SAS rendered as 3 emoji + names — identical mapping
-                // to the laptop, so the user just checks the same three appear on
-                // both screens (friendlier + safer than comparing digits).
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),

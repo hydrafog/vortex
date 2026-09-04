@@ -1,7 +1,3 @@
-//! Generate canonical V1 test vectors per the test-vectors doc.
-//!
-//! Outputs JSON files into shared/vectors/v1/.
-
 use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
@@ -24,7 +20,6 @@ fn main() {
 }
 
 fn write_x25519_vectors(dir: &PathBuf) {
-    // RFC 7748 §6.1 Alice keypair plus a couple of synthetic seeds.
     let alice_priv: [u8; 32] = [
         0x77, 0x07, 0x6d, 0x0a, 0x73, 0x18, 0xa5, 0x7d, 0x3c, 0x16, 0xc1, 0x72, 0x51, 0xb2, 0x66,
         0x45, 0xdf, 0x4c, 0x2f, 0x87, 0xeb, 0xc0, 0x99, 0x2a, 0xb1, 0x77, 0xfb, 0xa5, 0x1d, 0xb9,
@@ -58,7 +53,6 @@ fn write_x25519_vectors(dir: &PathBuf) {
 }
 
 fn workspace_root() -> PathBuf {
-    // CARGO_MANIFEST_DIR points at linux/daemon. Workspace root is two above.
     let manifest = env!("CARGO_MANIFEST_DIR");
     PathBuf::from(manifest).parent().unwrap().parent().unwrap().to_path_buf()
 }
@@ -190,8 +184,7 @@ fn write_noise_xx_vectors(dir: &PathBuf) {
     let init_e: [u8; 32] = std::array::from_fn(|i| 0x50 + i as u8);
     let resp_e: [u8; 32] = std::array::from_fn(|i| 0x70 + i as u8);
 
-    let r = noise::run_xx_deterministic(&init_s, &resp_s, &init_e, &resp_e)
-        .expect("XX runs");
+    let r = noise::run_xx_deterministic(&init_s, &resp_s, &init_e, &resp_e).expect("XX runs");
 
     write_json(
         dir.join("noise-xx.json"),

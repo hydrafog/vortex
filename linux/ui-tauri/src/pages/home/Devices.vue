@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// The "My devices" dashboard — a calm control centre with three cards (this
-// laptop, the phone, the earbuds), translated from the Vortex design system.
-// Phone + earbuds are wired to live daemon state; the laptop card's battery and
-// mirror-to-phone action are follow-ups (no UI accessor yet).
 import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { invoke } from "@tauri-apps/api/core";
@@ -40,20 +36,16 @@ const connectedCount = computed(
   () => 1 + (phoneOnline.value ? 1 : 0) + (activeEarbuds.value?.connected ? 1 : 0),
 );
 
-// Continuity Camera: use the phone as a laptop webcam (v4l2 pipe).
 const cameraOn = ref(false);
 async function toggleCamera() {
   cameraOn.value = !cameraOn.value;
   try {
     await invoke("set_camera_request", { on: cameraOn.value });
   } catch {
-    cameraOn.value = !cameraOn.value; // revert on failure
+    cameraOn.value = !cameraOn.value;
   }
 }
 
-// Find-My: ring the phone loudly (even on silent) to locate it. The button
-// pulses for a moment as feedback; the phone keeps ringing ~25s or until the
-// user taps Stop on it.
 const ringing = ref(false);
 let ringTimer: ReturnType<typeof setTimeout> | undefined;
 async function ringPhone() {
@@ -63,7 +55,6 @@ async function ringPhone() {
     clearTimeout(ringTimer);
     ringTimer = setTimeout(() => (ringing.value = false), 2500);
   } catch {
-    /* ignore — offline phone simply won't get the heartbeat */
   }
 }
 
@@ -250,8 +241,6 @@ const earbudsStatus = computed(() => {
 .vx-chip--live {
   @apply border-primary/40 bg-primary/[0.14] text-primary;
 }
-/* Find-My ring button — theme-safe tints (foreground/primary alpha) so it reads
-   in light mode too; pulses while a ring was just requested. */
 .vx-ring {
   @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors;
   color: hsl(var(--muted-foreground));

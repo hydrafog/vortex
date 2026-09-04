@@ -10,32 +10,23 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 
-/**
- * Schedules a local alarm for each todo with a future due-date and posts a
- * reminder notification when it fires. Independent of the laptop — each device
- * arms its own alarms from the synced [Note.dueAt] (the reminder fires on
- * all devices). Re-armed whenever the note set changes (edit / sync merge) and
- * on boot; an alarm is cancelled when its todo is done / deleted / re-dated.
- */
 object NoteReminderScheduler {
     const val ACTION_FIRE = "com.vortex.a3.NOTE_REMINDER"
     private const val CHANNEL_ID = "vortex_note_reminders"
     @Volatile private var channelReady = false
 
-    /** Re-arm exact alarms for the whole set (incl. tombstones, so a deleted /
-     *  done todo's stale alarm is cancelled). Idempotent — safe to call often. */
     fun reschedule(context: Context, items: List<Note>) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         val now = System.currentTimeMillis()
         for (n in items) {
             if (n.kind != "todo") continue
             val pi = firePendingIntent(context, n)
-            am.cancel(pi) // clear any prior alarm for this id
+            am.cancel(pi)
             if (!n.done && !n.deleted && n.dueAt > now) {
                 try {
                     am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, n.dueAt, pi)
                 } catch (_: SecurityException) {
-                    am.set(AlarmManager.RTC_WAKEUP, n.dueAt, pi) // no exact-alarm grant → inexact
+                    am.set(AlarmManager.RTC_WAKEUP, n.dueAt, pi)
                 }
             }
         }
@@ -51,8 +42,6 @@ object NoteReminderScheduler {
         return PendingIntent.getBroadcast(context, n.id.hashCode(), i, flags)
     }
 
-    /** Post the reminder notification (called from the receiver when an alarm
-     *  fires). */
     fun fireNotification(context: Context, id: String, title: String) {
         ensureChannel(context)
         val n = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -66,7 +55,6 @@ object NoteReminderScheduler {
         try {
             NotificationManagerCompat.from(context).notify(id.hashCode(), n)
         } catch (_: SecurityException) {
-            // POST_NOTIFICATIONS not granted — nothing to show.
         }
     }
 

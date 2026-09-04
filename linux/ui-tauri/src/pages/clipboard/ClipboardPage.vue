@@ -1,13 +1,4 @@
 <script setup lang="ts">
-// Clipboard-history popup (frameless, transparent, always-on-top —
-// GNOME shortcut → Super+V). Launcher-style: the search input is focused
-// on open, arrows move the selection, Enter applies it; click works too.
-// A right-hand PREVIEW pane (big image / full text + metadata) slides in
-// when the selected entry needs more room than the list row gives (image
-// or long text) — the Rust side widens the window to match. The list is
-// VIRTUALISED (fixed-height rows via useVirtualList) so it stays smooth at
-// up to ~1000 entries — only the visible ~10 rows are in the DOM. Esc /
-// losing focus hides it (handled in Rust).
 import { onMounted, onUnmounted, ref, computed, watch, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
 import { useVirtualList } from "@vueuse/core";
@@ -35,14 +26,6 @@ interface ClipEntry {
   pinned: boolean;
 }
 
-// Per-row heights (card + the 8px gap). The virtual list needs a stable
-// height per row, but it accepts a FUNCTION — so we give text rows a compact
-// height (2-line clamp; the full text is in the preview pane) and image rows
-// a taller one for the thumbnail. Deterministic per kind ⇒ virtualisation
-// stays exact (no DOM measuring, no scroll drift).
-// Sized for a macOS-launcher feel: the panel is now a share of the monitor
-// (Rust picks the height), so rows can breathe instead of packing a fixed
-// 600px window as tightly as possible.
 const TEXT_ROW_H = 52;
 const IMG_ROW_H = 76;
 function rowH(e: ClipEntry | undefined): number {
@@ -55,13 +38,8 @@ const filter = ref("");
 const selected = ref(0);
 const inputEl = ref<HTMLInputElement | null>(null);
 const previewEl = ref<HTMLElement | null>(null);
-// Full (untruncated) entry for the preview pane — fetched on demand so
-// the list itself stays light (its text is capped at 400 chars).
 const full = ref<ClipEntry | null>(null);
 
-// Searchable haystack per entry: text content for text, and for images
-// the word "image"/"rasm" + size in KB + the capture date — so a search
-// finds a screenshot by "rasm", "image", "120kb", or "jun" / a date.
 function haystack(e: ClipEntry): string {
   if (e.kind === "text") return (e.text ?? "").toLowerCase();
   const kb = `${Math.round(e.bytes / 1024)}kb`;
@@ -76,8 +54,6 @@ const visible = computed(() => {
   return entries.value.filter((e) => haystack(e).includes(q));
 });
 
-// Virtual window over `visible` — only the rows on screen (plus a little
-// overscan) are rendered, so 1000 entries are as cheap as 10.
 const {
   list: vlist,
   containerProps,
@@ -90,10 +66,6 @@ const {
 
 const current = computed<ClipEntry | undefined>(() => visible.value[selected.value]);
 
-// The detail pane shows (and the window widens) whenever the entry can't be
-// read in full from the list row. The list now shows a SINGLE truncated line
-// for text, so anything that won't fit on one line (~45+ chars) or carries a
-// newline needs the preview; only genuinely short one-liners stay narrow.
 function needsPreview(e: ClipEntry | undefined): boolean {
   if (!e) return false;
   if (e.kind === "image") return true;
@@ -119,9 +91,6 @@ function fmtDate(ms: number): string {
   });
 }
 
-// Widen/narrow the window for the current selection, and (when shown)
-// load its full untruncated content into the detail pane. Runs on every
-// selection change.
 async function syncPreview() {
   const need = showPreview.value;
   void invoke("clipboard_set_preview", { visible: need }).catch(() => {});
@@ -136,7 +105,6 @@ async function syncPreview() {
   } catch {
     full.value = e;
   }
-  // New content starts at the top, never mid-scroll from the last entry.
   void nextTick(() => previewEl.value?.scrollTo({ top: 0 }));
 }
 
@@ -149,7 +117,6 @@ async function refresh() {
   try {
     entries.value = await invoke<ClipEntry[]>("clipboard_history");
   } catch {
-    /* backend not ready */
   }
 }
 
@@ -172,24 +139,16 @@ async function remove(e: ClipEntry, ev: Event) {
 }
 
 function resetScroll() {
-  // useVirtualList tracks its own scroll offset — set it through scrollTo
-  // (not a raw scrollTop write, which leaves its internal state stale and
-  // the window scrolled to the old row on reopen).
   vScrollTo(0);
 }
 
 function hide() {
-  // Reset here too (not just on reopen) so a close-then-reopen always
-  // lands on the newest entry at the top, even if the reopen's `rearm`
-  // somehow races the window becoming visible.
   filter.value = "";
   selected.value = 0;
   resetScroll();
   void invoke("clipboard_hide");
 }
 
-// Cumulative pixel offset of a row (rows vary in height by kind, so we sum
-// rather than multiply).
 function offsetOf(idx: number): number {
   const arr = visible.value;
   let top = 0;
@@ -197,9 +156,6 @@ function offsetOf(idx: number): number {
   return top;
 }
 
-// Keep the selected row in view — only scroll when it's above/below the
-// viewport ("nearest" behaviour). Setting scrollTop fires the container's
-// onScroll, which updates the virtual window.
 function scrollToSelected() {
   const c = containerProps.ref.value;
   const cur = visible.value[selected.value];
@@ -210,9 +166,6 @@ function scrollToSelected() {
   else if (bottom > c.scrollTop + c.clientHeight) c.scrollTop = bottom - c.clientHeight;
 }
 
-// Rows that fit in the viewport — the jump for a page move (one row of
-// overlap kept for context). Uses the compact text height so a page never
-// overshoots a screen mostly made of text rows.
 function pageSize(): number {
   const c = containerProps.ref.value;
   const h = c ? c.clientHeight : 400;
@@ -226,8 +179,6 @@ function move(delta: number) {
   scrollToSelected();
 }
 
-// Absolute jump, clamped (no wrap) — for Ctrl+Up/Down (ends) and the
-// Left/Right page jumps.
 function moveTo(idx: number) {
   const n = visible.value.length;
   if (!n) return;
@@ -235,12 +186,6 @@ function moveTo(idx: number) {
   scrollToSelected();
 }
 
-// WebKit fires `mousemove` when the list scrolls under a STATIONARY
-// pointer (keyboard nav scrolls the row under the cursor away, a new one
-// slides in). Naively binding @mousemove→selected would then yank the
-// selection back to whatever row landed under the cursor — so arrow-down
-// past the visible edge appeared to jump UP. Only honor a move when the
-// pointer coordinates actually changed.
 let lastX = -1;
 let lastY = -1;
 function onHover(i: number, e: MouseEvent) {
@@ -250,63 +195,31 @@ function onHover(i: number, e: MouseEvent) {
   selected.value = i;
 }
 
-// The window is transparent so the rounded card cuts cleanly; style.css
-// paints html/body/#app opaque, so clear all three or the corners show
-// solid squares under the radius.
 function clearPageBackground() {
   for (const el of [document.documentElement, document.body, document.getElementById("app")]) {
     if (el) (el as HTMLElement).style.setProperty("background", "transparent", "important");
   }
 }
 
-// Re-arm on every (re)show: fresh list, reset selection, refocus input.
-// On Wayland the webview grabs keyboard focus a beat after the window
-// becomes visible, so the FIRST keypress used to be swallowed (Esc /
-// arrows needed two presses). Focus now, then again after a short
-// delay, so the webview definitely owns the keyboard before any key.
 async function rearm() {
-  // Reset BEFORE the async refresh so the old selection/scroll never shows
-  // for a frame, then again after — hiding (not destroying) the window
-  // keeps the old selection + scroll offset otherwise, so it'd reappear on
-  // whatever the last-focused entry was instead of the newest at the top.
   selected.value = 0;
   filter.value = "";
   resetScroll();
-  // Paint the stored history FIRST so the panel is usable immediately.
   await refresh();
   selected.value = 0;
   await syncPreview();
   await nextTick();
   resetScroll();
   focusSearch();
-  // Only THEN capture whatever's on the clipboard right now, with a fresh
-  // connection — the background watcher's X connection can go stale, so a
-  // just-copied item otherwise only showed after an app restart. It emits
-  // `vortex:clipboard` when it finds something new, which refreshes us; it
-  // used to be awaited BEFORE the first paint, putting a blocking arboard
-  // round-trip in front of every open.
   void invoke("clipboard_capture_now").catch(() => {});
 }
 
-// The caret is a two-part problem: the DOM element must take focus AND the
-// WINDOW must hold the keyboard (forced from X in Rust, which can land after
-// these calls). Retry a few times, and again whenever the window is focused,
-// so the search box is never left dead.
 function focusSearch() {
   inputEl.value?.focus();
   setTimeout(() => inputEl.value?.focus(), 70);
   setTimeout(() => inputEl.value?.focus(), 220);
 }
 
-// Single keyboard source at the WINDOW level (not on the input) so the
-// shortcuts work no matter which element holds focus — and exactly once.
-//   ↑/↓            move one
-//   Ctrl+↑/↓       jump to first / last
-//   ←/→            page up / down (one viewport)
-//   Enter          apply,  Esc  close
-// Left/Right are claimed for paging, so they don't move the text cursor in
-// the search box — fine for a quick filter (type to narrow, Esc/Enter to
-// act).
 function onKey(e: KeyboardEvent) {
   const ctrl = e.ctrlKey || e.metaKey;
   const n = visible.value.length;
@@ -335,19 +248,13 @@ let unlisten: UnlistenFn | null = null;
 let unshown: UnlistenFn | null = null;
 onMounted(async () => {
   clearPageBackground();
-  // Rust calls this by eval on every (re)show of the reused window — events
-  // to a just-shown (waking) webview race and get missed, so the backend
-  // drives rearm directly instead.
   (window as unknown as { __vortexRearm?: () => void }).__vortexRearm = () => {
     void rearm();
   };
   await rearm();
-  // Keyboard at the window level — single source, any focus. Blur-to-close
-  // is handled in Rust (reliable on Wayland).
   window.addEventListener("keydown", onKey);
   window.addEventListener("focus", focusSearch);
   unlisten = await listen("vortex:clipboard", refresh);
-  // Kept as a backup trigger; the eval path above is the reliable one.
   unshown = await listen("vortex:clipboard-shown", rearm);
 });
 onUnmounted(() => {

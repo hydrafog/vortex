@@ -1,11 +1,3 @@
-//! Contacts mirror (phone → laptop companion Contacts page).
-//!
-//! The phone sends its full contacts list as a JSON array, split across
-//! `ty::CONTACTS` frames (BLE notifies are small) — chunked like icons. We
-//! reassemble the single stream, then the UI layer caches it
-//! (`~/.cache/vortex/contacts.json`) and renders the Contacts page. Mirrors
-//! Kotlin `core::contacts::Contact`.
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -18,7 +10,6 @@ pub struct Contact {
     pub numbers: Vec<String>,
 }
 
-/// Parse a CONTACTS frame plaintext: `[total u16 BE][idx u16 BE][json-chunk]`.
 pub fn parse_chunk(plain: &[u8]) -> Option<(u16, u16, Vec<u8>)> {
     if plain.len() < 4 {
         return None;
@@ -28,14 +19,8 @@ pub fn parse_chunk(plain: &[u8]) -> Option<(u16, u16, Vec<u8>)> {
     Some((total, idx, plain[4..].to_vec()))
 }
 
-/// Upper bound on declared chunk counts. The largest real stream (a big
-/// contacts list) is a few hundred 450-byte chunks; anything past this is a
-/// hostile/corrupt header and must not drive the buffer allocation.
 pub const MAX_CHUNKS: u16 = 2048;
 
-/// Reassembles the single contacts JSON stream from its chunks. Returns the
-/// full JSON bytes once every chunk has arrived. A re-send with a different
-/// chunk count (the list changed) restarts the buffer.
 #[derive(Default)]
 pub struct ContactsAssembler {
     total: u16,
@@ -59,7 +44,6 @@ impl ContactsAssembler {
         for c in &self.chunks {
             bytes.extend_from_slice(c.as_ref().unwrap());
         }
-        // Reset so the next full re-send rebuilds cleanly.
         self.total = 0;
         self.chunks = Vec::new();
         Some(bytes)
@@ -82,7 +66,6 @@ mod tests {
         let mut asm = ContactsAssembler::default();
         assert!(asm.add(MAX_CHUNKS + 1, 0, b"x".to_vec()).is_none());
         assert!(asm.add(u16::MAX, 0, b"x".to_vec()).is_none());
-        // The hostile header must not have poisoned the buffer.
         assert_eq!(asm.add(1, 0, b"ok".to_vec()), Some(b"ok".to_vec()));
     }
 }

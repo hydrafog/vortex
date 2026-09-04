@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -66,11 +68,6 @@ import com.vortex.a3.ui.components.WaitingForLinuxRow
 import com.vortex.a3.ui.components.toHex
 import com.vortex.a3.ui.str
 
-/**
- * The home screen — laptop peer card + earbuds card, plus the pre-trust
- * waiting state when no peer is paired. Also owns the long-press
- * "Forget device" confirm and the in-app BT picker modal.
- */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
@@ -111,14 +108,8 @@ fun HomeScreen(
     val isLaptopOnline = primaryPeer != null && lastSeen > 0L &&
         (now - lastSeen) < LAPTOP_STALE_MS
     var forgetTarget by remember { mutableStateOf<TrustedPeer?>(null) }
-    // Asking which kind of laptop screen to show — a second monitor, or a view of
-    // the one that is already there.
     var showScreenKind by remember { mutableStateOf(false) }
 
-    // Pick whichever earbuds to show. Buds physically connect to only
-    // one host at a time, so we combine three sources: localEarbuds,
-    // primaryState.earbuds, hasSavedEarbuds. Saved row pins the card
-    // so it doesn't disappear when buds bounce between sides.
     data class ActiveEarbuds(val name: String, val battery: Int?, val onLocal: Boolean, val connected: Boolean)
     val peerBuds = primaryState?.earbuds
     val activeEarbuds: ActiveEarbuds? = when {
@@ -145,7 +136,9 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+            .navigationBarsPadding(),
     ) {
         Row(
             modifier = Modifier
@@ -175,10 +168,6 @@ fun HomeScreen(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            // Notes + Settings only matter once a laptop is paired — on first
-            // launch (no device in the store) the header stays bare so the
-            // pairing/waiting card is the sole focus, mirroring the laptop where
-            // the whole sidebar is hidden until a peer exists.
             if (peerCount > 0) {
                 IconButton(onClick = onOpenNotes) {
                     Icon(
@@ -204,9 +193,6 @@ fun HomeScreen(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Bluetooth is the floor for everything (BLE pairing + reconnect),
-            // so this banner sits ABOVE all other hints and shows regardless of
-            // whether a peer is paired yet — it auto-clears when BT comes back.
             if (showBluetoothOff) {
                 HintCard(
                     text = str("hint.bluetooth_off"),
@@ -226,8 +212,6 @@ fun HomeScreen(
                     WaitingForLinuxRow(state = state)
                 }
             } else {
-                // Mirror the laptop's Devices page: a full-width "This device"
-                // card on top, then the paired Laptop + Earbuds side by side.
                 ThisPhoneCard()
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -240,24 +224,14 @@ fun HomeScreen(
                             ?: primaryPeer?.peerName?.takeIf { it.isNotBlank() }
                             ?: str("device.linux"),
                         caption = str(if (isLaptopOnline) "peers.online" else "peers.offline"),
-                        // Battery/charging are only meaningful while the laptop
-                        // is online — a stale AppState must not keep showing the
-                        // last % or a "charging" bolt once it's disconnected.
                         battery = primaryState?.battery.takeIf { isLaptopOnline },
                         charging = isLaptopOnline && primaryState?.charging == true,
                         statusDotColor = if (isLaptopOnline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         onLongPress = { primaryPeer?.let { forgetTarget = it } },
-                        // Remote lock: only rendered when the laptop is
-                        // online AND reports its lock state.
                         locked = primaryState?.locked.takeIf { isLaptopOnline },
                         onToggleLock = {
                             primaryState?.locked?.let { onToggleLaptopLock(it) }
                         },
-                        // Show the laptop's screen on this phone — only while the
-                        // laptop is online (it has to be reachable to cast).
-                        // Which KIND is asked here rather than assumed: the two
-                        // are different enough that guessing is always wrong for
-                        // half the taps.
                         onViewScreen = if (isLaptopOnline) {
                             { showScreenKind = true }
                         } else {
@@ -286,10 +260,6 @@ fun HomeScreen(
                     onAction = onRequestBatteryWhitelist,
                 )
             }
-            // MIUI Autostart standing reminder. Its dialog is one-shot, but
-            // since Autostart can't be read back programmatically the card
-            // can't auto-clear — so it stays until the user taps "Got it"
-            // (after enabling it), which persists a dismiss flag.
             if (showAutostartHint && peerCount > 0) {
                 HintCard(
                     text = str("hint.autostart"),
@@ -341,7 +311,6 @@ fun HomeScreen(
                     }
                 }
             },
-            // The choices ARE the confirmation; a second "OK" would only add a tap.
             confirmButton = {
                 TextButton(onClick = { showScreenKind = false }) {
                     Text(str("switch.cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -390,11 +359,6 @@ fun HomeScreen(
     }
 }
 
-/**
- * The full-width "This device" card — the phone's own tile, mirroring the
- * laptop's top card on its Devices page. Always "here", so a solid primary
- * status dot; no battery/actions (this device is the one you're holding).
- */
 @Composable
 private fun ThisPhoneCard(modifier: Modifier = Modifier) {
     Row(
@@ -463,11 +427,6 @@ private fun ThisPhoneCard(modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * One choice in the "which laptop screen" dialog: a title and a line saying what
- * it actually does. Tapping it IS the answer — the dialog closes and the request
- * goes out, so there is no second confirmation to hunt for.
- */
 @Composable
 private fun ScreenKindRow(title: String, hint: String, onClick: () -> Unit) {
     Column(

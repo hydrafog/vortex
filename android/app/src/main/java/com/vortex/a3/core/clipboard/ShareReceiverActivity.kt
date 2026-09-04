@@ -9,29 +9,12 @@ import android.util.Log
 import android.widget.Toast
 import com.vortex.a3.service.VortexService
 
-/**
- * Share-sheet target: the user picks "Vortex" when sharing to the laptop —
- * instant-share style. Three kinds of share, in priority order:
- *
- *  1. text containing a URL  → browsing handoff (the laptop opens the page),
- *  2. any attachment         → FILE to the laptop's download folder,
- *  3. plain text             → the laptop's CLIPBOARD.
- *
- * Files arrive as granted `content://` URIs in the intent (no focus trick
- * needed) and are handed to [VortexService] as FILEs. Handles both single
- * (`ACTION_SEND`) and multi (`ACTION_SEND_MULTIPLE`) shares — file managers use
- * the latter for a multi-selection, which is why a SEND-only filter never
- * appeared.
- */
 class ShareReceiverActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         overridePendingTransition(0, 0)
 
-        // Shared TEXT (a URL from Chrome's "Share") → browsing handoff: the
-        // laptop opens it in the browser. Handled before files (a text/plain
-        // share carries EXTRA_TEXT, not a stream).
         if (intent?.action == Intent.ACTION_SEND) {
             val url = intent.getStringExtra(Intent.EXTRA_TEXT)?.let { extractUrl(it) }
             if (url != null) {
@@ -54,16 +37,6 @@ class ShareReceiverActivity : Activity() {
             else -> emptyList()
         }
 
-        // Shared plain TEXT (no URL in it, so the handoff above passed) → the
-        // laptop's CLIPBOARD, via the same bus the Quick Settings tile uses, so
-        // it inherits the cap + chunking + per-peer send. Without this, a text
-        // share fell through to the file loop below with nothing to read and
-        // died on "Couldn't read the shared file(s)" — the manifest advertises
-        // text/plain, so Vortex offers itself for text and must honour it.
-        //
-        // Guarded on `uris.isEmpty()`: a share can carry a caption ALONGSIDE an
-        // attachment (EXTRA_TEXT + EXTRA_STREAM), and there the file is the
-        // payload the user meant.
         if (uris.isEmpty() && intent?.action == Intent.ACTION_SEND) {
             val text = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim()
             if (!text.isNullOrEmpty()) {
@@ -98,8 +71,6 @@ class ShareReceiverActivity : Activity() {
         overridePendingTransition(0, 0)
     }
 
-    /** Pull the first http(s) URL out of shared text (Chrome may share "Title
-     *  https://…" or "Look: https://…"). Returns null if there's no web URL. */
     private fun extractUrl(text: String): String? =
         Regex("""https?://\S+""").find(text)?.value?.trimEnd('.', ',', ')', ']', '"', '\'')
 

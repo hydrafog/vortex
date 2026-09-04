@@ -2,9 +2,33 @@
 import sys
 import os
 
-ALLOWED_ANNOTATIONS = ["TODO", "FIXME", "NOTE", "cSpell"]
+ALLOWED_ANNOTATIONS = ["TODO", "FIXME", "NOTE", "cSpell", "HACK", "OPTIMIZE"]
 
 TRIPLE_QUOTE_MARKERS = ['"""', "'''"]
+
+SUPPORTED_EXTENSIONS = {
+    ".ts",
+    ".tsx",
+    ".vue",
+    ".js",
+    ".jsx",
+    ".css",
+    ".cpp",
+    ".c",
+    ".h",
+    ".hpp",
+    ".java",
+    ".kt",
+    ".go",
+    ".rs",
+    ".py",
+    ".sh",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".rb",
+    ".nix",
+}
 
 
 def _toggle_multiline_state(line, in_multiline, multiline_char):
@@ -29,6 +53,8 @@ def strip_comments(file_path):
         return
 
     ext = os.path.splitext(file_path)[1]
+    if ext not in SUPPORTED_EXTENSIONS:
+        return
 
     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
         lines = f.readlines()
@@ -51,6 +77,10 @@ def strip_comments(file_path):
             continue
 
         if ext in [".py", ".sh", ".yaml", ".yml", ".toml", ".rb", ".nix"]:
+            if stripped.startswith("#!"):
+                new_lines.append(line)
+                continue
+
             if ext == ".py":
                 prev_state = in_multiline
                 in_multiline, multiline_char = _toggle_multiline_state(
@@ -63,11 +93,17 @@ def strip_comments(file_path):
             if stripped.startswith("#"):
                 continue
             if "#" in line:
-                idx = line.find("#")
-                if (
-                    line.count('"', 0, idx) % 2 == 0
-                    and line.count("'", 0, idx) % 2 == 0
-                ):
+                idx = -1
+                for i, ch in enumerate(line):
+                    if ch == "#" and (i == 0 or line[i - 1] != "\\"):
+                        if (
+                            line.count('"', 0, i) % 2 == 0
+                            and line.count("'", 0, i) % 2 == 0
+                            and line.count("`", 0, i) % 2 == 0
+                        ):
+                            idx = i
+                            break
+                if idx != -1:
                     line = line[:idx].rstrip() + "\n"
                     if not line.strip():
                         continue
@@ -106,7 +142,8 @@ def strip_comments(file_path):
                     and line.count("'", 0, start_idx) % 2 == 0
                     and line.count("`", 0, start_idx) % 2 == 0
                 ):
-                    line = line[:start_idx] + line[end_idx + 2:]
+                    remainder = line[end_idx + 2:].rstrip()
+                    line = line[:start_idx].rstrip() + ((" " + remainder) if remainder and line[:start_idx].strip() else remainder) + "\n"
                     if not line.strip():
                         continue
 
@@ -118,7 +155,7 @@ def strip_comments(file_path):
                     and line.count("`", 0, start_idx) % 2 == 0
                 ):
                     in_block_comment = True
-                    line = line[:start_idx]
+                    line = line[:start_idx].rstrip() + "\n"
                     if not line.strip():
                         continue
 
@@ -135,19 +172,26 @@ def strip_comments(file_path):
                     if not line.strip():
                         continue
 
-        new_lines.append(line)
+        new_lines.append(line.rstrip() + "\n" if line.strip() else "\n")
 
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.writelines(new_lines)
+    if new_lines != lines:
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
 
 
 if __name__ == "__main__":
     for arg in sys.argv[1:]:
         if os.path.isdir(arg):
-            for root, _, files in os.walk(arg):
+            for root, dirs, files in os.walk(arg):
+                dirs[:] = [
+                    d
+                    for d in dirs
+                    if not d.startswith(".")
+                    and d not in ("node_modules", "target", "build", "dist")
+                ]
                 for file in files:
                     ext = os.path.splitext(file)[1]
-                    if ext in [".ts", ".tsx", ".vue", ".js", ".jsx", ".css", ".py", ".sh", ".yaml", ".yml", ".nix", ".rs", ".kt"]:
+                    if ext in SUPPORTED_EXTENSIONS:
                         strip_comments(os.path.join(root, file))
         else:
             strip_comments(arg)

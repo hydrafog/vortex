@@ -1,9 +1,3 @@
-//! Secret Service-backed identity store per spec §3.2.
-//!
-//! Persists the entire 90-byte Identity Record as a single Secret Service
-//! item. The schema name is `com.vortex.identity.v1`. The item is stored in
-//! the user's default collection.
-
 use std::collections::HashMap;
 
 use secret_service::{EncryptionType, SecretService};
@@ -16,14 +10,9 @@ const SCHEMA: &str = "com.vortex.identity.v1";
 const LABEL: &str = "Vortex V1 identity";
 const CONTENT_TYPE: &str = "application/x-vortex-identity-v1";
 
-/// Runs all Secret Service work on the dedicated storage runtime via
-/// [`super::secret_block_on`] — never on the ambient runtime, whose
-/// workers a call-time burst can fully park (see `SECRET_RT` docs).
 pub struct SecretServiceIdentityStore;
 
 impl SecretServiceIdentityStore {
-    /// Probe Secret Service availability. Fails closed if unreachable
-    /// (per spec §3.2 — V1 requires platform secure storage).
     pub fn new() -> StorageResult<Self> {
         Self::block_on(async {
             let service = SecretService::connect(EncryptionType::Dh)
@@ -99,7 +88,7 @@ impl IdentityStore for SecretServiceIdentityStore {
                 .map_err(|e| StorageError::Backend(format!("connect: {e}")))?;
             let collection = unlocked_default_collection(&service).await?;
             collection
-                .create_item(LABEL, attrs(), &payload, true /* replace */, CONTENT_TYPE)
+                .create_item(LABEL, attrs(), &payload, true, CONTENT_TYPE)
                 .await
                 .map_err(|e| StorageError::Backend(format!("create_item: {e}")))?;
             Ok(())
@@ -120,11 +109,8 @@ impl IdentityStore for SecretServiceIdentityStore {
                 Some(i) => i,
                 None => return Err(StorageError::NotFound),
             };
-            // Unlock if needed.
             if item.is_locked().await.unwrap_or(false) {
-                item.unlock()
-                    .await
-                    .map_err(|e| StorageError::Backend(format!("unlock: {e}")))?;
+                item.unlock().await.map_err(|e| StorageError::Backend(format!("unlock: {e}")))?;
             }
             let secret = item
                 .get_secret()
@@ -144,9 +130,7 @@ impl IdentityStore for SecretServiceIdentityStore {
                 .await
                 .map_err(|e| StorageError::Backend(format!("search: {e}")))?;
             for item in search.unlocked.iter().chain(search.locked.iter()) {
-                item.delete()
-                    .await
-                    .map_err(|e| StorageError::Backend(format!("delete: {e}")))?;
+                item.delete().await.map_err(|e| StorageError::Backend(format!("delete: {e}")))?;
             }
             Ok(())
         })

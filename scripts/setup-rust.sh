@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-# 🦀 Vortex-Lab Rust environment setup helper
 # NOTE: This script performs guided setup and may invoke apt or rustup.
 
 set -u
@@ -61,7 +60,6 @@ install_rustup() {
 
 load_cargo_env() {
   if [ -f "$HOME/.cargo/env" ]; then
-    # shellcheck disable=SC1090
     . "$HOME/.cargo/env"
   fi
 }

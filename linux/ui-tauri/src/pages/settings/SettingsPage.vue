@@ -49,9 +49,6 @@ onMounted(() => {
   void invoke<string>("uc_get_placement")
     .then((v) => (ucPlacement.value = v))
     .catch(() => {});
-  // Universal Control can only fail once it is already running — the desktop
-  // withholding input capture, the phone dropping off adb — so the switch has to
-  // hear about it after the fact, or it sits on over something that stopped.
   void listen<string>("vortex:uc-stopped", (e) => {
     ucEnabled.value = false;
     ucError.value = e.payload;
@@ -61,17 +58,9 @@ onMounted(() => {
 let unlistenUc: UnlistenFn | undefined;
 onUnmounted(() => unlistenUc?.());
 
-// Universal Control: the laptop cursor + keyboard cross the screen edge onto
-// the phone (drives its native cursor). Toggling on arms the edge barrier;
-// `ucPlacement` is which screen edge the phone sits past.
 const ucEnabled = ref(false);
 const ucPlacement = ref("right");
-/// Why it stopped, when it stopped by itself. Empty while all is well.
 const ucError = ref("");
-// The backend reports failures as `<code>` or `<code>|<detail>` rather than an
-// English sentence, so the reason can be said in the user's own language (see
-// universal_control.rs). Anything whose code has no translation — the errors from
-// further down, libei and zbus — is shown exactly as it arrived.
 const ucErrorText = computed(() => {
   if (!ucError.value) return "";
   const cut = ucError.value.indexOf("|");
@@ -87,10 +76,6 @@ const UC_EDGES = computed(() =>
     label: t(`settings.uc_edge_${code}`),
   })),
 );
-// The placement is "<edge>" or "<edge>-<end>". Arming only one end leaves the
-// rest of that edge to whatever else lives there — an auto-hiding dock loses it
-// completely otherwise, because the compositor stops moving the pointer the
-// moment our barrier catches it.
 const ucEdge = computed(() => ucPlacement.value.split("-")[0] || "right");
 const ucEnd = computed(() => ucPlacement.value.split("-")[1] ?? "");
 const UC_ENDS = computed(() => {
@@ -115,27 +100,16 @@ function pickUcPlacement(code: string) {
   ucPlacement.value = code;
   void invoke("uc_set_placement", { edge: code }).catch(() => {});
 }
-// Picking an edge drops any end with it — "bottom-right" means nothing once the
-// edge is vertical — so the edge buttons set the bare edge and the end is chosen
-// again after.
 function pickUcEnd(code: string) {
   pickUcPlacement(code ? `${ucEdge.value}-${code}` : ucEdge.value);
 }
 
-// Phone↔laptop clipboard sync (P2). Default on. Text copied on either side
-// mirrors to the other (laptop→phone auto; phone→laptop via the phone's
-// Quick Settings tile, an Android background-read limitation).
 const clipboardSync = ref(true);
 function setClipboardSync(v: boolean) {
   clipboardSync.value = v;
   void invoke("set_clipboard_sync", { enabled: v }).catch(() => {});
 }
 
-// Files shared FROM the phone normally raise an Accept / Decline banner. With
-// this on they are saved straight away. Off by default (it drops a consent
-// gate) and persisted on the Rust side, so the choice survives a restart.
-// Revert the switch if the write fails — it must never show "on" over a
-// setting that didn't stick.
 const fileAutoAccept = ref(false);
 function setFileAutoAccept(v: boolean) {
   const prev = fileAutoAccept.value;
@@ -146,15 +120,12 @@ function setFileAutoAccept(v: boolean) {
 }
 
 function pickLocale(code: LocaleCode) {
-  // Local-only: laptop's language is independent of the phone's.
   setLocale(code);
 }
 function pickTheme(mode: "light" | "dark") {
   theme.value = mode;
 }
 
-// A segmented pill (language / theme): green & lifted when active, a soft
-// outlined chip otherwise.
 const pill = (active: boolean) =>
   cn(
     "flex-1 flex items-center justify-center gap-2 py-[11px] rounded-xl text-[13.5px] font-semibold cursor-pointer transition-all",

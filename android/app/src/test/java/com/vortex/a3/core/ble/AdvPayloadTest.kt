@@ -52,14 +52,14 @@ class AdvPayloadTest {
     @Test
     fun `rejects reserved bits set`() {
         val bytes = AdvPayload.pairable(ByteArray(8)).encode()
-        bytes[1] = 0x05 // bit0 + bit2 (reserved)
+        bytes[1] = 0x05
         assertTrue(AdvPayload.decode(bytes).isFailure)
     }
 
     @Test
     fun `rejects both modes set`() {
         val bytes = AdvPayload.pairable(ByteArray(8)).encode()
-        bytes[1] = 0x03 // bit0 + bit1 — mutually exclusive
+        bytes[1] = 0x03
         assertTrue(AdvPayload.decode(bytes).isFailure)
     }
 
@@ -70,15 +70,10 @@ class AdvPayloadTest {
         assertTrue(AdvPayload.decode(bytes).isFailure)
     }
 
-    /**
-     * Cross-platform parity: bytes encoded by Kotlin AdvPayload MUST equal
-     * the layout that the Rust l3 codec produces and accepts.
-     */
     @Test
     fun `parity with l3 wire layout`() {
         val id = byteArrayOf(0x01, 0x23, 0x45, 0x67, 0x89.toByte(), 0xab.toByte(), 0xcd.toByte(), 0xef.toByte())
         val encoded = AdvPayload.pairable(id).encode()
-        // Expected exact bytes (cf. l3 ble::AdvPayload::pairable round-trip test).
         val expected = byteArrayOf(
             0x01, 0x01,
             0x01, 0x23, 0x45, 0x67, 0x89.toByte(), 0xab.toByte(), 0xcd.toByte(), 0xef.toByte(),

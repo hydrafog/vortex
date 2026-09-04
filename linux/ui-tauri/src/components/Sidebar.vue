@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// Left sidebar — the single place to switch sections. A wider, labelled rail
-// (collapsible to an icon strip) with a sliding active highlight, translated
-// from the Vortex design system. Glass surface + emerald accent; the page
-// content lives beside it in AppShell.
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -22,11 +18,8 @@ const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
 
-// Default to the slim icon rail — it expands on the collapse toggle.
 const collapsed = ref(true);
 
-// One flat list so the highlight can slide across every entry (Settings
-// included). `to: "/"` is the device dashboard; the rest start-match.
 const items = computed(() => [
   { key: "home", icon: MonitorSmartphone, to: "/", label: t("nav.home") },
   { key: "contacts", icon: Users, to: "/contacts", label: t("nav.contacts") },
@@ -39,11 +32,9 @@ const items = computed(() => [
 const isActive = (to: string) =>
   to === "/" ? route.path === "/" : route.path.startsWith(to);
 
-// Index of the active item drives the sliding highlight's offset. -1 (no
-// match, e.g. /clipboard) hides it by parking it off-list.
 const activeIndex = computed(() => items.value.findIndex((it) => isActive(it.to)));
 
-const ITEM_STRIDE = 46; // 42px row + 4px gap
+const ITEM_STRIDE = 46;
 
 function go(to: string) {
   if (route.path !== to) router.push(to);

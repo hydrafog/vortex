@@ -15,15 +15,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-/**
- * Instant-share receive consent: when the laptop offers a file batch
- * (FILE_PUSH_OFFER), pop a notification with Accept / Decline and BLOCK the
- * LAN handler thread until the user chooses (or a timeout → decline). The
- * laptop only streams the bytes after an accept.
- *
- * [FileAutoAcceptSetting] short-circuits the whole prompt when the user has
- * opted in — see [request].
- */
 object FileConsent {
     private const val TAG = "VortexFileConsent"
     private const val CHANNEL = "vortex_files"
@@ -34,10 +25,6 @@ object FileConsent {
 
     @Volatile private var registered = false
 
-    /**
-     * Show the prompt and wait for the user's decision. Returns true = accept,
-     * false = decline/timeout. Blocks the calling thread up to [timeoutMs].
-     */
     fun request(
         ctx: Context,
         label: String,
@@ -46,10 +33,6 @@ object FileConsent {
         timeoutMs: Long = 45_000,
     ): Boolean {
         val app = ctx.applicationContext
-        // Auto-accept: skip the prompt entirely and answer immediately, so the
-        // laptop starts streaming without the 45 s wait. `init` is idempotent —
-        // this call also covers the case where the LAN handler races ahead of
-        // the UI/service having loaded the setting.
         FileAutoAcceptSetting.init(app)
         if (FileAutoAcceptSetting.isEnabled()) {
             Log.i(TAG, "auto-accept on → '$label' accepted without asking")
@@ -124,7 +107,6 @@ object FileConsent {
             nm.notify(id, n)
         } catch (e: Exception) {
             Log.w(TAG, "showPrompt failed: ${e.message}")
-            // No UI → fail safe: auto-decline by signalling the waiter.
             pending[id]?.offer(false)
         }
     }

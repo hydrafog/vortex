@@ -1,8 +1,6 @@
 package com.vortex.a3.core.ble
 
-/** V1 BLE advertisement payload codec per spec §5.1.3 and §5.2. */
 
-/** Flag bits in the 10-byte service-data payload (§5.1.5). */
 @JvmInline
 value class AdvFlags(val raw: Byte) {
     companion object {
@@ -17,11 +15,6 @@ value class AdvFlags(val raw: Byte) {
     val isPairable: Boolean get() = (raw.toInt() and PAIRABLE.toInt()) != 0
     val isTrustedPresence: Boolean get() = (raw.toInt() and TRUSTED_PRESENCE.toInt()) != 0
 
-    /**
-     * Well-formed iff:
-     * - all reserved bits are zero,
-     * - exactly one of bit0 / bit1 is set.
-     */
     val isWellFormed: Boolean
         get() {
             if ((raw.toInt() and RESERVED_MASK.toInt()) != 0) return false
@@ -30,18 +23,15 @@ value class AdvFlags(val raw: Byte) {
         }
 }
 
-/** Decoded V1 service-data payload (§5.1.3). */
 data class AdvPayload(
     val version: Byte,
     val flags: AdvFlags,
-    /** 8-byte payload: pairing-window instance ID OR truncated presence token. */
     val payload8: ByteArray,
 ) {
     init {
         require(payload8.size == 8) { "payload_8 must be 8 bytes" }
     }
 
-    /** Encode into 10 bytes for the BLE service-data field. */
     fun encode(): ByteArray {
         val out = ByteArray(Ble.ADV_PAYLOAD_LEN)
         out[0] = version
@@ -66,19 +56,16 @@ data class AdvPayload(
     }
 
     companion object {
-        /** Build a pairable advert payload for a fresh pairing window. */
         fun pairable(instanceId: ByteArray): AdvPayload {
             require(instanceId.size == 8) { "instance ID must be 8 bytes" }
             return AdvPayload(Ble.V1_VERSION, AdvFlags.pairable(), instanceId.copyOf())
         }
 
-        /** Build a trusted-presence advert payload from a presence token. */
         fun trustedPresence(token: ByteArray): AdvPayload {
             require(token.size == 8) { "token must be 8 bytes" }
             return AdvPayload(Ble.V1_VERSION, AdvFlags.trustedPresence(), token.copyOf())
         }
 
-        /** Decode + validate per §5.2 filter pipeline. */
         fun decode(bytes: ByteArray): Result<AdvPayload> {
             if (bytes.size != Ble.ADV_PAYLOAD_LEN) {
                 return Result.failure(AdvDecodeException("wrong length: ${bytes.size}"))

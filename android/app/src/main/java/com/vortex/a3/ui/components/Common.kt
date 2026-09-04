@@ -47,22 +47,12 @@ import androidx.compose.ui.unit.dp
 import com.vortex.a3.ui.AdvertiseState
 import com.vortex.a3.ui.str
 
-/**
- * Visual constants shared between the home cards. Kept here so the
- * peer and earbuds cards line up at the same height regardless of
- * which one renders battery / a placeholder.
- */
 val CardCorner = RoundedCornerShape(16.dp)
 
-/** Fixed card height so the peer + earbuds cards always line up. */
 val CardHeight = 180.dp
 
-/** Hex-encode the first few bytes of a peer-pub-style buffer for logs
- *  / debug overlays. Lower-case, no separator. */
 fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
-/** Two-slot header used by both PeerDeviceCard and EarbudsCard: a
- *  rounded icon tile on the left and a status dot on the right. */
 @Composable
 fun CardHeader(
     icon: ImageVector,
@@ -88,11 +78,6 @@ fun CardHeader(
     }
 }
 
-/**
- * Online indicator with a soft 1.8-second heartbeat halo when the dot
- * is the "online" green. The animation runs infinitely; the muted-grey
- * variant just draws the dot without the ring.
- */
 @Composable
 fun StatusDot(color: Color) {
     val isOnline = color == MaterialTheme.colorScheme.primary
@@ -136,7 +121,6 @@ fun BatteryRow(pct: Int?, charging: Boolean = false) {
         else -> Icons.Outlined.BatteryAlert
     }
     val tint = when {
-        // Charging wins over the low-battery red — plugged in is fine.
         charging -> Color(0xFF69B7FF)
         pct == null -> MaterialTheme.colorScheme.onSurfaceVariant
         pct <= 15 -> MaterialTheme.colorScheme.error
@@ -206,12 +190,6 @@ fun PairedRow(label: String, short: String) {
     }
 }
 
-/**
- * Passive "waiting for Linux" status shown in the no-trust state.
- * No Start/Stop buttons — adv is on as long as the Activity is
- * resumed (managed in onResume / onPause). Just a pulsing dot and
- * a friendly caption.
- */
 @Composable
 fun WaitingForLinuxRow(state: AdvertiseState) {
     val caption = when (state) {
@@ -275,9 +253,6 @@ fun HintCard(
                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
                 modifier = Modifier.wrapContentSize(),
             ) { Text(actionLabel, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
-            // Optional "I've done this / hide" affordance. Needed for hints
-            // we can't verify programmatically (e.g. MIUI Autostart), where
-            // the card can't auto-clear — the user dismisses it manually.
             if (onDismiss != null && dismissLabel != null) {
                 TextButton(
                     onClick = onDismiss,

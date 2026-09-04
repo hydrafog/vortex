@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// Shared contact avatar — a soft tinted circle with up to two initials.
-// The hue is derived deterministically from the name, so each person keeps
-// the same colour across Contacts, Calls and Messages. Palette is the Vortex
-// design-system set.
 import { computed } from "vue";
 
 const props = withDefaults(defineProps<{ name: string; size?: number }>(), {
@@ -40,7 +36,7 @@ const color = computed(() => {
 const style = computed(() => ({
   width: `${props.size}px`,
   height: `${props.size}px`,
-  background: `${color.value}26`, // ~15% tint
+  background: `${color.value}26`,
   color: color.value,
   fontSize: `${Math.round(props.size * 0.34)}px`,
 }));

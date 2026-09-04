@@ -4,15 +4,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
-// ---- Vortex design tokens (mirrors the Tauri/Vue side: emerald primary,
-//      light + dark palettes via Material 3 colorScheme) ----
-//
-// Single source of truth: pass either [VortexDarkColors] or
-// [VortexLightColors] into MaterialTheme (see VortexRoot). Every composable
-// reads colors through `MaterialTheme.colorScheme.X`, so flipping the scheme
-// rerenders the whole tree automatically — no custom CompositionLocal needed.
 
-// Brand colors — identical in both themes (same as Tauri `--primary`).
 private val BrandEmerald = Color(0xFF22C55E)
 private val BrandOnEmerald = Color(0xFFFFFFFF)
 private val BrandRed = Color(0xFFEF4444)

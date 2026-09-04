@@ -20,18 +20,12 @@ import { cn } from "@/lib/utils";
 
 const { t } = useI18n();
 
-// Two segments — Notes | To-dos — drive the shared kind filter. The Notes
-// segment shows a list + editor; the To-dos segment shows a checklist + a
-// live progress ring (checklist progress-ring style).
 const mode = ref<"notes" | "todos">("notes");
 function setMode(m: "notes" | "todos") {
   mode.value = m;
   filter.value = m === "notes" ? "note" : "todo";
 }
 
-// A LOCAL editing copy so the textarea keeps focus + content while backend
-// pushes (a save echo, or a remote sync) replace the list. Re-seeded only when
-// the SELECTED item changes id (incl. when a freshly-created item arrives async).
 const editing = ref<Note | null>(null);
 watch(
   selected,
@@ -42,7 +36,6 @@ watch(
   { immediate: true },
 );
 
-// Debounced auto-save: type freely, persist ~400ms after the last keystroke.
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 function scheduleSave() {
   if (!editing.value) return;
@@ -51,13 +44,11 @@ function scheduleSave() {
   saveTimer = setTimeout(() => saveNote(snapshot), 400);
 }
 
-// Editor reminder (note pane) — DateTimePicker emits epoch-ms (0 = cleared).
 function onDuePicked(ms: number) {
   if (!editing.value) return;
   editing.value.due_at = ms;
   scheduleSave();
 }
-// Per-row reminder on a to-do (no editor pane in to-do mode) — persist directly.
 function setTodoDue(n: Note, ms: number) {
   void saveNote({ ...n, due_at: ms });
 }
@@ -89,8 +80,6 @@ async function remove(id: string) {
   await deleteNote(id);
 }
 
-// To-do progress ring (checklist style). In to-do mode `visibleNotes` IS
-// the todo list (filter === "todo"), so the counts read straight off it.
 const doneCount = computed(() => visibleNotes.value.filter((n) => n.done).length);
 const totalTodos = computed(() => visibleNotes.value.length);
 const pct = computed(() => (totalTodos.value ? doneCount.value / totalTodos.value : 0));

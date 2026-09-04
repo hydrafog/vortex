@@ -1,7 +1,4 @@
 <script setup lang="ts">
-// The Vortex app logo (the real shipped icon — same asset as the sidebar),
-// shown on the onboarding welcome screen and top bar. `pulse` adds the soft
-// green glow loop used on the welcome screen.
 import logo from "@/assets/vortex_logo.png";
 
 const props = withDefaults(defineProps<{ size?: number; pulse?: boolean }>(), {

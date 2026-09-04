@@ -1,9 +1,4 @@
 <script setup lang="ts">
-// The "+ Add earbuds" experience: a magical Bluetooth-scan sheet that
-// matches the app's continuity-style pairing flow. A pulsing scanner orb,
-// live device rows with signal bars + a connected badge, and a one-tap
-// pick. Theme-aware via the app's CSS tokens. Mirrors PairingOverlay's
-// visual language so the whole app feels of a piece.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { Headphones, Bluetooth, X, Loader2, RefreshCw, Check } from "lucide-vue-next";
@@ -18,15 +13,12 @@ import type { BluetoothDeviceRow } from "@/lib/bridge";
 
 const { t } = useI18n();
 
-// RSSI → 0..4 signal bars. Same qualitative buckets as the pairing radar.
 function barsFor(rssi: number | null): number {
   const r = rssi ?? -100;
   return r > -55 ? 4 : r > -68 ? 3 : r > -80 ? 2 : 1;
 }
 
 type Row = BluetoothDeviceRow & { bars: number };
-// Audio-class devices float to the top (the backend already sorts that
-// way); we split so we can give the non-audio tail a quieter treatment.
 const audioRows = computed<Row[]>(() =>
   earbudsScanResults.value
     .filter((d) => d.is_audio)
@@ -150,7 +142,6 @@ function close() {
 }
 .eb-x:hover { color: hsl(var(--foreground)); background: hsl(var(--foreground) / 0.09); }
 
-/* scanner orb */
 .eb-orb { position: relative; width: 132px; height: 132px; margin: 6px auto 0; }
 .eb-orb-glow {
   position: absolute; left: 50%; top: 50%; width: 124px; height: 124px; border-radius: 999px;
@@ -175,7 +166,6 @@ function close() {
 .eb-title { font-size: 21px; font-weight: 700; letter-spacing: -0.4px; color: hsl(var(--foreground)); margin-top: 14px; }
 .eb-sub { font-size: 13px; color: hsl(var(--muted-foreground)); margin: 7px auto 0; max-width: 320px; line-height: 1.5; }
 
-/* status row */
 .eb-status {
   display: flex; align-items: center; gap: 8px; margin-top: 20px; padding: 0 2px;
   font-size: 12.5px; color: hsl(var(--muted-foreground));
@@ -192,7 +182,6 @@ function close() {
 .eb-spin { animation: eb-rot 0.9s linear infinite; }
 @keyframes eb-rot { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
 
-/* device list */
 .eb-list { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
 .eb-row {
   display: flex; align-items: center; gap: 12px; padding: 11px 13px; border-radius: 15px;

@@ -1,5 +1,3 @@
-//! vortex-l3d — Linux daemon CLI.
-
 use std::env;
 use std::time::Duration;
 
@@ -17,10 +15,10 @@ use vortex_l3_daemon::core::ble::{
 use vortex_l3_daemon::core::identity::{IdentityPublicView, Platform};
 use vortex_l3_daemon::core::lan::discovery::discover_first;
 use vortex_l3_daemon::core::lan::tcp_client::run_lan_reconnect;
+use vortex_l3_daemon::core::pairing::backoff::{BackoffState, NextAction};
 use vortex_l3_daemon::core::pairing::handshake::{
     run_pairing_initiator, run_xx_initiator, LocalDecision,
 };
-use vortex_l3_daemon::core::pairing::backoff::{BackoffState, NextAction};
 use vortex_l3_daemon::core::pairing::reconnect::run_ik_initiator;
 use vortex_l3_daemon::core::storage::{
     load_or_generate,
@@ -190,9 +188,8 @@ async fn cmd_echo(
     let client = VortexClient::connect(&adapter, addr).await?;
     let pretty_in = hex::encode(&payload);
 
-    let response: Frame = client
-        .echo_round_trip(payload, std::time::Duration::from_secs(5))
-        .await?;
+    let response: Frame =
+        client.echo_round_trip(payload, std::time::Duration::from_secs(5)).await?;
     let pretty_out = hex::encode(&response.payload);
 
     println!("echo request   : type=0x30 sub=0x01 payload={pretty_in}");
@@ -208,11 +205,6 @@ async fn cmd_echo(
     }
 }
 
-/// Open the identity store: Secret Service in production, and — only when
-/// `VORTEX_INSECURE=1` is set explicitly — a dev-only in-memory fallback
-/// (per spec §3.2; the identity then dies with the process, so trusted
-/// reconnects will fail after a restart). Returns the store plus a label
-/// for display.
 fn open_identity_store(
 ) -> Result<(Box<dyn IdentityStore>, &'static str), Box<dyn std::error::Error>> {
     match SecretServiceIdentityStore::new() {
@@ -253,10 +245,6 @@ async fn cmd_pair(
         &identity.static_priv.0,
         std::time::Duration::from_secs(60),
         |sas: &str| {
-            // The decide callback is async to support UI-driven approval
-            // flows, but the CLI prompt is blocking stdin — wrap it in
-            // an immediate Future. We move the SAS in by value since the
-            // closure's &str borrow doesn't outlive the Future.
             let sas_owned = sas.to_string();
             async move {
                 println!();
@@ -272,7 +260,11 @@ async fn cmd_pair(
                 print!("  Press Enter to approve, or type 'reject' + Enter: ");
                 std::io::Write::flush(&mut std::io::stdout()).ok();
                 let mut line = String::new();
-                std::io::BufRead::read_line(&mut std::io::BufReader::new(std::io::stdin()), &mut line).ok();
+                std::io::BufRead::read_line(
+                    &mut std::io::BufReader::new(std::io::stdin()),
+                    &mut line,
+                )
+                .ok();
                 if line.trim().eq_ignore_ascii_case("reject") {
                     LocalDecision::Reject
                 } else {
@@ -302,11 +294,7 @@ async fn cmd_pair(
     println!("✅ Paired");
     println!("  peer_static_pub : {}", hex::encode(&outcome.xx.peer_static_pub));
     println!("  transcript_hash : {}", hex::encode(&outcome.xx.transcript_hash));
-    // PRS MUST NOT appear in production output (spec §3.5 T-LOC-3). Only
-    // print it when an explicit insecure-debug flag is set; the default
-    // path leaves the secret in the trust store and never on stdout.
     if std::env::var("VORTEX_INSECURE_DEBUG").as_deref() == Ok("1") {
-        // LOG_REDACTION_ALLOW: gated behind VORTEX_INSECURE_DEBUG=1 (dev only)
         eprintln!("  prs             : {} [insecure debug]", hex::encode(&outcome.prs));
     } else {
         println!("  prs             : [redacted; set VORTEX_INSECURE_DEBUG=1 to reveal]");
@@ -319,11 +307,9 @@ async fn cmd_reconnect(
     addr: bluer::Address,
     peer_pub_hex: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Load identity.
     let (id_store, _) = open_identity_store()?;
     let identity = load_or_generate(&*id_store, Platform::Linux)?;
 
-    // Resolve trusted peer.
     let peer_store = SecretServicePeerStore::new()?;
     let peer = match peer_pub_hex {
         Some(hex_str) => {
@@ -348,15 +334,10 @@ async fn cmd_reconnect(
         "using trusted peer for reconnect"
     );
 
-    // Connect.
     let session = bluer::Session::new().await?;
     let adapter = session.default_adapter().await?;
     adapter.set_powered(true).await?;
 
-    // BlueZ hygiene: if a previous session left the device "connected"
-    // from BlueZ's perspective, disconnect first so connect() doesn't
-    // return InProgress. Do NOT remove_device pre-connect — that purges
-    // the address from cache and connect() then fails with NotFound.
     if let Ok(device) = adapter.device(addr) {
         if device.is_connected().await.unwrap_or(false) {
             let _ = device.disconnect().await;
@@ -365,9 +346,7 @@ async fn cmd_reconnect(
 
     let client = VortexClient::connect(&adapter, addr).await?;
 
-    let local_counter = peer_store
-        .load_counter(&peer.peer_static_pub)
-        .unwrap_or(0);
+    let local_counter = peer_store.load_counter(&peer.peer_static_pub).unwrap_or(0);
     let outcome = run_ik_initiator(
         &client,
         &identity.static_priv.0,
@@ -398,11 +377,7 @@ async fn cmd_lan_reconnect() -> Result<(), Box<dyn std::error::Error>> {
     let (id_store, _) = open_identity_store()?;
     let identity = load_or_generate(&*id_store, Platform::Linux)?;
     let peer_store = SecretServicePeerStore::new()?;
-    let peer = peer_store
-        .list()?
-        .into_iter()
-        .next()
-        .ok_or("no trusted peers — pair first")?;
+    let peer = peer_store.list()?.into_iter().next().ok_or("no trusted peers — pair first")?;
 
     info!("browsing _vortex._tcp.local. for up to 8s");
     let candidate = discover_first(std::time::Duration::from_secs(8))
@@ -425,22 +400,13 @@ async fn cmd_lan_reconnect() -> Result<(), Box<dyn std::error::Error>> {
         .ok_or("no usable IP address")?;
     let socket_addr = std::net::SocketAddr::new(ip, candidate.port);
 
-    let local_counter = peer_store
-        .load_counter(&peer.peer_static_pub)
-        .unwrap_or(0);
-    // CLI override hooks for cross-device locale-sync testing:
-    //   VORTEX_LOCALE=uz VORTEX_LOCALE_TS=1700000000 vortex-l3d lan-reconnect
-    // Lets you simulate "user picked uz on the laptop just now" without
-    // running the Tauri UI.
+    let local_counter = peer_store.load_counter(&peer.peer_static_pub).unwrap_or(0);
     let mut local_state = vortex_l3_daemon::core::appstate::AppState::now_laptop();
     if let Ok(loc) = std::env::var("VORTEX_LOCALE") {
         local_state.locale = Some(loc);
-        local_state.locale_changed_at = std::env::var("VORTEX_LOCALE_TS")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0);
+        local_state.locale_changed_at =
+            std::env::var("VORTEX_LOCALE_TS").ok().and_then(|s| s.parse().ok()).unwrap_or(0);
     }
-    // Earbuds passthrough — same logic as the Tauri worker.
     if let Ok(session) = bluer::Session::new().await {
         if let Ok(adapter) = session.default_adapter().await {
             local_state.earbuds =
@@ -455,7 +421,7 @@ async fn cmd_lan_reconnect() -> Result<(), Box<dyn std::error::Error>> {
         local_counter,
         local_state,
         std::time::Duration::from_secs(15),
-        None, // CLI: no mirror caches to bulk-sync
+        None,
     )
     .await?;
     if outcome.peer_counter < local_counter {
@@ -468,7 +434,11 @@ async fn cmd_lan_reconnect() -> Result<(), Box<dyn std::error::Error>> {
     let _ = peer_store.bump_counter(&peer.peer_static_pub, outcome.peer_counter);
 
     println!();
-    println!("✅ LAN reconnect ok — peer {} via {}", hex::encode(&outcome.peer_static_pub[..8]), outcome.remote);
+    println!(
+        "✅ LAN reconnect ok — peer {} via {}",
+        hex::encode(&outcome.peer_static_pub[..8]),
+        outcome.remote
+    );
     println!("  peer_static_pub : {}", hex::encode(&outcome.peer_static_pub));
     println!("  transcript_hash : {}", hex::encode(&outcome.transcript_hash));
     println!("  liveness        : {}", if outcome.liveness_ok { "ping/pong ok" } else { "FAIL" });
@@ -486,7 +456,6 @@ async fn cmd_auto_reconnect(
     fast: bool,
     max_attempts: Option<usize>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Resolve identity + first trusted peer once.
     let (id_store, _) = open_identity_store()?;
     let identity = load_or_generate(&*id_store, Platform::Linux)?;
     let peer_store = SecretServicePeerStore::new()?;
@@ -534,9 +503,7 @@ async fn cmd_auto_reconnect(
                     }
                 };
 
-                let local_counter = peer_store
-                    .load_counter(&peer.peer_static_pub)
-                    .unwrap_or(0);
+                let local_counter = peer_store.load_counter(&peer.peer_static_pub).unwrap_or(0);
                 match run_ik_initiator(
                     &client,
                     &identity.static_priv.0,
@@ -555,22 +522,18 @@ async fn cmd_auto_reconnect(
                                 local_counter
                             );
                         }
-                        let _ = peer_store
-                            .bump_counter(&peer.peer_static_pub, outcome.peer_counter);
+                        let _ =
+                            peer_store.bump_counter(&peer.peer_static_pub, outcome.peer_counter);
                         println!(
                             "✅ attempt {} succeeded — transcript_hash={}",
                             backoff.attempt_number(),
                             hex::encode(&outcome.transcript_hash),
                         );
                         backoff.reset();
-                        // For Phase 7 demonstration we exit on first success.
                         return Ok(());
                     }
                     Err(err) => {
-                        eprintln!(
-                            "attempt {} reconnect failed: {err}",
-                            backoff.attempt_number()
-                        );
+                        eprintln!("attempt {} reconnect failed: {err}", backoff.attempt_number());
                         backoff.record_failure();
                     }
                 }
@@ -612,7 +575,6 @@ async fn cmd_forget(peer_static_pub: [u8; 32]) -> Result<(), Box<dyn std::error:
 }
 
 async fn cmd_handshake(addr: bluer::Address) -> Result<(), Box<dyn std::error::Error>> {
-    // Load (or generate) our persistent V1 identity.
     let (store, _) = open_identity_store()?;
     let identity = load_or_generate(&*store, Platform::Linux)?;
     info!(
@@ -627,12 +589,9 @@ async fn cmd_handshake(addr: bluer::Address) -> Result<(), Box<dyn std::error::E
     info!(adapter = %adapter.name(), %addr, "connecting for XX handshake");
 
     let client = VortexClient::connect(&adapter, addr).await?;
-    let outcome = run_xx_initiator(
-        &client,
-        &identity.static_priv.0,
-        std::time::Duration::from_secs(15),
-    )
-    .await?;
+    let outcome =
+        run_xx_initiator(&client, &identity.static_priv.0, std::time::Duration::from_secs(15))
+            .await?;
 
     println!("✅ Noise XX completed");
     println!("  transcript_hash : {}", hex::encode(&outcome.transcript_hash));
@@ -641,8 +600,6 @@ async fn cmd_handshake(addr: bluer::Address) -> Result<(), Box<dyn std::error::E
 }
 
 async fn cmd_identity() -> Result<(), Box<dyn std::error::Error>> {
-    // Try Secret Service first (production path); fall back to in-memory only
-    // when explicitly running with VORTEX_INSECURE=1 (per spec §3.2).
     let (store, label) = match open_identity_store() {
         Ok(v) => v,
         Err(err) => {
@@ -677,7 +634,6 @@ async fn cmd_scan() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // Run until Ctrl+C or 5 minutes elapse — whichever comes first.
     tokio::select! {
         _ = signal::ctrl_c() => info!("ctrl+c received; stopping scan"),
         _ = tokio::time::sleep(Duration::from_secs(5 * 60)) => info!("scan window timeout reached"),
@@ -697,12 +653,7 @@ fn on_candidate(c: VortexCandidate) {
     } else {
         "unknown"
     };
-    let payload8_hex = c
-        .payload
-        .payload_8
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect::<String>();
+    let payload8_hex = c.payload.payload_8.iter().map(|b| format!("{b:02x}")).collect::<String>();
 
     println!(
         "[{ts}] vortex {addr}  rssi={rssi}  mode={mode:<16}  payload8={payload8}  name={name}",
@@ -712,11 +663,8 @@ fn on_candidate(c: VortexCandidate) {
     );
 }
 
-// Keep AdvFlags type available for any future scan filter logic in main.rs.
 const _: AdvFlags = AdvFlags(0);
 
-/// Read the local hostname from `/proc/sys/kernel/hostname` so we can
-/// expose a friendly device name during pairing instead of "Linux laptop".
 fn read_local_hostname() -> Option<String> {
     std::fs::read_to_string("/proc/sys/kernel/hostname")
         .ok()

@@ -9,9 +9,6 @@ import Avatar from "@/components/Avatar.vue";
 import ConversationRow from "./ConversationRow.vue";
 import { dial } from "@/lib/dial";
 import { invoke } from "@tauri-apps/api/core";
-// Emoji picker web component — registered as <emoji-picker> on import. The
-// emoji data ships as a LOCAL vite asset (the library's CDN default would be
-// blocked by the Tauri CSP).
 import "emoji-picker-element";
 import emojiDataUrl from "emoji-picker-element-data/en/emojibase/data.json?url";
 import { theme } from "@/lib/theme";
@@ -44,7 +41,6 @@ const router = useRouter();
 
 const digits = (s: string) => s.replace(/\D/g, "").slice(-9);
 
-// Resolve a number to a contact name via the synced contacts (suffix-match).
 const nameByDigits = computed(() => {
   const map = new Map<string, string>();
   for (const c of contacts.value) {
@@ -65,22 +61,13 @@ interface Conversation {
   last: SmsMessage;
   count: number;
   unread: boolean;
-  /** Unread received messages since the last READ one (TG-style badge). */
   unreadCount: number;
 }
 
-// All messages = synced + optimistic local sent.
-// Recent sync + LAN-synced full history + optimistic local sends. The
-// conversation grouping below dedups by id, so the overlap between recent
-// and history is harmless; history makes OLD threads appear in the list.
 const allMessages = computed(() => [...sms.value, ...history.value, ...localSent.value]);
 
-// Conversation list grouped by number (newest first).
 const conversations = computed<Conversation[]>(() => {
   const byNum = new Map<string, SmsMessage[]>();
-  // Dedup by id across the sources (recent + history overlap); first copy
-  // wins, and allMessages lists the recent sync first — its read-flags are
-  // fresher than the history store's sync-time snapshot.
   const seen = new Set<string>();
   for (const m of allMessages.value) {
     const id = m.id || `${m.date}-${m.body}`;
@@ -93,13 +80,8 @@ const conversations = computed<Conversation[]>(() => {
   for (const msgs of byNum.values()) {
     msgs.sort((a, b) => a.date - b.date);
     const last = msgs[msgs.length - 1];
-    // Unread = the newest *received* message hasn't been read (matches how a
-    // phone bolds a thread). Per-message read=0 alone is too noisy — old buried
-    // messages can stay read=0 — so we only look at the latest incoming one.
     const lastReceived = [...msgs].reverse().find((m) => m.type === 1);
     const unread = !!lastReceived && !isMessageRead(lastReceived);
-    // Badge count: received messages NEWER than the last read one. Bounding
-    // it that way keeps old buried read=0 rows (provider noise) out.
     let unreadCount = 0;
     if (unread) {
       const lastReadAt = [...msgs]
@@ -115,10 +97,6 @@ const conversations = computed<Conversation[]>(() => {
   return list;
 });
 
-// The open conversation, addressed by number (works for an existing thread or a
-// brand-new compose target passed from Contacts via ?to=).
-// The open thread is ROUTE state (/messages/:address), not local state —
-// history (and the mouse back button) then closes the chat naturally.
 const activeNumber = computed<string | null>(() => {
   const p = route.params.address;
   return typeof p === "string" && p ? decodeURIComponent(p) : null;
@@ -127,12 +105,6 @@ const draft = ref("");
 const threadEl = ref<HTMLElement | null>(null);
 const composerEl = ref<HTMLTextAreaElement | null>(null);
 
-// Emoji picker state. Emoji are plain Unicode so they ride SMS as-is —
-// the closest thing to "stickers" the SMS protocol allows.
-// Telegram-Desktop behaviour: hovering the smiley opens the panel, it stays
-// while the pointer is over the button OR the panel (a short grace bridges
-// the gap between them), and leaves close it. Click toggles too (touch),
-// and any click outside the zone closes it.
 const emojiOpen = ref(false);
 let emojiCloseTimer: number | null = null;
 function emojiEnter() {
@@ -156,11 +128,6 @@ function onDocClick(e: MouseEvent) {
 onMounted(() => document.addEventListener("click", onDocClick, true));
 onUnmounted(() => document.removeEventListener("click", onDocClick, true));
 
-// Telegram-style growing composer: the textarea stretches with the draft
-// up to its max height, then scrolls; clearing the draft shrinks it back.
-// scrollHeight excludes the border while style.height (border-box)
-// includes it — without adding the border back the first keystroke
-// visibly shrank the field by 2px.
 function autoGrow() {
   const el = composerEl.value;
   if (!el) return;
@@ -170,11 +137,6 @@ function autoGrow() {
 }
 watch(draft, () => void nextTick(autoGrow));
 
-// No-reply senders: an alphanumeric sender ID (banks, carriers, OTP
-// services — any letters in the address) cannot receive SMS per the GSM
-// spec, so the composer is replaced with a note. Numeric addresses
-// (including short codes) keep the composer — some short codes do accept
-// replies, and blocking them would be a guess.
 const canReply = computed(() => {
   const a = activeNumber.value ?? "";
   return !!a && !/[a-zA-Z]/.test(a);
@@ -200,10 +162,6 @@ const activeName = computed(() => (activeNumber.value ? displayName(activeNumber
 const activeMessages = computed(() => {
   if (!activeNumber.value) return [];
   const d = convKey(activeNumber.value);
-  // Merge the LAN-synced history, the recent-sync list, the on-demand BLE
-  // pages and optimistic local sends — deduped by id (later sources
-  // overwrite, so fresher read-flags from the recent sync win over the
-  // history store's sync-time snapshot).
   const byId = new Map<string, SmsMessage>();
   const pages = threadPages.value[d] ?? [];
   for (const m of [...history.value, ...sms.value, ...pages, ...localSent.value]) {
@@ -211,15 +169,11 @@ const activeMessages = computed(() => {
   }
   return [...byId.values()].sort((a, b) => a.date - b.date);
 });
-// Conversation search (same SearchInput as Contacts/Recents): matches the
-// display name, the number's digits, or — Telegram-style — any message
-// body in the conversation.
 const query = ref("");
 const filteredConversations = computed(() => {
   const q = query.value.trim().toLowerCase();
   if (!q) return conversations.value;
   const qDigits = q.replace(/\D/g, "");
-  // Conversations whose ANY message body matches.
   const bodyHits = new Set<string>();
   for (const m of allMessages.value) {
     if (m.body.toLowerCase().includes(q)) bodyHits.add(convKey(m.address));
@@ -232,9 +186,6 @@ const filteredConversations = computed(() => {
   );
 });
 
-// ---- Virtualised conversation list (same as Contacts/Recents) ----
-// Only the rows on screen are in the DOM, so thousands of conversations
-// scroll smoothly. Fixed row height (avatar + two lines).
 const CONV_ROW_H = 64;
 const {
   list: convList,
@@ -243,16 +194,11 @@ const {
   scrollTo: convScrollTo,
 } = useVirtualList(filteredConversations, { itemHeight: CONV_ROW_H, overscan: 6 });
 watch(query, () => convScrollTo(0));
-// Thread: bottom-anchored TAIL window — only the newest N bubbles hit the
-// DOM; scrolling up first reveals older messages from LOCAL data (instant),
-// and only when local is exhausted does the BLE page-fetch fallback fire.
 const TAIL_STEP = 60;
 const tailCount = ref(TAIL_STEP);
 const renderedMessages = computed(() => activeMessages.value.slice(-tailCount.value));
 const localHasMore = computed(() => activeMessages.value.length > tailCount.value);
 
-// Telegram-style day separators: a centered date chip wherever the calendar
-// day changes between consecutive rendered bubbles.
 type ThreadItem = { kind: "date"; key: string; label: string } | { kind: "msg"; m: SmsMessage };
 function dayLabel(ms: number): string {
   const d = new Date(ms);
@@ -279,8 +225,6 @@ const threadItems = computed<ThreadItem[]>(() => {
   return out;
 });
 
-// BLE pagination is pure overhead once the LAN history covers this thread —
-// every page would come back as already-known duplicates.
 const activeCovered = computed(() =>
   activeNumber.value ? threadCoveredByHistory(activeNumber.value) : false,
 );
@@ -295,20 +239,11 @@ function threadFor(address: string): number {
   return sms.value.find((m) => convKey(m.address) === d)?.thread ?? 0;
 }
 function open(address: string) {
-  // PUSH on purpose: the chat becomes a history entry, so back (header
-  // arrow or mouse button) closes it. The arrow below POPS that entry —
-  // pushing /messages here instead would build [list, A, list] and make
-  // repeated back presses ping-pong between the chat and the list.
   void router.push(`/messages/${encodeURIComponent(address)}`);
 }
 function back() {
   router.back();
 }
-// Per-thread setup runs off the ROUTE (covers open(), ?to= redirects, and
-// history navigation alike): reset the render window, restore the draft
-// (Telegram-style — leaving a chat keeps what you typed), mark read, and
-// fire the BLE page-0 fetch only when the LAN history doesn't already
-// cover the thread (LAN-less fallback).
 watch(
   activeNumber,
   (address) => {
@@ -322,12 +257,9 @@ watch(
   },
   { immediate: true },
 );
-// Persist the draft as it's typed (cleared on send).
 watch(draft, (text) => {
   if (activeNumber.value) setDraft(activeNumber.value, text);
 });
-// Tell the backend which chat is on screen so it can mute desktop popups
-// for this sender while we're already reading it (cleared on leave/unmount).
 watch(
   activeName,
   (name) => {
@@ -345,8 +277,6 @@ async function send() {
   threadEl.value?.scrollTo({ top: threadEl.value.scrollHeight });
 }
 
-// Open a conversation when navigated from Contacts (?to=number) — redirect
-// into the canonical thread route.
 watch(
   () => route.query.to,
   (to) => {
@@ -357,12 +287,7 @@ watch(
   { immediate: true },
 );
 
-// Infinite scroll up: reveal older LOCAL messages first (instant, just a
-// bigger render window), then fall back to BLE page-fetch when local data
-// is exhausted AND the LAN history doesn't cover the thread. Either way the
-// reading position is preserved when content is prepended.
 const prependFromHeight = ref<number | null>(null);
-// TG-style jump-to-bottom affordance: shown while the user is scrolled up.
 const atBottom = ref(true);
 function jumpToBottom() {
   const el = threadEl.value;
@@ -379,31 +304,18 @@ function onThreadScroll() {
     } else if (!activeCovered.value) {
       void loadMoreThread(activeNumber.value, threadFor(activeNumber.value));
     } else {
-      prependFromHeight.value = null; // nothing to load after all
+      prependFromHeight.value = null;
     }
   }
 }
-// Opening a chat always lands at the NEWEST message (Telegram-style),
-// instantly — including switching straight from another chat, where the
-// content-change watch below can't tell "new chat" from "same chat
-// updated" (prev isn't empty) and would otherwise leave the view at the top.
 watch(activeNumber, async (n) => {
   if (!n) return;
   await nextTick();
   const el = threadEl.value;
   if (el) el.scrollTop = el.scrollHeight;
-  // Telegram-style: the composer is ready to type the moment a chat
-  // opens — no click needed. (No-op for no-reply senders: the
-  // textarea isn't rendered there.)
   composerEl.value?.focus();
 }, { immediate: true });
 
-// Scroll management on content changes:
-//  - older messages prepended (local reveal or BLE page) → restore the
-//    reading position so the view doesn't jump;
-//  - otherwise snap to the newest message ONLY when the user is already at
-//    (or near) the bottom — a sync arriving while they read old messages
-//    must NOT yank them down (the "page pulls" bug).
 watch(renderedMessages, async (_now, prev) => {
   const el = threadEl.value;
   if (!el) return;
@@ -423,13 +335,7 @@ function clockTime(ms: number): string {
 }
 function bubbleClass(m: SmsMessage): string {
   if (m.status === "failed") return "bg-rose-500 text-white rounded-br-sm";
-  // Sent: bright emerald reads fine on the light theme but glares on the
-  // dark one — there it drops to a deep desaturated green (the WhatsApp-
-  // dark approach) that sits comfortably on the near-black canvas.
   if (m.type === 2) return "bg-emerald-500 text-white dark:bg-emerald-900 dark:text-emerald-50 rounded-br-sm";
-  // Received: --card sits only ~2% above the dark background — invisible.
-  // Lift it to the accent surface there (with a whisper of a border for
-  // shape); light theme keeps the card+border look.
   return "bg-card border border-border dark:bg-accent dark:border-white/5 rounded-bl-sm";
 }
 </script>
@@ -600,8 +506,6 @@ function bubbleClass(m: SmsMessage): string {
               --border-color: hsl(var(--border));
               --indicator-color: hsl(var(--primary));
               --border-radius: 0;
-              /* Search field matched to our SearchInput look: 1px border-border,
-                 8px radius, ~h-9 with px-3, text-sm, ring-colored focus. */
               --input-border-color: hsl(var(--border));
               --input-border-size: 1px;
               --input-border-radius: 0.5rem;

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-// Step 1 — "what is Vortex": the hero device illustration + the one-liner.
 import { useI18n } from "vue-i18n";
 import DevicesArt from "../art/DevicesArt.vue";
 

@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -55,12 +57,6 @@ import com.vortex.a3.ui.VortexLocale
 import com.vortex.a3.ui.components.VortexDivider
 import com.vortex.a3.ui.str
 
-/**
- * Full-screen Settings page, grouped into section cards (Appearance /
- * Continuity / Device) to mirror the laptop's redesigned Settings: an
- * uppercase section label over a single card whose rows are split by dividers,
- * each row led by a rounded icon tile.
- */
 @Composable
 fun SettingsScreen(
     current: VortexLocale,
@@ -83,7 +79,11 @@ fun SettingsScreen(
     onBack: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+            .navigationBarsPadding(),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
@@ -109,7 +109,6 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 24.dp),
         ) {
-            // ── APPEARANCE ──────────────────────────────────────────────
             SectionLabel(str("settings.sec_appearance"))
             SectionCard {
                 PickerRow(icon = Icons.Outlined.Language, label = str("settings.language")) {
@@ -148,7 +147,6 @@ fun SettingsScreen(
                 }
             }
 
-            // ── CONTINUITY ──────────────────────────────────────────────
             SectionLabel(str("settings.sec_continuity"))
             SectionCard {
                 ToggleRow(
@@ -192,8 +190,6 @@ fun SettingsScreen(
                     onCheckedChange = onFileAutoAcceptChange,
                 )
             }
-            // When sync is on but background reads aren't granted, phone→laptop
-            // needs the QS tile — show the one-time ADB grant command.
             if (clipboardSyncOn && !clipboardAutoGranted) {
                 Spacer(Modifier.height(10.dp))
                 AdbHintCard(
@@ -203,7 +199,6 @@ fun SettingsScreen(
                 )
             }
 
-            // ── DEVICE ──────────────────────────────────────────────────
             SectionLabel(str("settings.sec_device"))
             SectionCard {
                 ActionRow(
@@ -219,7 +214,6 @@ fun SettingsScreen(
     }
 }
 
-/** Uppercase muted section label over a card. */
 @Composable
 private fun SectionLabel(text: String) {
     Text(
@@ -232,7 +226,6 @@ private fun SectionLabel(text: String) {
     )
 }
 
-/** A single card whose rows are split by [RowDivider]s. */
 @Composable
 private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
     Column(
@@ -250,7 +243,6 @@ private fun RowDivider() {
     HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
 }
 
-/** A 36dp rounded icon tile leading each row (matches the laptop). */
 @Composable
 private fun IconTile(icon: ImageVector) {
     Box(
@@ -265,8 +257,6 @@ private fun IconTile(icon: ImageVector) {
     }
 }
 
-/** A picker row inside a section card: small icon + label, then content below
- *  (segmented buttons for language / theme). */
 @Composable
 private fun PickerRow(icon: ImageVector, label: String, content: @Composable () -> Unit) {
     Column(
@@ -281,8 +271,6 @@ private fun PickerRow(icon: ImageVector, label: String, content: @Composable () 
     }
 }
 
-/** A boolean setting row inside a section card: icon tile + title + hint, an
- *  iOS-style switch on the right; the whole row toggles. */
 @Composable
 private fun ToggleRow(
     icon: ImageVector,
@@ -310,8 +298,6 @@ private fun ToggleRow(
     }
 }
 
-/** A tappable row that opens a system screen (no inline toggle) — a status chip
- *  instead of a switch. */
 @Composable
 private fun ActionRow(icon: ImageVector, title: String, hint: String?, status: String, onClick: () -> Unit) {
     Row(
@@ -330,8 +316,6 @@ private fun ActionRow(icon: ImageVector, title: String, hint: String?, status: S
     }
 }
 
-/** An info card explaining a one-time ADB grant, with the command in a
- *  monospaced, selectable box. */
 @Composable
 private fun AdbHintCard(title: String, body: String, command: String) {
     Column(
@@ -358,10 +342,6 @@ private fun AdbHintCard(title: String, body: String, command: String) {
     }
 }
 
-/**
- * Compact iOS-style switch matching the laptop's ToggleRow.vue: a 44×24 track
- * (emerald when on, muted when off) with a 20dp white knob that slides.
- */
 @Composable
 private fun IosSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val knobX by animateDpAsState(if (checked) 22.dp else 2.dp, label = "knob")

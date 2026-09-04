@@ -6,19 +6,6 @@ import android.content.Intent
 import android.util.Log
 import com.vortex.a3.core.storage.EncryptedPrefsPeerStore
 
-/**
- * Auto-start the Vortex foreground service after device boot if any peer
- * is already trusted. This mirrors the "Telegram-style" expectation:
- * after a reboot, the app is reachable to its paired peers without the
- * user having to relaunch it.
- *
- * No-op if trust store is empty — pre-trust advertising is a privacy-
- * sensitive action that must be user-initiated.
- *
- * On MIUI / OEM-customised Android, an Autostart permission must be
- * granted manually by the user from the Security Center; this receiver
- * cannot bypass that.
- */
 class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {

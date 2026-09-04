@@ -1,41 +1,10 @@
 #!/usr/bin/env bash
-#
-# install_linux.sh — build the Vortex laptop app and install it for the
-# current user, with autostart on login.
-#
-# WHY a prod build (not `cargo run`): the Tauri prod binary EMBEDS the compiled
-# Vue frontend, so the webview loads standalone (no Vite dev-server, no
-# "connection refused"). --no-bundle skips the slow .deb/AppImage packaging —
-# we only want the binary.
-#
-# What it does:
-#   • installs every system dependency (sudo, once)  → packaging/install-deps.sh
-#   • builds linux/ui-tauri  → release binary
-#   • installs the binary    → ~/.local/bin/vortex-ui-tauri        (user-level)
-#   • installs the icon      → ~/.local/share/icons/.../vortex-ui-tauri.png
-#   • app-menu entry         → ~/.local/share/applications/
-#   • autostart entry        → ~/.config/autostart/  (starts with the session)
-#   • Nautilus "Share via Vortex" → ~/.local/share/nautilus-python/extensions/
-#   • KDE Dolphin "Share via Vortex" ServiceMenu (when Dolphin is present)
-#   • GNOME "Live Activities" pill extension (GNOME only) → installed + enabled
-#   • restarts the running instance to the freshly installed binary
-#
-# Goal: the user does NOTHING by hand — deps, app, file-manager integration and
-# the GNOME pill extension all land in one run.
-#
-# Flags:
-#   --skip-deps   don't touch the package manager (deps already present)
-#   --ask         interactive dependency install (the default asks NOTHING —
-#                 -y everywhere and debconf silenced, so one run needs zero input)
-#   --yes         accepted for compatibility (already the default)
-#
-# Re-run any time to update; it replaces the binary and restarts the app.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 UI="$REPO/linux/ui-tauri"
 BIN_SRC="$UI/src-tauri/target/release/vortex-ui-tauri"
-ICON_SRC="$UI/src-tauri/icons/icon.png"          # 512px brand logo
+ICON_SRC="$UI/src-tauri/icons/icon.png"
 
 BIN_DIR="$HOME/.local/bin"
 ICON_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor"
@@ -53,30 +22,14 @@ for a in "$@"; do
   esac
 done
 
-# ── 0. system dependencies (the only step that needs sudo) ────────────────────
-# Auto-installs webkit2gtk, gstreamer, dbus, protobuf, pactl, NetworkManager,
-# zenity, adb, nautilus-python, Pillow … plus Rust (rustup) if absent. Distro-
-# aware (apt/dnf/pacman/zypper). Best-effort: never aborts the install.
 if [ "$SKIP_DEPS" -eq 0 ]; then
   bash "$REPO/linux/packaging/install-deps.sh" "${DEPS_ARGS[@]}" || \
     echo "⚠ dependency step had issues — continuing; the build will flag anything truly missing."
-  # rustup drops cargo at ~/.cargo but doesn't touch THIS shell's PATH — pull it
-  # in so the build below finds cargo on a first-ever install.
   [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 else
   echo "▶ --skip-deps: assuming system dependencies are already installed."
 fi
 
-# UI dependencies. node_modules is gitignored, so a fresh clone has none — and
-# the `tauri` CLI lives there, so the build below would die with "tauri: command
-# not found". Install with pnpm to honor pnpm-lock.yaml when it's available
-# (dev machines, Arch's `pnpm` pkg); otherwise fall back to npm, which is always
-# present. We avoid `npm i -g pnpm` on purpose — a global install needs root on
-# most distros. The npm fallback MUST pass --legacy-peer-deps: this is a pnpm
-# project and one dep (vue-router) declares an optional peer on a newer vite than
-# we pin; pnpm ignores unmet optional peers, but npm v10 hard-fails the whole
-# install on the conflict. --legacy-peer-deps accepts the resolution pnpm already
-# validated (verified building in an Arch container).
 echo "▶ installing UI dependencies…"
 ( cd "$UI"
   if command -v pnpm >/dev/null 2>&1; then
@@ -94,10 +47,6 @@ echo "▶ installing files (user-level, no sudo)…"
 mkdir -p "$BIN_DIR" "$APP_DIR" "$AUTOSTART_DIR"
 install -m755 "$BIN_SRC" "$BIN_DST"
 
-# Install the brand logo at every standard hicolor size so the launcher /
-# dock / overview always finds it — a single size sometimes leaves GNOME
-# falling back to a generic gear. Downscale with Pillow when present; else just
-# drop the 512px source into the 256 bucket.
 if command -v python3 >/dev/null 2>&1 && python3 -c 'import PIL' 2>/dev/null; then
   for s in 32 48 64 128 256 512; do
     d="$ICON_ROOT/${s}x${s}/apps"; mkdir -p "$d"
@@ -109,9 +58,6 @@ else
 fi
 command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f -t "$ICON_ROOT" 2>/dev/null || true
 
-# App-menu launcher. StartupWMClass = the app's Wayland/X11 id (the binary
-# name) so GNOME links the RUNNING window to this entry and shows the logo in
-# the dock/overview instead of a generic fallback.
 cat > "$APP_DIR/vortex-ui-tauri.desktop" <<EOF
 [Desktop Entry]
 Type=Application
@@ -125,11 +71,6 @@ StartupNotify=false
 StartupWMClass=vortex-ui-tauri
 EOF
 
-# Autostart: the app lives in the tray and owns the BLE/LAN link, so bring it
-# up with the session. The delay lets BlueZ / Secret Service / the tray host
-# settle first. GDK_BACKEND=x11 (XWayland) makes the title-bar buttons respond
-# on the first click under GNOME fractional scaling; WEBKIT_DISABLE_DMABUF_RENDERER=1
-# avoids a blank WebKitGTK window on some GPU stacks.
 cat > "$AUTOSTART_DIR/vortex-ui-tauri.desktop" <<EOF
 [Desktop Entry]
 Type=Application
@@ -147,22 +88,11 @@ EOF
 
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$APP_DIR" 2>/dev/null || true
 
-# GNOME Files (Nautilus) right-click "Share via Vortex" → forwards the file to
-# the running app via `--share`. Resolves the binary at runtime so it never
-# goes stale. Best-effort: harmless if nautilus-python isn't installed.
 NAUTILUS_EXT_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/nautilus-python/extensions"
 mkdir -p "$NAUTILUS_EXT_DIR"
 install -m644 "$REPO/linux/packaging/nautilus/vortex.py" "$NAUTILUS_EXT_DIR/vortex.py"
-nautilus -q >/dev/null 2>&1 || true   # reload the extension on next open
+nautilus -q >/dev/null 2>&1 || true
 
-# KDE Dolphin right-click "Share via Vortex" — the ServiceMenu counterpart of
-# the Nautilus extension above, so KDE/Plasma users get the same one-click
-# share. Installed only when Dolphin is actually present (KDE, or Dolphin on
-# another DE). Written to BOTH the Plasma 6 (kio/servicemenus) and Plasma 5
-# (kservices5/ServiceMenus) locations so it works on either version. The binary
-# path is baked in — a ServiceMenu's Exec doesn't reliably have ~/.local/bin on
-# PATH. %F passes the selected files AND folders (we share folders too), hence
-# MimeType=all/all. Plasma 6 requires servicemenu files to be executable.
 if command -v dolphin >/dev/null 2>&1; then
   for KDE_SM_DIR in \
       "${XDG_DATA_HOME:-$HOME/.local/share}/kio/servicemenus" \
@@ -185,10 +115,6 @@ EOF
   echo "▶ KDE Dolphin 'Share via Vortex' installed."
 fi
 
-# GNOME "Live Activities" pill extension. The phone's navigation/ride/delivery
-# pills render in the top bar ONLY through this GNOME Shell extension, so it's
-# GNOME-only by nature — on KDE/XFCE/etc. the daemon falls back to a tray
-# readout and we skip this entirely (nothing to install there).
 GNOME_EXT_UUID="vortex-live@vortex"
 GNOME_EXT_SRC="$REPO/linux/gnome-extension/$GNOME_EXT_UUID"
 if command -v gnome-shell >/dev/null 2>&1 \
@@ -197,21 +123,10 @@ if command -v gnome-shell >/dev/null 2>&1 \
   GNOME_EXT_DST="${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions/$GNOME_EXT_UUID"
   mkdir -p "$GNOME_EXT_DST"
   install -m644 "$GNOME_EXT_SRC"/metadata.json "$GNOME_EXT_SRC"/extension.js "$GNOME_EXT_SRC"/stylesheet.css "$GNOME_EXT_DST/"
-  # Enable it. On X11 this takes effect immediately. On a Wayland session a
-  # FIRST-EVER install is invisible to the ALREADY-RUNNING shell, so
-  # `gnome-extensions enable` fails with "does not exist" — and, crucially, it
-  # is a D-Bus call into that shell, so a failure writes NOTHING to dconf and
-  # nothing is queued. Falling back to writing org.gnome.shell enabled-extensions
-  # ourselves is what actually makes it come up enabled after the next login;
-  # without it the extension sits installed-but-off forever and the daemon stays
-  # on its tray fallback. gnome-extensions may be absent on a minimal GNOME, so
-  # guard it and let the gsettings path carry the install on its own.
   if command -v gnome-extensions >/dev/null 2>&1 \
      && gnome-extensions enable "$GNOME_EXT_UUID" >/dev/null 2>&1; then
     echo "▶ GNOME pill extension installed + enabled."
   elif command -v gsettings >/dev/null 2>&1; then
-    # Append to the list only when absent — re-running the installer must not
-    # grow a duplicate entry. python3 keeps the GVariant list quoting correct.
     if gsettings get org.gnome.shell enabled-extensions | grep -q "'$GNOME_EXT_UUID'"; then
       echo "ℹ GNOME pill extension updated; already queued to enable — log out/in once."
     elif python3 - "$GNOME_EXT_UUID" <<'PY' 2>/dev/null
@@ -237,8 +152,6 @@ else
 fi
 
 echo "▶ restarting the app on the installed binary…"
-# Exact process-NAME match only — `pkill -f vortex-ui-tauri` would self-match
-# this script's own command line and kill the wrong thing.
 pkill -9 -x vortex-ui-tauri 2>/dev/null || true
 sleep 1
 setsid env GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 "$BIN_DST" >/dev/null 2>&1 < /dev/null &

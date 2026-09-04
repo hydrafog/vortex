@@ -8,10 +8,8 @@ import { initHome } from "@/composables/useHome";
 import { initContacts } from "@/composables/useContacts";
 import { initRecents } from "@/composables/useRecents";
 import { initMessages } from "@/composables/useMessages";
-import "@/lib/theme"; // initialise theme (side-effect)
+import "@/lib/theme";
 
-// Subscribe to peer/identity state + home logic once, app-wide, so it persists
-// across route changes (no "offline" flash / no re-subscribe on remount).
 initConnectionStore();
 initHome();
 initContacts();

@@ -6,22 +6,11 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/**
- * The recovery logic is a pure function of the persisted blob + a
- * clock, so we drive it through a tiny in-memory fake that mirrors
- * the Saved record layout (the EncryptedSharedPreferences-backed
- * implementation is exercised by instrumentation).
- */
 class SwitchPersistenceTest {
 
     private val peer = ByteArray(32) { (it * 7).toByte() }
     private val mac = "AC:47:1B:25:71:C2"
 
-    /** Replay the recover() decision tree against a synthetic Saved blob.
-     *  This mirrors SwitchPersistence.recover() exactly — if that
-     *  function drifts, this test catches it. The point is to lock the
-     *  rollback / resume / no-op contract that the orchestrator depends
-     *  on. */
     private fun decide(saved: SwitchPersistence.Saved?, nowMs: Long): SwitchPersistence.Action {
         if (saved == null) return SwitchPersistence.Action.None
         if (saved.discriminator == SwitchPersistence.DISC_IDLE) return SwitchPersistence.Action.None
@@ -102,8 +91,6 @@ class SwitchPersistenceTest {
 
     @Test
     fun `older than 30s rolls back unconditionally`() {
-        // Even Connecting context older than 30s must roll back —
-        // the protocol context is meaningless that far in the past.
         val s = SwitchPersistence.Saved(SwitchPersistence.DISC_CONNECTING, null, 0, peer, mac)
         val r = decide(s, 60_000) as SwitchPersistence.Action.Rollback
         assertTrue(r.previousReason.contains("stale"))
@@ -111,9 +98,6 @@ class SwitchPersistenceTest {
 
     @Test
     fun `Saved equals contentEquals on peerPub`() {
-        // The data class auto-generated equals would compare arrays by
-        // identity; we override to use contentEquals so two reads of
-        // the same persisted blob compare equal.
         val a = SwitchPersistence.Saved(SwitchPersistence.DISC_FAILED, "x", 1L, peer.copyOf(), mac)
         val b = SwitchPersistence.Saved(SwitchPersistence.DISC_FAILED, "x", 1L, peer.copyOf(), mac)
         assertEquals(a, b)

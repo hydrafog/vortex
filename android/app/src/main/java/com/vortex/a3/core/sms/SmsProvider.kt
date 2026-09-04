@@ -15,12 +15,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-/**
- * Reads the phone's recent SMS and emits the list whenever it changes, so the
- * laptop companion's Messages page can mirror it (the laptop groups them into
- * conversations). Bounded to the most recent [LIMIT] messages (DATE DESC); a
- * `ContentObserver` re-emits on any new/changed message. READ_SMS gated.
- */
 class SmsProvider(
     private val context: Context,
     private val onSms: (List<SmsMessage>) -> Unit,
@@ -30,25 +24,12 @@ class SmsProvider(
     private var observer: ContentObserver? = null
 
     companion object {
-        // Kept small: the whole list ships as one chunked BLE burst, and a big
-        // burst risks lost notifies (which desync the Noise cipher). 80 recent
-        // messages is plenty for the conversation view.
-        // Reliability ceiling for the chunked BLE burst: one lost notify desyncs
-        // the Noise cipher and drops the transfer, and contacts + call log are in
-        // flight in the same session. ~80 messages ≈ 15 chunks at 450 B keeps the
-        // session's total in the proven-reliable range (≈30-36 chunks). True
-        // "all" (the full history) needs LAN-for-bulk or on-demand pagination.
         private const val LIMIT = 80
 
-        /** Quiet window before re-reading + re-sending after an onChange burst. */
         private const val EMIT_DEBOUNCE_MS = 2_000L
     }
 
     fun start() {
-        // We attempt the read even when checkSelfPermission() reports denied:
-        // some ROMs (MIUI) gate SMS reads on the READ_SMS *appop* rather than
-        // the runtime grant flag. readSms() catches SecurityException and yields
-        // an empty list if it's genuinely blocked.
         Log.i(tag, "sms: READ_SMS runtime-granted=${hasPermission()}; starting")
         scope.launch { emitSnapshot() }
         val obs = object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -78,9 +59,6 @@ class SmsProvider(
         scope.launch { emitSnapshot() }
     }
 
-    /** Battery: each emit ships the full list as a ~1.5 s BLE chunk burst, so
-     *  collapse observer bursts (an active conversation fires onChange per
-     *  message AND per status update) into one re-read after a quiet window. */
     private fun scheduleEmit() {
         pendingEmit?.cancel()
         pendingEmit = scope.launch {
@@ -91,14 +69,6 @@ class SmsProvider(
 
     private var pendingEmit: Job? = null
 
-    /**
-     * Read ONE conversation's messages for the laptop's infinite scroll: the
-     * [thread] (preferred) or [address] (fallback), newest-first, skipping the
-     * first [offset] and returning up to [limit]. The laptop requests page 0 on
-     * open, then older pages as the user scrolls up. A page is small (≈[limit]
-     * messages) so it ships as one short, reliable BLE burst — unlike the full
-     * history, which would desync the cipher. Empty / short page ⇒ no more older.
-     */
     fun loadThread(thread: Long, address: String, offset: Int, limit: Int): List<SmsMessage> {
         val cols = arrayOf(
             Telephony.Sms._ID,
@@ -119,21 +89,11 @@ class SmsProvider(
         return querySms(
             cols, sel, args,
             "${Telephony.Sms.DATE} DESC LIMIT $cap OFFSET $skip",
-            // Some ROMs leave ADDRESS blank on sent rows; fall back to the
-            // requested address so the laptop's thread merge (keyed by
-            // address) doesn't silently drop them.
             fallbackAddress = address.trim(),
             logTag = "loadThread",
         )
     }
 
-    /**
-     * Read messages NEWER than [sinceMs] (oldest-first, up to [limit]) for the
-     * laptop's LAN bulk-sync history backfill: the laptop names its watermark,
-     * we ship only what it's missing. Oldest-first so a capped batch advances
-     * the watermark contiguously — the next heartbeat picks up where this one
-     * stopped (self-paginating).
-     */
     fun readHistorySince(sinceMs: Long, limit: Int): List<SmsMessage> {
         val cols = arrayOf(
             Telephony.Sms._ID,
@@ -154,11 +114,6 @@ class SmsProvider(
         )
     }
 
-    /**
-     * Every SMS row id, ascending — the deletion-reconcile dataset: the
-     * laptop diffs this against its history store and prunes entries the
-     * phone no longer has. One indexed column, cheap even at 10k rows.
-     */
     fun readAllIds(): List<String> {
         val out = ArrayList<String>()
         try {
@@ -180,7 +135,6 @@ class SmsProvider(
         return out
     }
 
-    /** Shared cursor loop for the thread/history readers. */
     private fun querySms(
         cols: Array<String>,
         selection: String,
@@ -256,7 +210,7 @@ class SmsProvider(
             val threadIdx = c.getColumnIndex(Telephony.Sms.THREAD_ID)
             val readIdx = c.getColumnIndex(Telephony.Sms.READ)
             while (c.moveToNext()) {
-                if (out.size >= LIMIT) break // guard if the SQL LIMIT is ignored
+                if (out.size >= LIMIT) break
                 out.add(
                     SmsMessage(
                         id = if (idIdx >= 0) c.getString(idIdx).orEmpty() else "",

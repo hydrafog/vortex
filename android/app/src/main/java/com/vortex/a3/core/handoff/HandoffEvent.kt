@@ -2,17 +2,6 @@ package com.vortex.a3.core.handoff
 
 import org.json.JSONObject
 
-/**
- * A page the phone hands off to the laptop (continuity style). Mirrors the
- * Rust `core::handoff::HandoffEvent`; rides the Noise-sealed AUDIO_SIGNAL stream
- * as frame [com.vortex.a3.core.ble.FrameType.HANDOFF].
- *
- * @param url      the page URL (empty = "stop handing off" → clears the laptop pill)
- * @param title    page/tab title for the pill label
- * @param appId    source app package (e.g. com.android.chrome) for its icon
- * @param openNow  true = an explicit Share → the laptop opens it immediately;
- *                 false = the live accessibility read → a "continue" pill
- */
 data class HandoffEvent(
     val url: String,
     val title: String = "",

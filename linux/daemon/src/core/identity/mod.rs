@@ -1,22 +1,10 @@
-//! Local Vortex identity per spec §3.1 and §3.2.
-//!
-//! Per spec, every Device, on first launch, generates one Identity Record:
-//!
-//! | version | device_id | static_priv | static_pub | created_at | platform |
-//! | u8 (1)  | 16 bytes  | 32 bytes    | 32 bytes   | u64 BE (8) | u8 (1)   |
-//!
-//! `static_priv` MUST be persisted via platform secure storage. Other fields
-//! MAY live in plaintext local storage.
-
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
 use super::crypto::x25519::{public_from_private, X25519Pub, X25519Sec, X25519SecBytes};
 
-/// V1 identity record version byte.
 pub const IDENTITY_VERSION: u8 = 0x01;
 
-/// `platform` byte (§3.1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Platform {
@@ -37,7 +25,6 @@ impl Platform {
     }
 }
 
-/// One Vortex device identity (§3.1).
 #[derive(Debug, Clone)]
 pub struct IdentityRecord {
     pub version: u8,
@@ -49,15 +36,11 @@ pub struct IdentityRecord {
 }
 
 impl IdentityRecord {
-    /// Generate a fresh identity using a CSPRNG. The resulting Identity
-    /// Record is a freshly minted, never-before-paired identity.
     pub fn generate(platform: Platform) -> Self {
         let mut rng = rand::rngs::OsRng;
         Self::generate_with_rng(platform, &mut rng)
     }
 
-    /// Same as [`generate`] but with a caller-provided RNG (useful for
-    /// deterministic tests; production MUST use `OsRng`).
     pub fn generate_with_rng<R: RngCore>(platform: Platform, rng: &mut R) -> Self {
         let mut device_id = [0u8; 16];
         rng.fill_bytes(&mut device_id);
@@ -66,8 +49,6 @@ impl IdentityRecord {
         Self::from_private(platform, device_id, priv_bytes, current_unix_seconds())
     }
 
-    /// Build an identity from an externally-supplied private scalar.
-    /// Used by tests and by the vector generator.
     pub fn from_private(
         platform: Platform,
         device_id: [u8; 16],
@@ -85,15 +66,14 @@ impl IdentityRecord {
         }
     }
 
-    /// Encode as a 90-byte record per §3.1.
     pub fn encode(&self) -> Vec<u8> {
         let mut out = Vec::with_capacity(90);
-        out.push(self.version); //                  0..1   version
-        out.extend_from_slice(&self.device_id); //  1..17  device_id
-        out.extend_from_slice(&self.static_priv.0);// 17..49 static_priv
-        out.extend_from_slice(&self.static_pub.0);//49..81 static_pub
-        out.extend_from_slice(&self.created_at.to_be_bytes()); // 81..89 created_at
-        out.push(self.platform.as_byte()); //       89..90 platform
+        out.push(self.version);
+        out.extend_from_slice(&self.device_id);
+        out.extend_from_slice(&self.static_priv.0);
+        out.extend_from_slice(&self.static_pub.0);
+        out.extend_from_slice(&self.created_at.to_be_bytes());
+        out.push(self.platform.as_byte());
         debug_assert_eq!(out.len(), 90);
         out
     }
@@ -106,7 +86,6 @@ fn current_unix_seconds() -> u64 {
         .unwrap_or(0)
 }
 
-/// JSON-friendly view used in CLI output and storage (excludes `static_priv`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentityPublicView {
     pub version: u8,
@@ -135,9 +114,6 @@ mod tests {
     use super::*;
     use crate::core::crypto::x25519::X25519PubBytes;
 
-    /// Deterministic identity from a known private scalar (RFC 7748 Alice key
-    /// from §6.1, used in the wider Noise community as a smoke vector).
-    /// We do NOT use this scalar in production; this is a test-only seed.
     const ALICE_PRIV: X25519SecBytes = [
         0x77, 0x07, 0x6d, 0x0a, 0x73, 0x18, 0xa5, 0x7d, 0x3c, 0x16, 0xc1, 0x72, 0x51, 0xb2, 0x66,
         0x45, 0xdf, 0x4c, 0x2f, 0x87, 0xeb, 0xc0, 0x99, 0x2a, 0xb1, 0x77, 0xfb, 0xa5, 0x1d, 0xb9,
@@ -166,11 +142,8 @@ mod tests {
         assert_eq!(&bytes[1..17], &[0u8; 16]);
         assert_eq!(&bytes[17..49], &ALICE_PRIV);
         assert_eq!(&bytes[49..81], &ALICE_PUB_EXPECTED);
-        assert_eq!(
-            u64::from_be_bytes(bytes[81..89].try_into().unwrap()),
-            1_700_000_000,
-        );
-        assert_eq!(bytes[89], 0x02); // Linux
+        assert_eq!(u64::from_be_bytes(bytes[81..89].try_into().unwrap()), 1_700_000_000,);
+        assert_eq!(bytes[89], 0x02);
     }
 
     #[test]

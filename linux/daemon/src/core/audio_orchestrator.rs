@@ -1,14 +1,3 @@
-//! Linux mirror of `a3/.../earbuds/SwitchOrchestrator.kt`. Same state
-//! machine and same *wire contract* — the binding part both sides MUST
-//! agree on (either can be initiator or owner): the `AudioOp` JSON wire
-//! format (`audio_op.rs` ⇔ `AudioOp.kt`), the per-peer nonce semantics,
-//! and the GATT UUIDs (`ble/mod.rs` ⇔ `core/ble/Constants.kt`, spec §10.1).
-//!
-//! The timeout / retry constants at the bottom of this file are NOT part
-//! of that contract — each side tunes them independently (e.g.
-//! `CONNECT_RETRY_COUNT` is deliberately 2 here vs 3 on Android). Don't
-//! "sync" them to the peer; only the wire format, nonce, and UUIDs bind.
-
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -23,17 +12,12 @@ use crate::core::audio_switch::{
 use crate::core::audio_switch_persistence as persist;
 use crate::core::storage::peers::PeerStore;
 
-/// Sender callback supplied by the transport layer (LAN preferred,
-/// BLE fallback). Returns an error if neither transport is up — the
-/// orchestrator surfaces that as `SwitchState::Failed`.
 pub type Sender = Arc<
     dyn Fn([u8; 32], AudioOpFrame) -> futures::future::BoxFuture<'static, Result<(), String>>
         + Send
         + Sync,
 >;
 
-/// External policy decision for an incoming Request — set by the
-/// Phase-2 call orchestrator. Phase 1 always returns `Allow`.
 #[derive(Debug, Clone)]
 pub enum Acceptance {
     Allow,
@@ -42,29 +26,13 @@ pub enum Acceptance {
 
 pub type AcceptanceProvider = Arc<dyn Fn() -> Acceptance + Send + Sync>;
 
-/// BT-layer side effects the switch flow drives, behind a trait so the
-/// state machine can be exercised in unit tests with a fake backend
-/// instead of a live `bluer::Adapter` (the dependency that made the
-/// orchestrator untestable without hardware). Production wiring uses
-/// [`BluerBt`], a thin wrapper over the real adapter + the `audio_switch`
-/// free functions — the trait adds no behaviour, only a seam.
 pub trait BtControl: Send + Sync {
-    /// Attempt a single A2DP connect to `mac` (the initiator's claim).
     fn connect<'a>(&'a self, mac: &'a str) -> BoxFuture<'a, Result<(), SwitchError>>;
-    /// Initiate — but do NOT wait to settle — an ACL drop of `mac` (the
-    /// responder's release). Returns once BlueZ accepts the Disconnect.
     fn disconnect_initiate<'a>(&'a self, mac: &'a str) -> BoxFuture<'a, Result<(), SwitchError>>;
-    /// Background confirmation that `mac` actually dropped, bounded by
-    /// `timeout`. Hygiene only — does not gate the peer.
     fn confirm_disconnected<'a>(&'a self, mac: &'a str, timeout: Duration) -> BoxFuture<'a, bool>;
-    /// Whether `mac` is currently connected to us — the live half of the
-    /// duplicate-reclaim guard.
     fn is_connected<'a>(&'a self, mac: &'a str) -> BoxFuture<'a, bool>;
 }
 
-/// Production [`BtControl`] over a real `bluer::Adapter`. Each method
-/// delegates to the matching `audio_switch` free function, so behaviour
-/// is byte-for-byte what it was before the trait was introduced.
 pub struct BluerBt {
     adapter: bluer::Adapter,
 }
@@ -104,20 +72,11 @@ pub enum SwitchState {
     Preparing,
     WaitingApproval,
     WaitingReleased,
-    /// Local BT connect is being attempted. UI treats this as "still
-    /// switching" and dims the card.
     Connecting,
-    /// Peer has confirmed it released the buds (Released frame arrived)
-    /// but our local BT connect hasn't completed yet. UI surfaces this
-    /// as "Connected here" already — the BT takes another ~2-3 s to
-    /// physically establish A2DP, but the user gets instant feedback.
-    /// Click is still blocked (a new flow can't start until BT settles).
     AlmostDone,
     Failed(String),
 }
 
-/// One in-flight switch — the matching peer + mac + nonce. We only
-/// allow one flow at a time (V1 single-peer).
 #[derive(Debug, Clone)]
 struct ActiveFlow {
     peer_pub: [u8; 32],
@@ -139,18 +98,8 @@ pub struct SwitchOrchestrator {
     state_rx: watch::Receiver<SwitchState>,
     initiator: Arc<Mutex<Option<ActiveFlow>>>,
     responder: Arc<Mutex<Option<ActiveFlow>>>,
-    /// Identity of the in-flight flow, kept in sync with [`Self::initiator`]
-    /// so the persistence row captures *which* peer + mac the current
-    /// non-Idle state belongs to. Cleared when state returns to Idle.
-    /// Held outside the initiator/responder mutexes so a `save` call
-    /// doesn't have to await another lock.
     current_peer: Arc<Mutex<Option<[u8; 32]>>>,
     current_mac: Arc<Mutex<Option<String>>>,
-    /// When the last switch for a given mac completed. Used to suppress
-    /// the duplicate "reclaim" that BLE and LAN both deliver a beat
-    /// apart: the second one would tear down the freshly-grabbed A2DP
-    /// link and race the peer to re-establish it — the trigger that
-    /// wedges the connect and shows up as "stuck in switching".
     last_complete: Arc<Mutex<Option<(String, tokio::time::Instant)>>>,
 }
 
@@ -181,29 +130,11 @@ impl SwitchOrchestrator {
         self.state_rx.clone()
     }
 
-    /// MAC of the in-flight switch flow, or `None` when idle. Used by
-    /// the Tauri layer to wait for the matching PulseAudio sink to
-    /// settle before calling `resume_paused_for_call` — without that
-    /// gate the player plays through the laptop speaker for half a
-    /// syllable before WirePlumber migrates the route and re-pauses
-    /// it.
     pub async fn current_mac(&self) -> Option<String> {
         self.current_mac.lock().await.clone()
     }
 
-    /// Initiator entry — user clicked "Bring to laptop".
     pub async fn request(self: &Arc<Self>, peer_pub: [u8; 32], mac: String) -> Result<(), String> {
-        // Duplicate-reclaim guard. BLE (Claim frame) and LAN
-        // (audio_claim_request flag) both deliver the same "bring the
-        // buds back" intent within a second or two of each other. The
-        // first wins and grabs the buds; the second would run a full
-        // initiator flow against an A2DP link we *already* hold — the
-        // pre-connect teardown in `connect_audio` drops the healthy
-        // link and races the peer to re-establish it, which is exactly
-        // what wedged the connect in the observed "stuck in switching"
-        // trace. If we completed a switch for this mac moments ago and
-        // the buds are still ours, the work is already done: ack the
-        // peer with Done so its UI clears, and no-op.
         if self.is_recent_duplicate(&mac).await {
             info!(%mac, "request: duplicate reclaim within window; buds already ours — Done + no-op");
             if let Some(nonce) = next_out_nonce(&self.peer_store, peer_pub).await {
@@ -215,9 +146,6 @@ impl SwitchOrchestrator {
             }
             return Ok(());
         }
-        // Stash identity BEFORE the CAS so the persistence row written
-        // by `cas_state` knows which peer + mac this flow belongs to.
-        // If the CAS loses the race, we clear them again.
         *self.current_peer.lock().await = Some(peer_pub);
         *self.current_mac.lock().await = Some(mac.clone());
         if !self.cas_state(SwitchState::Idle, SwitchState::Preparing) {
@@ -232,28 +160,16 @@ impl SwitchOrchestrator {
         Ok(())
     }
 
-    /// Send an `AudioOp::Claim` to the peer — "I hold the buds; come grab
-    /// them." Used by the laptop media-watch's return-to-phone path: when
-    /// our media stops we disconnect the buds and claim the phone, which
-    /// grabs them and resumes its own paused media. Fire-and-forget over
-    /// the same BLE+LAN race as every other frame (fast, ~200 ms via BLE,
-    /// vs. the slow AppState heartbeat the claim flag would otherwise ride).
     pub async fn send_claim(self: &Arc<Self>, peer_pub: [u8; 32], mac: String) {
         let Some(nonce) = next_out_nonce(&self.peer_store, peer_pub).await else {
             warn!("send_claim: nonce unavailable; peer not asked to claim (the audio_claim_request heartbeat flag is the fallback)");
             return;
         };
-        let _ = (self.sender)(
-            peer_pub,
-            AudioOpFrame { nonce, op: AudioOp::Claim, mac, ts: now_sec() },
-        )
-        .await;
+        let _ =
+            (self.sender)(peer_pub, AudioOpFrame { nonce, op: AudioOp::Claim, mac, ts: now_sec() })
+                .await;
     }
 
-    /// R1 — on daemon start, replay the persistence decision tree
-    /// and either resume the in-flight Connecting attempt or surface
-    /// a rolled-back Failed state. Must be called once after
-    /// construction, before any frame ingress.
     pub async fn recover_on_start(self: &Arc<Self>) {
         match persist::recover() {
             persist::Action::None => {}
@@ -273,8 +189,6 @@ impl SwitchOrchestrator {
                 *self.current_mac.lock().await = Some(mac.clone());
                 *self.initiator.lock().await = Some(ActiveFlow { peer_pub, mac: mac.clone() });
                 let _ = self.state_tx.send(SwitchState::Connecting);
-                // Same backstop as run_initiator: a resumed Connecting
-                // attempt that wedges must still self-heal to Idle.
                 self.arm_flow_watchdog();
                 let me = self.clone();
                 tokio::spawn(async move { me.attempt_connect(peer_pub, mac).await });
@@ -282,22 +196,11 @@ impl SwitchOrchestrator {
         }
     }
 
-    /// Frame ingress.
     pub async fn on_incoming(
         self: Arc<Self>,
         peer_pub: [u8; 32],
         frame: AudioOpFrame,
     ) -> Result<(), String> {
-        // Replay rejection — atomic load-compare-commit. The old
-        // load → if-greater → commit shape let BLE and LAN deliver
-        // the same frame concurrently and both see the pre-commit
-        // value, so both dispatched a handler for the same frame
-        // (ChatGPT review #2). `try_accept_audio_in_nonce` does
-        // the read+check+write inside one mutex window. Pushed to
-        // the blocking pool for the same reason as `next_out_nonce`
-        // (O4): it's a secret-service D-Bus round-trip that can
-        // stall for seconds under mutex contention, and at switch
-        // time BLE + LAN frames arrive in a burst.
         let accepted = {
             let ps = self.peer_store.clone();
             let nonce = frame.nonce;
@@ -318,15 +221,13 @@ impl SwitchOrchestrator {
             AudioOp::Released => self.on_released(peer_pub, frame.mac).await,
             AudioOp::Reject { reason } => self.on_reject(peer_pub, reason).await,
             AudioOp::Done => self.on_done(peer_pub).await,
-            AudioOp::Failed { stage, message } => self.on_peer_failed(peer_pub, stage, message).await,
+            AudioOp::Failed { stage, message } => {
+                self.on_peer_failed(peer_pub, stage, message).await
+            }
         }
         Ok(())
     }
 
-    /// Peer holds the buds and is asking us to claim them. We become
-    /// the initiator and run a normal request flow. Idempotent: if a
-    /// flow is already in progress, drop silently (peer will retry on
-    /// the next click).
     async fn on_claim(self: Arc<Self>, peer_pub: [u8; 32], mac: String) {
         if *self.state_rx.borrow() != SwitchState::Idle {
             info!("on_claim: already in flow; dropping");
@@ -338,16 +239,7 @@ impl SwitchOrchestrator {
         }
     }
 
-    // ---- Initiator ----
-
     async fn run_initiator(self: Arc<Self>, peer_pub: [u8; 32], mac: String) {
-        // Arm the stuck-flow watchdog the instant the initiator starts.
-        // Everything below can only leave the state machine in a
-        // non-terminal in-flight state (Preparing → Connecting →
-        // AlmostDone); if any BlueZ/D-Bus leg wedges (e.g. a hung
-        // connect_profile that even the bounded timeout somehow
-        // outlives, or an unforeseen await), this guarantees the state
-        // returns to Idle so later switches aren't dropped as "busy".
         self.arm_flow_watchdog();
 
         let Some(nonce) = next_out_nonce(&self.peer_store, peer_pub).await else {
@@ -357,53 +249,23 @@ impl SwitchOrchestrator {
         info!(?peer_pub, %mac, nonce, "initiator: requesting buds");
 
         // NOTE: we deliberately do NOT fire a separate background
-        // `disconnect_audio` here anymore. The initiator is the CLAIMER —
-        // the buds are on the peer, not on us (or only a stale auto-
-        // reconnect). `connect_audio` already tears down a stale local
-        // link in its own pre-connect cleanup. Running a second disconnect
-        // in parallel raced `connect_profile`'s negotiation and BlueZ
-        // answered `br-connection-canceled`, which made connect_profile
-        // retry internally for ~10.8s (observed bluez_ms=10780 on the
-        // return). One disconnect path (inside connect_audio) = no race.
 
-        // Fire-and-forget Request. We do NOT await an Approve / Released
-        // round-trip before starting the local BT connect — that was the
-        // sequential cost (~700 ms) that made the old V1 implementation
-        // four times slower than the prototype. Approve / Released are
-        // now informational only; the actual switch handshake is at the
-        // BT layer (retry connect until the phone finishes releasing).
         let me_send = self.clone();
         let peer_send = peer_pub;
         let mac_send = mac.clone();
         tokio::spawn(async move {
-            let frame = AudioOpFrame {
-                nonce,
-                op: AudioOp::Request,
-                mac: mac_send,
-                ts: now_sec(),
-            };
+            let frame = AudioOpFrame { nonce, op: AudioOp::Request, mac: mac_send, ts: now_sec() };
             if let Err(e) = (me_send.sender)(peer_send, frame).await {
-                // The phone won't receive the polite ask; the connect
-                // retries below will still drive the switch, but the
-                // phone's audio may stay grabbed until its OS notices
-                // BT was lost. Log and continue.
                 warn!("send Request: {e}");
             }
         });
 
-        // Transition to Connecting and start the retry loop in parallel.
-        // attempt_connect bails out early if state has already flipped
-        // to Failed (e.g. peer Reject came in).
         if !self.cas_state(SwitchState::Preparing, SwitchState::Connecting) {
             return;
         }
         self.attempt_connect(peer_pub, mac).await;
     }
 
-    /// Approve is informational: the peer has acknowledged it's
-    /// releasing. We don't gate the local connect on it any more — by
-    /// the time the Approve arrives, attempt_connect has already fired
-    /// its first attempt.
     async fn on_approve(self: Arc<Self>, peer_pub: [u8; 32], _mac: String) {
         let g = self.initiator.lock().await;
         let Some(ref f) = *g else { return };
@@ -413,13 +275,6 @@ impl SwitchOrchestrator {
         info!("informational: peer Approve received");
     }
 
-    /// Released is the optimistic-UI signal: the peer has confirmed
-    /// it dropped the buds. The local BT connect still has ~2-3 s to
-    /// go (BlueZ + buds radio), but the UI can show "Connected here"
-    /// already. We flip the state to AlmostDone so the UI clears the
-    /// "Switching…" dim immediately. The retry loop in attempt_connect
-    /// keeps running and either transitions to Idle on success or
-    /// Failed on exhaustion.
     async fn on_released(self: Arc<Self>, peer_pub: [u8; 32], _mac: String) {
         let g = self.initiator.lock().await;
         let Some(ref f) = *g else { return };
@@ -431,8 +286,6 @@ impl SwitchOrchestrator {
         let _ = self.cas_state(SwitchState::Connecting, SwitchState::AlmostDone);
     }
 
-    /// Reject is the only NACK that matters — peer refuses to release
-    /// (e.g. Phase 2 InCall). Surface to UI and stop retrying.
     async fn on_reject(&self, peer_pub: [u8; 32], reason: RejectReason) {
         let g = self.initiator.lock().await;
         let Some(ref f) = *g else { return };
@@ -443,20 +296,9 @@ impl SwitchOrchestrator {
         self.fail_initiator(format!("peer rejected: {reason:?}"));
     }
 
-    /// Retry-driven local BT connect. The first attempt fires
-    /// immediately (in parallel with the Request frame send). If the
-    /// phone is still holding the buds, the attempt fails fast and we
-    /// retry after CONNECT_RETRY_PAUSE_MS — that pause is tuned to be
-    /// roughly the time it takes BlueZ to notice a peer-side
-    /// disconnect, so by attempt 2 or 3 we usually win.
     async fn attempt_connect(self: Arc<Self>, peer_pub: [u8; 32], mac: String) {
         let mut last_err = String::from("connect not attempted");
         for attempt in 1..=CONNECT_RETRY_COUNT {
-            // If a peer Reject arrived between attempts, bail out — the
-            // peer isn't going to release.
-            // Bail on terminal states. AlmostDone is NOT terminal —
-            // the BT connect is still meant to run; the state just
-            // means "UI has been told it's done already".
             let s = self.state_rx.borrow().clone();
             if matches!(s, SwitchState::Failed(_) | SwitchState::Idle) {
                 tracing::debug!("attempt_connect: state already terminal; stopping retries");
@@ -465,18 +307,6 @@ impl SwitchOrchestrator {
             match self.bt.connect(&mac).await {
                 Ok(()) => {
                     info!(?peer_pub, attempt, "initiator: switch complete");
-                    // Transition to Idle FIRST so the UI clears
-                    // "Switching…" and the lib.rs route+resume watcher
-                    // fires immediately. Without this, a slow
-                    // `next_audio_out_nonce` (secret-service D-Bus
-                    // round-trip under mutex contention) can wedge for
-                    // 10-30s, the LAN session's 15s hard-cap drops
-                    // the writer, and we end up sending Done into the
-                    // void AND the UI is stuck.
-                    //
-                    // Could be in Connecting (BT raced ahead of
-                    // Released) or AlmostDone (Released arrived first).
-                    // Either way the next state is Idle.
                     self.state_tx.send_if_modified(|current| {
                         if matches!(*current, SwitchState::Connecting | SwitchState::AlmostDone) {
                             *current = SwitchState::Idle;
@@ -486,16 +316,8 @@ impl SwitchOrchestrator {
                         }
                     });
                     *self.initiator.lock().await = None;
-                    // Stamp completion so a duplicate reclaim arriving on
-                    // the other transport in the next couple of seconds is
-                    // recognised as a no-op (see `is_recent_duplicate`).
                     *self.last_complete.lock().await =
                         Some((mac.clone(), tokio::time::Instant::now()));
-                    // Fire Done as background best-effort. The peer
-                    // doesn't strictly need it — the switch is complete
-                    // either way — but it lets the peer's UI flip out
-                    // of "switching" on its side without waiting for
-                    // its own timeout.
                     let sender = self.sender.clone();
                     let peer_store = self.peer_store.clone();
                     let mac_for_done = mac.clone();
@@ -524,17 +346,12 @@ impl SwitchOrchestrator {
                 }
             }
         }
-        // All retries exhausted. Best-effort: tell the peer so its UI
-        // clears. We fail locally regardless of whether the frame sends.
         if let Some(nonce) = next_out_nonce(&self.peer_store, peer_pub).await {
             let _ = (self.sender)(
                 peer_pub,
                 AudioOpFrame {
                     nonce,
-                    op: AudioOp::Failed {
-                        stage: Stage::Connect,
-                        message: last_err.clone(),
-                    },
+                    op: AudioOp::Failed { stage: Stage::Connect, message: last_err.clone() },
                     mac: mac.clone(),
                     ts: now_sec(),
                 },
@@ -548,9 +365,6 @@ impl SwitchOrchestrator {
         warn!(reason, "initiator: failed");
         let failed = SwitchState::Failed(reason.clone());
         let _ = self.state_tx.send(failed.clone());
-        // Persist the Failed snapshot so a relaunch can still surface
-        // it (the rollback path in recover_on_start clears + shows the
-        // reason briefly). Best-effort.
         let peer = self.current_peer.try_lock().ok().and_then(|g| *g);
         let mac = self.current_mac.try_lock().ok().and_then(|g| g.clone());
         let saved = persist::Saved {
@@ -570,8 +384,6 @@ impl SwitchOrchestrator {
         tokio::spawn(async move {
             *initiator.lock().await = None;
             tokio::time::sleep(Duration::from_millis(FAILED_RESET_MS)).await;
-            // Only clear identity + persistence if no new flow has
-            // started in the meantime — checked by reading the channel.
             if matches!(*state_tx.borrow(), SwitchState::Failed(ref r) if r == &reason) {
                 let _ = state_tx.send(SwitchState::Idle);
                 *current_peer.lock().await = None;
@@ -580,8 +392,6 @@ impl SwitchOrchestrator {
             }
         });
     }
-
-    // ---- Responder ----
 
     async fn start_responder(self: Arc<Self>, peer_pub: [u8; 32], mac: String) {
         match (self.acceptance)() {
@@ -618,59 +428,45 @@ impl SwitchOrchestrator {
     }
 
     async fn run_responder(self: Arc<Self>, peer_pub: [u8; 32], mac: String) {
-        // Send Approve first as a fire-and-forget courtesy (informational
-        // on the phone). Spawn it so a LAN IK stall can't delay the ACL
-        // drop below — the disconnect is the critical path.
         let approve_self = self.clone();
         let approve_peer = peer_pub;
         let approve_mac = mac.clone();
         tokio::spawn(async move {
-            if let Some(approve_nonce) = next_out_nonce(&approve_self.peer_store, approve_peer).await {
+            if let Some(approve_nonce) =
+                next_out_nonce(&approve_self.peer_store, approve_peer).await
+            {
                 let _ = (approve_self.sender)(
                     approve_peer,
-                    AudioOpFrame { nonce: approve_nonce, op: AudioOp::Approve, mac: approve_mac, ts: now_sec() },
+                    AudioOpFrame {
+                        nonce: approve_nonce,
+                        op: AudioOp::Approve,
+                        mac: approve_mac,
+                        ts: now_sec(),
+                    },
                 )
                 .await;
             }
         });
 
-        // Fast ACL drop. `disconnect_audio_initiate` returns the instant
-        // BlueZ accepts the Disconnect (~50 ms) — it does NOT wait for
-        // the profiles to finish settling. We send `Released` right here,
-        // because the phone uses Released as its connect trigger: the
-        // sooner it fires, the sooner the phone queues its A2DP connect,
-        // which BlueZ lands the moment the buds actually drop. The old
-        // code sent Released only after `wait_audio_disconnected`
-        // confirmed — and that poll lags the real drop by up to ~1 s
-        // (observed: the phone had already grabbed the buds before our
-        // "audio device disconnected" log fired). That lag was the bulk
-        // of the laptop→phone switch time.
         match self.bt.disconnect_initiate(&mac).await {
-            Ok(()) => {
-                // Released is the phone's connect trigger — the one frame
-                // we cannot afford to silently drop. If the nonce store
-                // errors we can't send a valid frame (a nonce=0 frame is
-                // replay-dropped), so log loudly. The phone still recovers
-                // once its OS notices the ACL drop, just slower.
-                match next_out_nonce(&self.peer_store, peer_pub).await {
-                    Some(released_nonce) => {
-                        let _ = (self.sender)(
-                            peer_pub,
-                            AudioOpFrame {
-                                nonce: released_nonce,
-                                op: AudioOp::Released,
-                                mac: mac.clone(),
-                                ts: now_sec(),
-                            },
-                        )
-                        .await;
-                    }
-                    None => warn!(
-                        %mac,
-                        "responder: nonce unavailable; Released NOT sent — phone connect will be delayed"
-                    ),
+            Ok(()) => match next_out_nonce(&self.peer_store, peer_pub).await {
+                Some(released_nonce) => {
+                    let _ = (self.sender)(
+                        peer_pub,
+                        AudioOpFrame {
+                            nonce: released_nonce,
+                            op: AudioOp::Released,
+                            mac: mac.clone(),
+                            ts: now_sec(),
+                        },
+                    )
+                    .await;
                 }
-            }
+                None => warn!(
+                    %mac,
+                    "responder: nonce unavailable; Released NOT sent — phone connect will be delayed"
+                ),
+            },
             Err(e) => {
                 if let Some(nonce) = next_out_nonce(&self.peer_store, peer_pub).await {
                     let _ = (self.sender)(
@@ -689,9 +485,6 @@ impl SwitchOrchestrator {
             }
         }
 
-        // Confirm the drop in the background for our own state hygiene —
-        // this does NOT gate the phone (it already has Released). If the
-        // buds were accepted-but-never-dropped (rare), log it.
         let confirm_bt = self.bt.clone();
         let confirm_mac = mac.clone();
         tokio::spawn(async move {
@@ -704,10 +497,6 @@ impl SwitchOrchestrator {
         });
 
         tokio::time::sleep(Duration::from_millis(DONE_WAIT_MS)).await;
-        // Lost-Done cleanup — but only if the slot still belongs to THIS
-        // flow. The happy path cleared it via on_done seconds ago, and a NEW
-        // responder flow may already occupy the slot; clearing blindly here
-        // would wipe that live flow's busy-guard mid-switch.
         let mut g = self.responder.lock().await;
         if let Some(ref f) = *g {
             if f.matches(&peer_pub, &mac) {
@@ -738,14 +527,6 @@ impl SwitchOrchestrator {
         *self.responder.lock().await = None;
     }
 
-    // ---- Helpers ----
-
-    /// True if we completed a switch for `mac` within the dedup window
-    /// AND the buds are still physically connected to us. Both halves
-    /// matter: the time check catches the BLE+LAN double-delivery, and
-    /// the live `is_connected` check makes sure we don't suppress a
-    /// *legitimate* reclaim after the peer grabbed the buds back in the
-    /// meantime (a real new call), where the buds are no longer ours.
     async fn is_recent_duplicate(&self, mac: &str) -> bool {
         let recent = {
             let g = self.last_complete.lock().await;
@@ -761,22 +542,6 @@ impl SwitchOrchestrator {
         self.bt.is_connected(mac).await
     }
 
-    /// Defence-in-depth against "stuck in switching". A switch flow is
-    /// only ever driven from the initiator path, and while it sits in a
-    /// non-terminal state (`Preparing`/`Connecting`/`AlmostDone`) the
-    /// `start_responder` and `on_claim` busy-guards drop every new
-    /// switch request — so a flow that never reaches a terminal state
-    /// wedges the daemon until restart. The bounded `connect_profile`
-    /// (audio_switch.rs) is the primary fix; this watchdog is the
-    /// backstop that guarantees recovery no matter where a leg hangs.
-    ///
-    /// It watches the state channel and returns the moment a terminal
-    /// state (`Idle`/`Failed` — `Failed` runs its own reset) is reached.
-    /// If [`FLOW_WATCHDOG_MS`] elapses while still in-flight, it forces
-    /// the state back to `Idle` and clears the flow identity. This is
-    /// race-safe: a non-Idle state blocks any *new* flow from starting,
-    /// so the watchdog can only ever reset the very flow it was armed
-    /// for — there is no window where it could stomp a fresh switch.
     fn arm_flow_watchdog(&self) {
         let mut rx = self.state_rx.clone();
         let state_tx = self.state_tx.clone();
@@ -807,13 +572,13 @@ impl SwitchOrchestrator {
                     }
                     changed = rx.changed() => {
                         if changed.is_err() {
-                            return; // sender dropped — orchestrator gone
+                            return;
                         }
                         if matches!(
                             *rx.borrow(),
                             SwitchState::Idle | SwitchState::Failed(_)
                         ) {
-                            return; // reached terminal; nothing to guard
+                            return;
                         }
                     }
                 }
@@ -833,12 +598,6 @@ impl SwitchOrchestrator {
             }
         });
         if changed {
-            // Lock-free probe of the identity slots — `try_lock` rather
-            // than .blocking_lock(), because cas_state may be called
-            // from inside a tokio task and blocking_lock would panic
-            // under the runtime. If the lock is held by `request` for
-            // a microsecond, we just skip the save; the next transition
-            // will catch up. Persistence is best-effort.
             let peer = self.current_peer.try_lock().ok().and_then(|g| *g);
             let mac = self.current_mac.try_lock().ok().and_then(|g| g.clone());
             if to == SwitchState::Idle {
@@ -866,18 +625,6 @@ impl SwitchOrchestrator {
     }
 }
 
-/// Allocate the next outbound nonce off the async worker threads.
-///
-/// `next_audio_out_nonce` is a secret-service D-Bus read-modify-write
-/// (synchronous, and can stall for seconds under mutex contention), so
-/// running it inline would block a runtime worker — hence `spawn_blocking`
-/// (this is the O4 fix, applied to *every* send path, not just `Done`).
-///
-/// Returns `None` on a store / join error. Callers MUST then NOT send the
-/// frame: a `nonce=0` frame is replay-dropped by the peer (it has already
-/// accepted higher nonces), so it would be a silent no-op. Skipping the
-/// send and logging turns that silent failure into a visible one — the K1
-/// "fail-loud" fix.
 async fn next_out_nonce(peer_store: &Arc<dyn PeerStore>, peer_pub: [u8; 32]) -> Option<u64> {
     let ps = peer_store.clone();
     match tokio::task::spawn_blocking(move || ps.next_audio_out_nonce(&peer_pub)).await {
@@ -927,57 +674,16 @@ fn discriminator_for(s: &SwitchState) -> &'static str {
     }
 }
 
-// ---- Tuned constants — see the earbuds-switch design notes §6 ----
-
-/// How many local connect attempts to make before giving up.
-///
-/// `connect_audio` is now single-shot (it used to retry internally
-/// too — 3×3×4s settle was the 36 s worst-case latency disaster
-/// ChatGPT flagged). With single-shot semantics the retry pressure
-/// here drops: attempt 1 usually wins, attempt 2 covers the
-/// "phone hadn't released yet" race. A third pass rarely buys
-/// anything and just stretches the user-visible silence.
 const CONNECT_RETRY_COUNT: u32 = 2;
-/// Pause between connect retries. Matches the ecosystem value — long
-/// enough for BlueZ to register the peer's disconnect, short enough
-/// to keep the total switch under 1 s in the happy path.
 const CONNECT_RETRY_PAUSE_MS: u64 = 280;
-/// Lost-Done watchdog for the responder slot. The happy path clears the
-/// slot the moment the peer's `Done` frame arrives (`on_done`); this
-/// timer only matters when that frame is LOST — without it the slot
-/// would stay occupied forever and every later incoming Request would
-/// be rejected Busy. It does NOT delay the switch itself (the sleep
-/// runs after Released is already sent and the peer is connecting).
 const DONE_WAIT_MS: u64 = 4_000;
-/// Background confirm window for the release path — matches
-/// `audio_switch::DISCONNECT_TIMEOUT`. Does not gate the phone.
 const DISCONNECT_TIMEOUT_MS: u64 = 1_000;
 const FAILED_RESET_MS: u64 = 3_000;
-/// Hard ceiling on how long a single switch flow may sit in a
-/// non-terminal in-flight state before the watchdog force-resets it to
-/// Idle. Sized above any legitimate switch: the return-connect floor is
-/// ~4.5 s and the bounded retry loop tops out near ~10 s, so 14 s only
-/// trips on a genuine wedge. See [`SwitchOrchestrator::arm_flow_watchdog`].
 const FLOW_WATCHDOG_MS: u64 = 14_000;
-/// How long after a completed switch a same-mac reclaim is treated as a
-/// duplicate (BLE + LAN double-delivery) rather than a fresh request.
-/// The two transports land ~1-2.5 s apart in practice; 4 s covers that
-/// gap with margin while staying short enough that any genuinely new
-/// reclaim a few seconds later still runs normally. See
-/// [`SwitchOrchestrator::is_recent_duplicate`].
 const DUP_CLAIM_WINDOW_MS: u64 = 4_000;
 
 #[cfg(test)]
 mod tests {
-    //! Unit tests for the duplicate-reclaim guard — the BLE+LAN
-    //! double-delivery defence that the [`BtControl`] seam was
-    //! introduced to make testable without a live `bluer::Adapter`.
-    //!
-    //! These cover the two halves the guard ANDs together: the dedup
-    //! *time window* (the same frame arriving twice on two transports a
-    //! beat apart) and the *live connection* check (the buds are still
-    //! physically ours, so the reclaim really is a no-op rather than a
-    //! genuine new request after the peer grabbed them back).
 
     use super::*;
     use crate::core::audio_op::AudioOp;
@@ -990,19 +696,13 @@ mod tests {
     const PEER: [u8; 32] = [7u8; 32];
     const MAC: &str = "AC:47:1B:25:71:C2";
 
-    /// One `connect` attempt's result.
     #[derive(Clone)]
     enum Outcome {
         Ok,
         Fail(String),
-        /// Never resolves — models a wedged `connect_profile`, so the
-        /// flow watchdog (the only live timer) has to drive recovery.
         Hang,
     }
 
-    /// Programmable BT seam: scripts per-attempt `connect` outcomes,
-    /// counts calls, and answers `is_connected` with a fixed verdict
-    /// (recording the macs it was asked about).
     struct FakeBt {
         connected: bool,
         is_connected_calls: StdMutex<Vec<String>>,
@@ -1013,8 +713,6 @@ mod tests {
     }
 
     impl FakeBt {
-        /// `connected` = the verdict `is_connected` returns. `connect`
-        /// succeeds by default (the dedup-guard tests never reach it).
         fn new(connected: bool) -> Self {
             Self {
                 connected,
@@ -1025,13 +723,10 @@ mod tests {
                 disconnect_ok: true,
             }
         }
-        /// Builder: fallback `connect` outcome once any script is drained.
         fn with_connect(mut self, o: Outcome) -> Self {
             self.connect_fallback = o;
             self
         }
-        /// Builder: queue per-attempt `connect` outcomes, consumed in
-        /// order before falling back to [`Self::with_connect`].
         fn with_connect_script(self, outs: impl IntoIterator<Item = Outcome>) -> Self {
             *self.connect_script.lock().unwrap() = outs.into_iter().collect();
             self
@@ -1058,7 +753,10 @@ mod tests {
                 }
             })
         }
-        fn disconnect_initiate<'a>(&'a self, _mac: &'a str) -> BoxFuture<'a, Result<(), SwitchError>> {
+        fn disconnect_initiate<'a>(
+            &'a self,
+            _mac: &'a str,
+        ) -> BoxFuture<'a, Result<(), SwitchError>> {
             let ok = self.disconnect_ok;
             Box::pin(async move {
                 if ok {
@@ -1078,11 +776,6 @@ mod tests {
         }
     }
 
-    /// In-memory peer store — only the audio-nonce methods are exercised
-    /// by the orchestrator; the identity CRUD methods are never called.
-    /// Tracks the inbound high-water mark so the replay gate behaves like
-    /// the real store, and can force `next_audio_out_nonce` to error to
-    /// exercise the "fail-loud" path (K1/O4).
     struct FakePeerStore {
         out_nonce: AtomicU64,
         seen_in: StdMutex<HashMap<[u8; 32], u64>>,
@@ -1133,16 +826,11 @@ mod tests {
 
     type Captured = Arc<StdMutex<Vec<AudioOpFrame>>>;
 
-    /// Build an orchestrator wired to fakes with an always-`Allow`
-    /// acceptance and a fresh peer store. Returns the orchestrator plus
-    /// the captured-frames buffer so a test can assert what was sent.
     fn make_orch(bt: Arc<FakeBt>) -> (Arc<SwitchOrchestrator>, Captured) {
         let (orch, cap, _store) = make_orch_full(bt, Arc::new(FakePeerStore::new()), allow());
         (orch, cap)
     }
 
-    /// Full builder — lets a test supply its own peer store (to flip the
-    /// nonce-failure toggle) and acceptance policy (Allow / Reject).
     fn make_orch_full(
         bt: Arc<FakeBt>,
         store: Arc<FakePeerStore>,
@@ -1157,12 +845,7 @@ mod tests {
                 Ok(())
             })
         });
-        let orch = Arc::new(SwitchOrchestrator::new(
-            bt,
-            store.clone(),
-            sender,
-            acceptance,
-        ));
+        let orch = Arc::new(SwitchOrchestrator::new(bt, store.clone(), sender, acceptance));
         (orch, captured, store)
     }
 
@@ -1177,10 +860,6 @@ mod tests {
         AudioOpFrame { nonce, op, mac: MAC.to_string(), ts: 0 }
     }
 
-    /// Serialize the tests that drive real state transitions (those hit
-    /// the persistence file) and redirect the state dir to a temp path so
-    /// they neither clobber the user's daemon state nor race on the
-    /// process-wide `XDG_STATE_HOME`. Held for the test's duration.
     fn isolate_persist() -> std::sync::MutexGuard<'static, ()> {
         static ENV_LOCK: StdMutex<()> = StdMutex::new(());
         let g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
@@ -1191,8 +870,6 @@ mod tests {
         g
     }
 
-    /// Await a state matching `pred`, with a virtual-time ceiling so a
-    /// wedged machine fails the test instead of hanging forever.
     async fn wait_state(
         rx: &mut watch::Receiver<SwitchState>,
         pred: impl FnMut(&SwitchState) -> bool,
@@ -1204,8 +881,6 @@ mod tests {
             .clone()
     }
 
-    /// Await the first sent frame matching `pred` (frames are emitted from
-    /// background tasks, so poll the captured log).
     async fn wait_frame(cap: &Captured, pred: impl Fn(&AudioOpFrame) -> bool) -> AudioOpFrame {
         let fut = async {
             loop {
@@ -1227,20 +902,15 @@ mod tests {
 
     #[tokio::test]
     async fn recent_reclaim_with_buds_still_ours_is_a_duplicate() {
-        let bt = Arc::new(FakeBt::new(true)); // buds still connected to us
+        let bt = Arc::new(FakeBt::new(true));
         let (orch, _cap) = make_orch(bt.clone());
-        // Stamp a just-completed switch for this mac.
         *orch.last_complete.lock().await = Some((MAC.to_string(), tokio::time::Instant::now()));
         assert!(orch.is_recent_duplicate(MAC).await);
-        // The seam's live check was actually consulted.
         assert_eq!(bt.is_connected_calls.lock().unwrap().as_slice(), &[MAC.to_string()]);
     }
 
     #[tokio::test]
     async fn recent_reclaim_after_peer_grabbed_back_is_not_a_duplicate() {
-        // Within the time window, but the buds are no longer ours — a
-        // genuine new request (e.g. a real incoming call on the peer),
-        // not the BLE+LAN echo. Must NOT be suppressed.
         let bt = Arc::new(FakeBt::new(false));
         let (orch, _cap) = make_orch(bt.clone());
         *orch.last_complete.lock().await = Some((MAC.to_string(), tokio::time::Instant::now()));
@@ -1252,9 +922,7 @@ mod tests {
     async fn no_prior_completion_is_never_a_duplicate() {
         let bt = Arc::new(FakeBt::new(true));
         let (orch, _cap) = make_orch(bt.clone());
-        // last_complete stays None.
         assert!(!orch.is_recent_duplicate(MAC).await);
-        // Time check fails first — the live BT check is never reached.
         assert!(bt.is_connected_calls.lock().unwrap().is_empty());
     }
 
@@ -1262,7 +930,8 @@ mod tests {
     async fn different_mac_is_not_a_duplicate() {
         let bt = Arc::new(FakeBt::new(true));
         let (orch, _cap) = make_orch(bt.clone());
-        *orch.last_complete.lock().await = Some(("00:11:22:33:44:55".to_string(), tokio::time::Instant::now()));
+        *orch.last_complete.lock().await =
+            Some(("00:11:22:33:44:55".to_string(), tokio::time::Instant::now()));
         assert!(!orch.is_recent_duplicate(MAC).await);
         assert!(bt.is_connected_calls.lock().unwrap().is_empty());
     }
@@ -1272,34 +941,25 @@ mod tests {
         let bt = Arc::new(FakeBt::new(true));
         let (orch, _cap) = make_orch(bt.clone());
         *orch.last_complete.lock().await = Some((MAC.to_string(), tokio::time::Instant::now()));
-        // Advance the paused clock past the dedup window.
         tokio::time::advance(Duration::from_millis(DUP_CLAIM_WINDOW_MS + 1)).await;
         assert!(!orch.is_recent_duplicate(MAC).await);
-        // Time check fails first — no live BT probe.
         assert!(bt.is_connected_calls.lock().unwrap().is_empty());
     }
 
     #[tokio::test]
     async fn duplicate_request_acks_with_done_and_stays_idle() {
-        // The full public-surface behaviour: a duplicate reclaim must
-        // NOT start a flow (state stays Idle) and must send the peer a
-        // `Done` so its UI clears.
         let bt = Arc::new(FakeBt::new(true));
         let (orch, captured) = make_orch(bt.clone());
         *orch.last_complete.lock().await = Some((MAC.to_string(), tokio::time::Instant::now()));
 
         let r = orch.request(PEER, MAC.to_string()).await;
         assert!(r.is_ok());
-        // Never left Idle — no initiator flow was started.
         assert_eq!(*orch.state_rx.borrow(), SwitchState::Idle);
-        // Exactly one frame, and it's a Done for this mac.
         let frames = captured.lock().unwrap();
         assert_eq!(frames.len(), 1);
         assert!(matches!(frames[0].op, AudioOp::Done));
         assert_eq!(frames[0].mac, MAC);
     }
-
-    // ---- Initiator state machine ----
 
     #[tokio::test(start_paused = true)]
     async fn initiator_happy_path_completes_and_sends_request_then_done() {
@@ -1321,7 +981,8 @@ mod tests {
     async fn initiator_retries_once_then_succeeds() {
         let _env = isolate_persist();
         let bt = Arc::new(
-            FakeBt::new(false).with_connect_script([Outcome::Fail("phone still holds".into()), Outcome::Ok]),
+            FakeBt::new(false)
+                .with_connect_script([Outcome::Fail("phone still holds".into()), Outcome::Ok]),
         );
         let (orch, cap) = make_orch(bt.clone());
         let mut rx = orch.state();
@@ -1345,14 +1006,13 @@ mod tests {
         assert_eq!(bt.connects(), CONNECT_RETRY_COUNT, "all retries consumed");
         wait_frame(&cap, |f| matches!(f.op, AudioOp::Failed { .. })).await;
 
-        // fail_initiator self-heals back to Idle after FAILED_RESET_MS.
         wait_state(&mut rx, |s| *s == SwitchState::Idle).await;
     }
 
     #[tokio::test(start_paused = true)]
     async fn initiator_peer_reject_transitions_to_failed() {
         let _env = isolate_persist();
-        let bt = Arc::new(FakeBt::new(false).with_connect(Outcome::Hang)); // hold in Connecting
+        let bt = Arc::new(FakeBt::new(false).with_connect(Outcome::Hang));
         let (orch, _cap) = make_orch(bt.clone());
         let mut rx = orch.state();
 
@@ -1372,16 +1032,13 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn released_moves_connecting_to_almost_done() {
         let _env = isolate_persist();
-        let bt = Arc::new(FakeBt::new(false).with_connect(Outcome::Hang)); // BT not done yet
+        let bt = Arc::new(FakeBt::new(false).with_connect(Outcome::Hang));
         let (orch, _cap) = make_orch(bt.clone());
         let mut rx = orch.state();
 
         orch.request(PEER, MAC.to_string()).await.unwrap();
         wait_state(&mut rx, |s| *s == SwitchState::Connecting).await;
-        orch.clone()
-            .on_incoming(PEER, frame(1, AudioOp::Released))
-            .await
-            .unwrap();
+        orch.clone().on_incoming(PEER, frame(1, AudioOp::Released)).await.unwrap();
 
         wait_state(&mut rx, |s| *s == SwitchState::AlmostDone).await;
     }
@@ -1406,19 +1063,15 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn flow_watchdog_forces_idle_on_wedge() {
         let _env = isolate_persist();
-        let bt = Arc::new(FakeBt::new(false).with_connect(Outcome::Hang)); // connect never returns
+        let bt = Arc::new(FakeBt::new(false).with_connect(Outcome::Hang));
         let (orch, _cap) = make_orch(bt.clone());
         let mut rx = orch.state();
 
         orch.request(PEER, MAC.to_string()).await.unwrap();
         wait_state(&mut rx, |s| *s == SwitchState::Connecting).await;
-        // Nothing reaches a terminal state on its own — only the
-        // FLOW_WATCHDOG_MS backstop can rescue a wedged flow.
         let st = wait_state(&mut rx, |s| *s == SwitchState::Idle).await;
         assert_eq!(st, SwitchState::Idle);
     }
-
-    // ---- Responder state machine ----
 
     #[tokio::test(start_paused = true)]
     async fn responder_allow_sends_approve_and_released() {
@@ -1426,10 +1079,7 @@ mod tests {
         let bt = Arc::new(FakeBt::new(false));
         let (orch, cap) = make_orch(bt.clone());
 
-        orch.clone()
-            .on_incoming(PEER, frame(1, AudioOp::Request))
-            .await
-            .unwrap();
+        orch.clone().on_incoming(PEER, frame(1, AudioOp::Request)).await.unwrap();
 
         let approve = wait_frame(&cap, |f| matches!(f.op, AudioOp::Approve)).await;
         let released = wait_frame(&cap, |f| matches!(f.op, AudioOp::Released)).await;
@@ -1441,13 +1091,13 @@ mod tests {
     async fn responder_reject_when_acceptance_denies() {
         let _env = isolate_persist();
         let bt = Arc::new(FakeBt::new(false));
-        let (orch, cap, _store) =
-            make_orch_full(bt.clone(), Arc::new(FakePeerStore::new()), reject(RejectReason::InCall));
+        let (orch, cap, _store) = make_orch_full(
+            bt.clone(),
+            Arc::new(FakePeerStore::new()),
+            reject(RejectReason::InCall),
+        );
 
-        orch.clone()
-            .on_incoming(PEER, frame(1, AudioOp::Request))
-            .await
-            .unwrap();
+        orch.clone().on_incoming(PEER, frame(1, AudioOp::Request)).await.unwrap();
 
         let r = wait_frame(&cap, |f| matches!(f.op, AudioOp::Reject { .. })).await;
         assert!(matches!(r.op, AudioOp::Reject { reason: RejectReason::InCall }));
@@ -1462,18 +1112,17 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn responder_rejects_busy_when_a_flow_is_active() {
         let _env = isolate_persist();
-        let bt = Arc::new(FakeBt::new(false).with_connect(Outcome::Hang)); // initiator stuck Connecting
+        let bt = Arc::new(FakeBt::new(false).with_connect(Outcome::Hang));
         let (orch, cap) = make_orch(bt.clone());
         let mut rx = orch.state();
 
         orch.request(PEER, MAC.to_string()).await.unwrap();
         wait_state(&mut rx, |s| *s == SwitchState::Connecting).await;
-        orch.clone()
-            .on_incoming(PEER, frame(1, AudioOp::Request))
-            .await
-            .unwrap();
+        orch.clone().on_incoming(PEER, frame(1, AudioOp::Request)).await.unwrap();
 
-        let r = wait_frame(&cap, |f| matches!(f.op, AudioOp::Reject { reason: RejectReason::Busy })).await;
+        let r =
+            wait_frame(&cap, |f| matches!(f.op, AudioOp::Reject { reason: RejectReason::Busy }))
+                .await;
         assert!(matches!(r.op, AudioOp::Reject { reason: RejectReason::Busy }));
     }
 
@@ -1483,17 +1132,10 @@ mod tests {
         let bt = Arc::new(FakeBt::new(false));
         let (orch, cap) = make_orch(bt.clone());
 
-        orch.clone()
-            .on_incoming(PEER, frame(5, AudioOp::Request))
-            .await
-            .unwrap();
+        orch.clone().on_incoming(PEER, frame(5, AudioOp::Request)).await.unwrap();
         wait_frame(&cap, |f| matches!(f.op, AudioOp::Approve)).await;
 
-        // Same nonce again — the load-compare-commit gate must drop it.
-        orch.clone()
-            .on_incoming(PEER, frame(5, AudioOp::Request))
-            .await
-            .unwrap();
+        orch.clone().on_incoming(PEER, frame(5, AudioOp::Request)).await.unwrap();
         tokio::time::sleep(Duration::from_millis(20)).await;
         assert_eq!(
             count_frames(&cap, |f| matches!(f.op, AudioOp::Approve)),
@@ -1501,8 +1143,6 @@ mod tests {
             "a replayed frame must not trigger a second responder run"
         );
     }
-
-    // ---- Crash recovery ----
 
     #[tokio::test(start_paused = true)]
     async fn recover_resumes_fresh_connecting_and_completes() {

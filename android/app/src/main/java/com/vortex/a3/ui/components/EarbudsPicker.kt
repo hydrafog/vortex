@@ -34,10 +34,6 @@ import com.vortex.a3.core.earbuds.BluetoothDeviceRow
 import com.vortex.a3.ui.PickerState
 import com.vortex.a3.ui.str
 
-/**
- * Bluetooth picker modal — shows discovered devices so the user can
- * tap one to save it as the home-screen earbuds row.
- */
 @Composable
 fun EarbudsPickerDialog(
     pickerState: PickerState,
@@ -70,8 +66,6 @@ fun EarbudsPickerDialog(
                     fontWeight = FW.Medium,
                 )
                 Spacer(modifier = Modifier.height(10.dp))
-                // Cap the list height so the dialog stays usable on
-                // small screens. The list itself is scrollable.
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()

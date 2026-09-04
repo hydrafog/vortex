@@ -10,29 +10,8 @@ import org.junit.jupiter.api.Test
 import kotlin.test.fail
 import java.io.File
 
-/**
- * Phase 9 — log redaction gate (spec §3.5 T-LOC-3).
- *
- * Two complementary checks, mirroring the Rust gate in
- * `l3/daemon/tests/log_redaction.rs`:
- *
- *   1. Static source scan over `app/src/main/java/com/vortex/a3` for any
- *      `Log.<level>(TAG, "...")` site that formats one of the V1 secret
- *      values (PRS, SES, SAS code, raw presence token, static_priv).
- *
- *   2. Runtime smoke test: derive synthetic PRS / SES / SAS / presence
- *      tokens and verify (a) the derived bytes are non-empty and
- *      (b) presence tokens rotate per bucket (the non-linkability
- *      property cited in the build plan).
- *
- * The static scan is the production gate — the runtime smoke ensures the
- * primitives keep working as the codebase evolves.
- */
 class LogRedactionTest {
 
-    // ----------------------------------------------------------------
-    // 1. Static source scan
-    // ----------------------------------------------------------------
 
     @Test
     fun `no Log call writes a V1 secret`() {
@@ -49,10 +28,6 @@ class LogRedactionTest {
                     if (line.startsWith("//") || line.startsWith("*")) return@forEachIndexed
                     if (!LOG_SINKS.any { line.contains(it) }) return@forEachIndexed
 
-                    // Documented escape hatch: a `// LOG_REDACTION_ALLOW: <reason>`
-                    // marker on the same line OR the immediately preceding line
-                    // whitelists this site (used for debug-only paths gated by
-                    // a build flag — see spec §3.5 T-LOC-3).
                     if (raw.contains(ALLOW_MARKER)) return@forEachIndexed
                     val prevLineAllowed =
                         idx > 0 && lines[idx - 1].contains(ALLOW_MARKER)
@@ -74,9 +49,6 @@ class LogRedactionTest {
         }
     }
 
-    // ----------------------------------------------------------------
-    // 2. Runtime smoke — primitives produce well-formed secrets
-    // ----------------------------------------------------------------
 
     @Test
     fun `derived secrets are non-empty and well-formed`() {
@@ -91,15 +63,12 @@ class LogRedactionTest {
         assertTrue(sasInt in 0..999_999, "SAS int out of range: $sasInt")
         assertNotEquals(prs.toList(), ses.toList(), "PRS and SES collided")
 
-        // Deriving the same input twice yields the same output.
         val prs2 = Derive.prs(transcript)
         assertTrue(prs.contentEquals(prs2), "Derive.prs is non-deterministic")
     }
 
     @Test
     fun `presence tokens rotate per bucket and do not leak PRS`() {
-        // spec §7.3 — adjacent buckets MUST produce different tokens, and
-        // the token MUST NOT contain the PRS bytes verbatim.
         val prs = ByteArray(32) { 0xAA.toByte() }
         val t0 = Presence.deriveToken(prs, 1_000L)
         val tPrev = Presence.deriveToken(prs, 999L)
@@ -117,9 +86,6 @@ class LogRedactionTest {
         )
     }
 
-    // ----------------------------------------------------------------
-    // helpers
-    // ----------------------------------------------------------------
 
     private fun locateMainDir(): File {
         var dir = File(System.getProperty("user.dir"))
@@ -135,7 +101,6 @@ class LogRedactionTest {
         joinToString("") { "%02x".format(it) }
 
     companion object {
-        /** Lines containing any of these tokens are treated as log sinks. */
         private val LOG_SINKS = listOf(
             "Log.v",
             "Log.d",
@@ -147,12 +112,6 @@ class LogRedactionTest {
             "print(",
         )
 
-        /**
-         * Forbidden formatting tokens. Each entry is (token, docs-reference).
-         * The token is matched as a substring on the same line as a log sink.
-         * Patterns are conservative: false positives are caught by the
-         * documented escape hatch (see [ALLOW_MARKER]).
-         */
         private val FORBIDDEN_TOKENS = listOf(
             "prs.toHex" to "spec §3.5 T-LOC-3 (PRS)",
             "prs.joinToString" to "spec §3.5 T-LOC-3 (PRS)",

@@ -3,20 +3,14 @@ package com.vortex.a3.core.notes
 import org.json.JSONArray
 import org.json.JSONObject
 
-/**
- * One note or todo — the same shape as the laptop's Rust `notes::Item`, so the
- * JSON round-trips across the sync wire untouched. `updatedAt` is the LWW clock
- * the bidirectional merge keys on; `deleted` is a tombstone kept so a delete
- * propagates (hidden from the UI). JSON keys are snake_case to match serde.
- */
 data class Note(
     val id: String,
-    val kind: String,            // "note" | "todo"
+    val kind: String,
     val title: String = "",
     val body: String = "",
-    val done: Boolean = false,   // todos only
-    val dueAt: Long = 0L,        // epoch ms, 0 = none (todos only)
-    val updatedAt: Long,         // epoch ms — LWW clock
+    val done: Boolean = false,
+    val dueAt: Long = 0L,
+    val updatedAt: Long,
     val deleted: Boolean = false,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {

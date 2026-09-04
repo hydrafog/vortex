@@ -1,6 +1,4 @@
 <script setup lang="ts">
-// Phone + laptop with a notification card sliding in over the laptop —
-// "your phone, on your laptop". Ported from the design's feature-1 stage.
 </script>
 
 <template>

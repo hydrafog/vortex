@@ -1,6 +1,4 @@
 <script setup lang="ts">
-// Earbud hops from phone to laptop while the audio EQ lights up on whichever
-// device is "playing". Ported from the design's feature-0 stage.
 const bars = [0, 1, 2, 3];
 </script>
 

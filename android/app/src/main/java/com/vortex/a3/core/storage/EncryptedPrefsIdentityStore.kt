@@ -9,23 +9,12 @@ import com.vortex.a3.core.identity.IDENTITY_VERSION
 import com.vortex.a3.core.identity.IdentityRecord
 import com.vortex.a3.core.identity.Platform
 
-/**
- * EncryptedSharedPreferences-backed identity store per spec §3.2.
- *
- * The whole 90-byte Identity Record is stored as a single base64 value in
- * an [EncryptedSharedPreferences] file. The encryption keys are managed by
- * androidx.security and held in the Android Keystore (hardware-backed
- * where the device supports it; software-backed otherwise).
- *
- * If [MasterKey] generation fails (e.g., Keystore unavailable), construction
- * throws an exception so the caller can fail closed per spec §3.2.
- */
 class EncryptedPrefsIdentityStore(context: Context) : IdentityStore {
 
     private val prefs = run {
         val masterKey = MasterKey.Builder(context, MASTER_KEY_ALIAS)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .setRequestStrongBoxBacked(false) // emulators / older devices may lack StrongBox
+            .setRequestStrongBoxBacked(false)
             .build()
         EncryptedSharedPreferences.create(
             context.applicationContext,
@@ -61,8 +50,6 @@ class EncryptedPrefsIdentityStore(context: Context) : IdentityStore {
         val createdAt = java.nio.ByteBuffer.wrap(bytes, 81, 8).long
         val platformByte = bytes[89]
         val platform = Platform.fromByte(platformByte) ?: return null
-        // Re-derive the public key as a sanity check; if it differs, the
-        // stored record is corrupted.
         val expectedPub = X25519.publicFromPrivate(staticPriv)
         if (!staticPub.contentEquals(expectedPub)) return null
         return IdentityRecord(

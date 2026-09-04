@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// The app's standard search field (shared by Contacts, Recents and future
-// pages so they keep one look): a soft pill — Search icon + inline input,
-// matching the Vortex design system. Forwards Enter for pages that act on
-// the typed value (Recents' manual dial).
 import { Search } from "lucide-vue-next";
 
 defineProps<{ modelValue: string; placeholder?: string }>();

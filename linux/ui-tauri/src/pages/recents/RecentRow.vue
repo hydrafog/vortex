@@ -1,7 +1,4 @@
 <script setup lang="ts">
-// One call-history row (Recents). Presentation only — the type→icon/colour,
-// relative-date and duration formatting live here; the parent owns the data
-// window and handles the message/call actions it emits.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { ArrowDownLeft, ArrowUpRight, MessageSquare, Phone } from "lucide-vue-next";
@@ -17,7 +14,6 @@ const displayName = computed(
   () => props.call.name || props.call.number || t("recents.unknown"),
 );
 
-// CallLog.Calls.TYPE → arrow + colour + label.
 const meta = computed(() => {
   switch (props.call.type) {
     case 2:
@@ -31,7 +27,6 @@ const meta = computed(() => {
   }
 });
 
-// "Today 14:20" for today, "Yesterday", a weekday within a week, else a date.
 function dateLabel(ms: number): string {
   if (!ms) return "";
   const d = new Date(ms);
@@ -50,7 +45,6 @@ function dateLabel(ms: number): string {
   return d.toLocaleDateString();
 }
 
-// Call length as m:ss; blank when there's nothing to show (missed / no answer).
 function duration(sec: number): string {
   if (!sec || sec < 1) return "";
   const m = Math.floor(sec / 60);

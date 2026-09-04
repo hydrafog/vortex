@@ -6,12 +6,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/**
- * Whether this phone shares its recent call log with the paired laptop's
- * companion Recents page. LOCAL-only (like the contacts/notification mirrors):
- * turning it off just stops the outgoing sync. SharedPreferences singleton,
- * default ON.
- */
 object CallLogMirrorSetting {
     private const val PREFS = "vortex_ui_settings"
     private const val KEY = "calllog_share_enabled"

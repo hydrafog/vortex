@@ -3,15 +3,8 @@ package com.vortex.a3.core.crypto
 import com.southernstorm.noise.protocol.HandshakeState
 import com.southernstorm.noise.protocol.Noise
 
-/** Noise XX / IK runners per spec §6 and §7. */
 object NoiseRunner {
     const val NOISE_XX = "Noise_XX_25519_ChaChaPoly_SHA256"
-    /** The reconnect pattern — used for the test vectors AND at runtime. At
-     *  runtime the Pairwise Reconnect Secret is mixed into the prologue (see
-     *  ReconnectOrchestrator.buildResponder and LanServer), which is what
-     *  keeps a reconnect authenticated after a long-term static-key
-     *  compromise — the goal Noise_IKpsk2 would serve, without needing a
-     *  pattern this Noise library does not implement. */
     const val NOISE_IK = "Noise_IK_25519_ChaChaPoly_SHA256"
 
     val PROLOGUE_XX: ByteArray = "vortex/v1/pairing".toByteArray(Charsets.UTF_8)

@@ -3,16 +3,7 @@ package com.vortex.a3.service
 import android.util.Log
 import kotlinx.coroutines.launch
 
-/**
- * App-icon push + live-activity forwarding — split out of [VortexStack]. Phone
- * app logos are rasterised and sent once per session (chunked ICON frames) so
- * the laptop's mirrored notifications / pills show the real app icon; ride/nav
- * "live activities" are forwarded to the laptop top bar over BLE.
- */
 
-/** Render [pkg]'s launcher icon to a small PNG, then push it to each peer
- *  in [VortexStack.ICON_CHUNK]-sized chunks. Drops the package from
- *  [VortexStack.sentIconPkgs] on any failure so it retries. */
 internal suspend fun VortexStack.sendAppIcon(pkg: String) {
     val png = renderAppIconPng(pkg)
     if (png == null) { sentIconPkgs.remove(pkg); return }
@@ -35,13 +26,12 @@ internal suspend fun VortexStack.sendAppIcon(pkg: String) {
                 write(png, start, end - start)
             }.toByteArray()
             if (!server.sendIconChunkEncrypted(peer.peerStaticPub, payload)) { ok = false; break@outer }
-            kotlinx.coroutines.delay(12) // pace so the BLE stack doesn't drop notifies
+            kotlinx.coroutines.delay(12)
         }
     }
     if (ok) Log.i(VortexStack.TAG, "icon sent for $pkg ($total chunks)") else sentIconPkgs.remove(pkg)
 }
 
-/** Rasterise a package's icon to a square PNG (or null if unavailable). */
 internal fun VortexStack.renderAppIconPng(pkg: String, sizePx: Int = 64): ByteArray? = try {
     val pm = ctx.packageManager
     val drawable = pm.getApplicationIcon(pkg)
@@ -60,10 +50,6 @@ internal fun VortexStack.renderAppIconPng(pkg: String, sizePx: Int = 64): ByteAr
     null
 }
 
-/** Forward live activities (ride/navigation/delivery ETA pills) to the
- *  laptop's top bar over BLE. Not buffered: live activities update
- *  frequently and only the latest state matters, so a missed tick during
- *  a BLE blip is corrected by the next update (or the `ended` message). */
 internal fun VortexStack.forwardLiveActivities() {
     scope.launch {
         VortexService.liveActivityBus.collect { live ->
@@ -73,8 +59,6 @@ internal fun VortexStack.forwardLiveActivities() {
             for (peer in peerStore.list()) {
                 server.sendLiveActivityEncrypted(peer.peerStaticPub, json)
             }
-            // Push the app's real icon once so the live-activity's own tray
-            // on the laptop shows the right logo (Yandex Go, Maps, …).
             val pkg = live.appId
             if (pkg.isNotEmpty() && !live.ended && sentIconPkgs.add(pkg)) {
                 scope.launch { sendAppIcon(pkg) }

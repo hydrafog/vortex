@@ -35,12 +35,6 @@ import androidx.compose.ui.unit.sp
 import com.vortex.a3.ui.UiSettingsStore
 import com.vortex.a3.ui.VortexLocale
 
-/**
- * KDE-Connect-style full-screen "Found it!" page. Shown over the lockscreen
- * (screen forced on) while the find-my-phone ring plays; tapping ANYWHERE
- * silences the ring and closes. Reached via the ring notification's
- * full-screen intent, plus a best-effort direct start from [RingController].
- */
 class RingActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,8 +43,6 @@ class RingActivity : ComponentActivity() {
             setTurnScreenOn(true)
         }
         RingController.attachFoundScreen(this)
-        // One-shot locale read (same store the main UI uses) — this page can
-        // appear on a locked phone, so it resolves language itself.
         val store = UiSettingsStore(applicationContext).apply { load() }
         val (title, button) = when (store.locale.value) {
             VortexLocale.Uzbek -> "Telefon shu yerda!" to "Topdim!"
@@ -73,7 +65,6 @@ class RingActivity : ComponentActivity() {
 
 @Composable
 private fun FoundItScreen(title: String, button: String, onFound: () -> Unit) {
-    // The whole screen is the button — a lost-phone tap shouldn't need aim.
     val pulse by rememberInfiniteTransition(label = "ring-pulse").animateFloat(
         initialValue = 1f,
         targetValue = 1.1f,

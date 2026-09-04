@@ -9,25 +9,11 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 
-/**
- * Background-safe launcher for the screen-mirror consent. When the laptop asks
- * to view this phone's screen, the phone must open [MirrorConsentActivity] to
- * get the one-shot MediaProjection token. If Vortex isn't in the foreground,
- * Android 10+ silently blocks that background activity start — so the request
- * appeared to "not arrive". This posts a high-priority **full-screen-intent**
- * notification instead (the same mechanism incoming-call screens use): the
- * system launches the consent directly when the device is awake, or shows a
- * heads-up the user taps to allow. Foreground? We start the activity directly.
- *
- * Its own module (per the per-feature split) — no [com.vortex.a3.service.VortexStack] growth.
- */
 object MirrorRequestNotification {
     private const val TAG = "VortexMirror"
     private const val CHANNEL_ID = "vortex_mirror_req"
-    private const val NOTIF_ID = 0x4D4952 // "MIR"
+    private const val NOTIF_ID = 0x4D4952
 
-    /** Open the consent — directly if we're foreground, else via a full-screen
-     *  notification that survives the background-activity-launch restriction. */
     fun prompt(ctx: Context) {
         val consent = Intent(ctx, com.vortex.a3.service.MirrorConsentActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -42,7 +28,6 @@ object MirrorRequestNotification {
         postFullScreen(ctx, consent)
     }
 
-    /** Drop the request notification once consent has been handled. */
     fun clear(ctx: Context) {
         (ctx.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager)?.cancel(NOTIF_ID)
     }
@@ -74,9 +59,6 @@ object MirrorRequestNotification {
         }
     }
 
-    /** True when a Vortex activity is actually visible (importance FOREGROUND).
-     *  A bare foreground SERVICE reports FOREGROUND_SERVICE, which we treat as
-     *  background here — its presence can't satisfy the activity-launch rule. */
     private fun isForeground(ctx: Context): Boolean {
         val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false
         val procs = am.runningAppProcesses ?: return false

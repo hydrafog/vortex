@@ -1,22 +1,9 @@
-// Emoji SAS — render the 6-digit pairing SAS as 3 emoji + names.
-//
-// The handshake SAS is `value ∈ 0..1_000_000` (HMAC-derived, identical on both
-// devices — see daemon core::crypto::sas). With EXACTLY 100 emoji, three
-// base-100 digits cover 100³ = 1_000_000 = the full SAS range, a clean
-// bijection: the emoji carry the SAME ~20 bits of MITM protection as the digits,
-// just friendlier to compare across two screens.
-//
-// CRITICAL: this 100-entry table and the digit split MUST stay byte-identical to
-// the Android side (com.vortex.a3.core.pairing.SasEmoji) — a different order or
-// length would make the two devices show different emoji for the same SAS and
-// every pairing would look like a mismatch. Append only; never reorder.
 
 export interface SasGlyph {
   emoji: string;
   name: string;
 }
 
-/** 100 distinct, widely-rendered emoji. Index = base-100 digit. APPEND-ONLY. */
 export const SAS_EMOJI: SasGlyph[] = [
   { emoji: "🦊", name: "Fox" },        { emoji: "🐼", name: "Panda" },
   { emoji: "🦁", name: "Lion" },       { emoji: "🐯", name: "Tiger" },
@@ -70,9 +57,6 @@ export const SAS_EMOJI: SasGlyph[] = [
   { emoji: "🔔", name: "Bell" },       { emoji: "🎁", name: "Gift" },
 ];
 
-/** Map the 6-digit SAS (string or value 0..999999) to its 3 glyphs.
- *  digit order = most-significant first, so it reads left→right like the number.
- *  Out-of-range / unparsable input falls back to the first glyph (never throws). */
 export function sasToGlyphs(sas: string | number): SasGlyph[] {
   let v = typeof sas === "number" ? sas : parseInt(sas, 10);
   if (!Number.isFinite(v) || v < 0) v = 0;

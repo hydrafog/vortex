@@ -14,12 +14,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-/**
- * Reads the phone's contacts (name + numbers) and emits the full list whenever
- * it changes, so the laptop companion's Contacts page can mirror it. One query
- * over `Phone.CONTENT_URI` (one row per number) grouped by contact id; a
- * `ContentObserver` re-emits on any add/edit/delete. READ_CONTACTS gated.
- */
 class ContactsProvider(
     private val context: Context,
     private val onContacts: (List<Contact>) -> Unit,
@@ -29,7 +23,6 @@ class ContactsProvider(
     private var observer: ContentObserver? = null
 
     companion object {
-        /** Quiet window before re-reading + re-sending after an onChange burst. */
         private const val EMIT_DEBOUNCE_MS = 2_000L
     }
 
@@ -54,9 +47,6 @@ class ContactsProvider(
         }
     }
 
-    /** Battery: each emit ships the full list as a BLE chunk burst, so collapse
-     *  observer bursts (a contact import fires onChange per row) into one
-     *  re-read after a quiet window. */
     private fun scheduleEmit() {
         pendingEmit?.cancel()
         pendingEmit = scope.launch {
@@ -75,7 +65,6 @@ class ContactsProvider(
         scope.coroutineContext[Job]?.cancel()
     }
 
-    /** Re-read + emit now (e.g. after the user grants READ_CONTACTS post-launch). */
     fun refresh() {
         if (hasPermission()) scope.launch { emitSnapshot() }
     }
@@ -89,7 +78,6 @@ class ContactsProvider(
     }
 
     private fun readContacts(): List<Contact> {
-        // Preserve insertion order (DISPLAY_NAME ASC) and group numbers per id.
         val byId = LinkedHashMap<String, Pair<String, MutableList<String>>>()
         val cols = arrayOf(
             ContactsContract.CommonDataKinds.Phone.CONTACT_ID,

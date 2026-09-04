@@ -1,5 +1,4 @@
 <script setup lang="ts">
-// Step 7 — privacy: a pulsing shield, the "everything is yours" message.
 import { useI18n } from "vue-i18n";
 
 defineEmits<{ next: [] }>();

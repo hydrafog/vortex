@@ -8,12 +8,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import java.util.concurrent.atomic.AtomicInteger
 
-/**
- * Posts a mirrored LAPTOP desktop notification on THIS phone (the
- * laptop→phone direction). Self-contained — its own channel, incrementing
- * id, BigText body. Best-effort: if POST_NOTIFICATIONS (Android 13+) isn't
- * granted, notify() throws SecurityException which we swallow.
- */
 object IncomingNotificationDisplay {
     private const val CHANNEL_ID = "vortex_mirror"
     private val seq = AtomicInteger(20_000)
@@ -28,10 +22,6 @@ object IncomingNotificationDisplay {
             else -> m.app.ifBlank { "Notification" }
         }
         val id = seq.incrementAndGet()
-        // A no-op contentIntent so a TAP dismisses the mirror. We can't run a
-        // laptop notification's action from here (we're not its owner), but
-        // setAutoCancel only fires when there IS a contentIntent — this gives
-        // the user "tap to clear" instead of a notification that ignores taps.
         val tapIntent = android.content.Intent("com.vortex.a3.MIRROR_TAP")
             .setPackage(ctx.packageName)
         val piFlags = android.app.PendingIntent.FLAG_UPDATE_CURRENT or
@@ -49,7 +39,6 @@ object IncomingNotificationDisplay {
         try {
             NotificationManagerCompat.from(ctx).notify(id, n)
         } catch (_: SecurityException) {
-            // POST_NOTIFICATIONS not granted — nothing to show.
         }
     }
 

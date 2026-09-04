@@ -66,7 +66,7 @@ class IdentityTest {
         val bytes = record.encode()
         assertEquals(90, bytes.size)
         assertEquals(IDENTITY_VERSION, bytes[0])
-        assertEquals(0x01.toByte(), bytes[89]) // platform = Android
+        assertEquals(0x01.toByte(), bytes[89])
     }
 
     @Test

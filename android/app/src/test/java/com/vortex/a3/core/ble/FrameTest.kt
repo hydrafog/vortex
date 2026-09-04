@@ -23,8 +23,6 @@ class FrameTest {
             byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte()),
         )
         val bytes = f.encode()
-        // Same bytes as l3 frame::Frame::echo_request(vec![0xAA, 0xBB, 0xCC])
-        // produces in core/ble/frame.rs.
         assertContentEquals(
             byteArrayOf(0x30, 0x01, 0x00, 0x03, 0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte()),
             bytes,
@@ -39,7 +37,6 @@ class FrameTest {
 
     @Test
     fun `rejects length mismatch`() {
-        // Header says length=5, payload only 3 bytes.
         val bytes = byteArrayOf(0x10, 0x01, 0x00, 0x05, 0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte())
         assertTrue(Frame.decode(bytes).isFailure)
     }

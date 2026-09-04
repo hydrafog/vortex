@@ -18,10 +18,6 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 
-/**
- * One row in the in-app BT picker. Mirrors `BluetoothDeviceRow` on the
- * Linux side so the JSON shape stays parallel.
- */
 data class BluetoothDeviceRow(
     val address: String,
     val name: String,
@@ -30,30 +26,11 @@ data class BluetoothDeviceRow(
     val isAudio: Boolean = false,
 )
 
-/**
- * Classic-Bluetooth discovery for the "+ Add earbuds" picker. We use
- * the regular `BluetoothAdapter.startDiscovery()` flow plus a
- * BroadcastReceiver for ACTION_FOUND so the picker can include both
- * already-bonded audio devices AND nearby discoverable buds.
- *
- * Discovery is intentionally short (default 6 s) so we don't keep the
- * adapter busy — long scans interfere with our BLE GATT server.
- */
 object BluetoothScanner {
 
     private const val TAG = "VortexBtScan"
     const val DEFAULT_TIMEOUT_MS = 6_000L
 
-    /**
-     * Run a short discovery + return everything the OS knows about:
-     *   - already-bonded devices (so the user can pick buds they paired
-     *     in system Settings without rescanning),
-     *   - anything that shows up via ACTION_FOUND while the scan runs.
-     *
-     * Audio devices float to the top, then currently-connected, then
-     * RSSI (closer first). Returns an empty list when Bluetooth is off
-     * or the required permissions are missing.
-     */
     suspend fun discover(
         context: Context,
         timeoutMs: Long = DEFAULT_TIMEOUT_MS,
@@ -68,7 +45,6 @@ object BluetoothScanner {
         if (!adapter.isEnabled) return emptyList()
 
         val found = mutableMapOf<String, BluetoothDeviceRow>()
-        // Seed with bonded devices so the picker has immediate content.
         for (row in bondedRows(ctx)) {
             found[row.address] = row
         }
@@ -104,8 +80,6 @@ object BluetoothScanner {
         }
 
         ctx.registerReceiver(receiver, IntentFilter(BluetoothDevice.ACTION_FOUND))
-        // If an older discovery is still running (e.g. user re-opened the
-        // picker quickly), cancel it so we get a fresh sweep.
         try {
             adapter.cancelDiscovery()
         } catch (_: SecurityException) {
@@ -121,7 +95,6 @@ object BluetoothScanner {
             return sortRows(found.values)
         }
 
-        // Wait for ACTION_DISCOVERY_FINISHED OR the timeout, whichever fires first.
         val finishedFilter = IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
         withTimeoutOrNull(timeoutMs) {
             suspendCancellableCoroutine<Unit> { cont ->
@@ -224,7 +197,6 @@ object BluetoothScanner {
                 Manifest.permission.BLUETOOTH_SCAN,
             ) == PackageManager.PERMISSION_GRANTED
         } else {
-            // API ≤30 needs ACCESS_FINE_LOCATION for classic discovery.
             ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.ACCESS_FINE_LOCATION,

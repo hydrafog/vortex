@@ -1,18 +1,12 @@
 <script setup lang="ts">
 import type { Component } from "vue";
 
-// A single grouped settings row — icon tile + title + description on the left,
-// an iOS-style switch on the right. Lives INSIDE a section card (unlike the
-// standalone ToggleRow card): pass `divider` for every row except the first so
-// the rows read as one list. The whole row is clickable.
 defineProps<{
   icon: Component;
   title: string;
   desc?: string;
   modelValue: boolean;
   divider?: boolean;
-  /// Badge beside the title — "Experimental" for a feature that ships with
-  /// requirements the rest of the app does not have.
   tag?: string;
 }>();
 const emit = defineEmits<{ "update:modelValue": [value: boolean] }>();

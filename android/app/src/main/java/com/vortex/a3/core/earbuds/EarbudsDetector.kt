@@ -11,22 +11,6 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import com.vortex.a3.core.appstate.EarbudsInfo
 
-/**
- * Resolves the earbud card's live state.
- *
- * Saved-entry only: the card represents whichever device the user
- * explicitly picked through the in-app modal. We no longer auto-
- * detect the first connected audio peripheral — that turned
- * "Remove from Vortex" into a no-op, since the system bond stayed
- * and the next poll would re-catch the same buds. Returning null
- * when nothing is saved lets the home screen render the
- * "+ Add earbuds" placeholder cleanly.
- *
- * Battery percentage uses the hidden `BluetoothDevice.getBatteryLevel`
- * (publicly available via reflection; same value Settings →
- * Connected devices shows). Returns null when the OS has no battery
- * reading yet.
- */
 object EarbudsDetector {
 
     private const val TAG = "VortexEarbuds"
@@ -47,8 +31,6 @@ object EarbudsDetector {
         adapter: BluetoothAdapter,
         saved: SavedEarbuds,
     ): EarbudsInfo {
-        // Try the bonded list first — that's the canonical live `BluetoothDevice`
-        // (battery & connection-state accessors work on it).
         val bonded = try {
             adapter.bondedDevices ?: emptySet()
         } catch (_: SecurityException) {
@@ -60,9 +42,6 @@ object EarbudsDetector {
         val displayName = match?.let { safeName(it) }?.takeIf { it.isNotBlank() }
             ?: saved.name
         if (match == null) {
-            // Not in bonded set — buds were forgotten in system Settings.
-            // Still keep the card visible; the user can re-pick when they
-            // re-bond.
             return EarbudsInfo(name = displayName, address = saved.address, battery = null, connected = false)
         }
         val connected = isConnected(bm, match)

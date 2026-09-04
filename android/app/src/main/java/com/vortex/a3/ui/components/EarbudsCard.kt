@@ -47,17 +47,6 @@ import androidx.compose.ui.unit.dp
 import com.vortex.a3.core.earbuds.SwitchState
 import com.vortex.a3.ui.str
 
-/**
- * The earbuds slot on the home screen. Renders one of two layouts
- * depending on whether the user has picked a device:
- *
- *  - No saved row → `EarbudsAddPlaceholder` ("+" tile)
- *  - Saved row → the real card. Long-press opens a Remove confirm.
- *    Battery + green dot. No manual swap control — smart-switch moves
- *    the buds automatically. Card dims with "Switching…" while a
- *    flow is in flight (UI is NOT dimmed during the optimistic-done
- *    window — `isSwitching` excludes AlmostDone for that reason).
- */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EarbudsCard(

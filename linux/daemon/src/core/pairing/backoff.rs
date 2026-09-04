@@ -1,19 +1,5 @@
-//! Reconnect backoff state per spec §7.7.
-//!
-//! ```text
-//! | Attempt # | Delay before this attempt |
-//! |-----------|---------------------------|
-//! | 1         | 0s (immediate)            |
-//! | 2         | 5s                        |
-//! | 3         | 15s                       |
-//! | 4         | 1m                        |
-//! | 5         | 5m                        |
-//! | 6+        | passive only              |
-//! ```
-
 use std::time::Duration;
 
-/// V1 production backoff schedule. The trailing `None` means "passive only".
 pub const DEFAULT_SCHEDULE: &[Option<Duration>] = &[
     Some(Duration::from_secs(0)),
     Some(Duration::from_secs(5)),
@@ -23,8 +9,6 @@ pub const DEFAULT_SCHEDULE: &[Option<Duration>] = &[
     None,
 ];
 
-/// Test schedule with millisecond delays — same shape, drastically shorter.
-/// Used by `--fast` and unit tests so behaviour can be validated quickly.
 pub const FAST_SCHEDULE: &[Option<Duration>] = &[
     Some(Duration::from_millis(0)),
     Some(Duration::from_millis(50)),
@@ -34,30 +18,21 @@ pub const FAST_SCHEDULE: &[Option<Duration>] = &[
     None,
 ];
 
-/// A per-peer backoff cursor. Cheap to clone; not thread-safe (caller
-/// owns synchronisation).
 #[derive(Debug, Clone)]
 pub struct BackoffState {
     schedule: &'static [Option<Duration>],
-    /// 0-based index into `schedule`. After clamping at `schedule.len() - 1`
-    /// further failures keep the state in passive mode.
     cursor: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NextAction {
-    /// Sleep for [`Duration`] and then attempt the operation.
     AttemptAfter(Duration),
-    /// Schedule says passive only — wait for a reset trigger.
     Passive,
 }
 
 impl BackoffState {
     pub fn new(schedule: &'static [Option<Duration>]) -> Self {
-        assert!(
-            !schedule.is_empty(),
-            "backoff schedule must have at least one entry"
-        );
+        assert!(!schedule.is_empty(), "backoff schedule must have at least one entry");
         Self { schedule, cursor: 0 }
     }
 
@@ -69,7 +44,6 @@ impl BackoffState {
         Self::new(FAST_SCHEDULE)
     }
 
-    /// What to do for the *current* attempt.
     pub fn next_action(&self) -> NextAction {
         let i = self.cursor.min(self.schedule.len() - 1);
         match self.schedule[i] {
@@ -78,18 +52,14 @@ impl BackoffState {
         }
     }
 
-    /// True iff the state has reached passive-only mode.
     pub fn is_passive(&self) -> bool {
         matches!(self.next_action(), NextAction::Passive)
     }
 
-    /// Human-readable attempt counter for logs (1-based).
     pub fn attempt_number(&self) -> usize {
         self.cursor + 1
     }
 
-    /// Record a failed attempt; advance one step (clamped at the passive
-    /// terminus).
     pub fn record_failure(&mut self) {
         if self.cursor + 1 < self.schedule.len() {
             self.cursor += 1;
@@ -98,8 +68,6 @@ impl BackoffState {
         }
     }
 
-    /// Reset to attempt #1. Call on user-triggered retry, network change,
-    /// adapter on, app foreground, or fresh trusted-presence (§7.7.1).
     pub fn reset(&mut self) {
         self.cursor = 0;
     }

@@ -15,42 +15,18 @@ import androidx.core.app.NotificationCompat
 import com.vortex.a3.core.appstate.AppState
 import com.vortex.a3.ui.MainActivity
 
-/**
- * Owns the Vortex foreground-service notification: channel creation, the
- * custom RemoteViews battery row (laptop + earbuds, tinted by which device
- * holds the buds), the periodic battery-refresh ticker, and the owner-hold
- * display state that keeps the earbuds row from blinking out mid-switch.
- *
- * Pulled out of [VortexService] so that file stays focused on the network
- * stack. The service supplies the live state it renders + reacts to the
- * toggle action via [Host]; this class only renders + schedules.
- */
 class VortexNotification(
     private val service: Service,
     private val host: Host,
 ) {
-    /** Live state the notification renders, supplied by the service. */
     interface Host {
-        /** True when this phone currently holds the buds (A2DP connected). */
         fun phoneOwnsBuds(): Boolean
-        /** Latest peer (laptop) AppState — battery / charging / earbuds. */
         fun peerState(): AppState?
-        /** Earbuds battery to show when the phone owns them (null if unknown). */
         fun phoneEarbudsBattery(): Int?
-        /** Millis since the last peer AppState arrived (MAX_VALUE = never).
-         *  Gates the lock glyph: a STALE locked state must not render a
-         *  tappable lock — a tap queued while the laptop is unreachable
-         *  fires much later (sticky command TTL) with surprising effects
-         *  (live-observed: re-locked the laptop seconds after the user
-         *  had just unlocked it at the keyboard). */
         fun peerStateAgeMs(): Long
     }
 
     private val handler = Handler(Looper.getMainLooper())
-    // Owner shown in the row, held across the brief mid-switch gap where
-    // neither device reports the buds. lastOwner = last real owner;
-    // targetOwner = side a manual tap is switching TO; lastOwnerAtMs = when
-    // we last had a real owner.
     @Volatile private var lastOwner: String? = null
     @Volatile private var targetOwner: String? = null
     @Volatile private var lastOwnerAtMs: Long = 0L
@@ -62,12 +38,10 @@ class VortexNotification(
         }
     }
 
-    /** Enter the foreground with the notification + start the refresh tick. */
     fun startInForeground() {
         createChannel()
         val notification = build()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            // Android 14+ requires foregroundServiceType at the API call.
             service.startForeground(
                 NOTIF_ID,
                 notification,
@@ -80,7 +54,6 @@ class VortexNotification(
         handler.postDelayed(ticker, REFRESH_MS)
     }
 
-    /** Re-render the notification (e.g. after fresh peer state / battery). */
     fun refresh() {
         try {
             service.getSystemService(NotificationManager::class.java)
@@ -88,10 +61,6 @@ class VortexNotification(
         } catch (_: Exception) {}
     }
 
-    /** The service's toggle handler calls this after kicking off a switch:
-     *  remember the side we're switching TO so the row shows that owner's
-     *  colour during the gap, then fire a few quick refreshes so it updates
-     *  the moment the buds land (rather than waiting for the slow tick). */
     fun noteSwitchTarget(owner: String) {
         targetOwner = owner
         refresh()
@@ -100,41 +69,20 @@ class VortexNotification(
         handler.postDelayed({ refresh() }, 2800)
     }
 
-    /** Stop the refresh tick (service onDestroy). */
     fun stop() {
         handler.removeCallbacks(ticker)
     }
 
-    /** Foreground notification, ecosystem-style: a custom row with the
-     *  laptop battery + the earbuds battery, the earbuds tinted by which
-     *  device holds them (green = phone, blue = laptop) and tappable to
-     *  switch. No phone battery, no title text. */
     private fun build(): Notification {
         val phoneOwns = host.phoneOwnsBuds()
         val peer = host.peerState()
-        // Only trust the peer's battery/charging while the link is FRESH — a
-        // stale AppState left over from before a disconnect must not keep
-        // showing the laptop's last battery % or a ⚡ (the bug: it read
-        // "charging" while actually disconnected). Same gate the lock/clipboard
-        // buttons already use below.
         val laptopFresh = peer != null && host.peerStateAgeMs() < PEER_FRESH_MS
-        // Gate "laptop holds the buds" on freshness too — same as the grab
-        // logic's `peerHoldsBuds`. Without it, a stale AppState left over from
-        // before a disconnect kept the earbuds row pinned showing the laptop's
-        // last battery % (blue, ⚡) forever — the bug seen after the laptop was
-        // powered off: the phone still advertised the wireless buds as a
-        // charged laptop device. Now it ages out within PEER_FRESH_MS like the
-        // laptop battery/lock rows.
         val laptopOwns = !phoneOwns && laptopFresh && peer?.earbuds?.connected == true
         val laptopBatt = if (laptopFresh) peer?.battery else null
         val budsBatt = if (phoneOwns) host.phoneEarbudsBattery()
             else if (laptopFresh) peer?.earbuds?.battery else null
         fun pct(v: Int?) = v?.let { "$it%" } ?: "--"
 
-        // Resolve the owner, but HOLD it across the brief mid-switch gap
-        // where neither device reports the buds — otherwise the earbuds row
-        // blinks out every switch. During the gap we show "…" in the
-        // target (manual) / last (auto) owner's colour.
         val realOwner = when {
             phoneOwns -> "phone"
             laptopOwns -> "laptop"
@@ -144,7 +92,7 @@ class VortexNotification(
         if (realOwner != null) {
             lastOwner = realOwner
             lastOwnerAtMs = now
-            if (targetOwner == realOwner) targetOwner = null // switch landed
+            if (targetOwner == realOwner) targetOwner = null
         }
         val pending = realOwner == null
         val displayOwner = realOwner ?: targetOwner ?: lastOwner
@@ -155,8 +103,6 @@ class VortexNotification(
             service.packageName,
             com.vortex.a3.R.layout.notification_vortex,
         )
-        // Laptop (peer) battery — turns blue with a ⚡ when the laptop is
-        // plugged in / charging, otherwise the usual white.
         val laptopCharging = laptopFresh && peer?.charging == true
         val laptopColor = if (laptopCharging) {
             service.getColor(com.vortex.a3.R.color.notification_audio_linux)
@@ -170,7 +116,6 @@ class VortexNotification(
         rv.setTextColor(com.vortex.a3.R.id.notification_laptop_battery, laptopColor)
         rv.setInt(com.vortex.a3.R.id.notification_laptop_icon, "setColorFilter", laptopColor)
         if (showRow) {
-            // showRow already implies displayOwner != null.
             rv.setViewVisibility(
                 com.vortex.a3.R.id.notification_audio_group,
                 android.view.View.VISIBLE,
@@ -199,11 +144,6 @@ class VortexNotification(
                 android.view.View.GONE,
             )
         }
-        // Remote-lock glyph: tap locks the laptop directly, or — when it's
-        // locked — bounces through the translucent biometric trampoline to
-        // unlock. Hidden when the laptop doesn't report a lock state
-        // (pre-lock build) OR the state is stale (laptop unreachable) —
-        // see Host.peerStateAgeMs.
         val laptopLocked = peer?.locked?.takeIf { host.peerStateAgeMs() < PEER_FRESH_MS }
         if (laptopLocked != null) {
             rv.setViewVisibility(
@@ -224,9 +164,6 @@ class VortexNotification(
                 service.getColor(android.R.color.white)
             }
             rv.setInt(com.vortex.a3.R.id.notification_lock_icon, "setColorFilter", lockColor)
-            // Both directions are one-tap service actions now (no biometric
-            // trampoline): the laptop only honours "unlock" while this phone is
-            // unlocked, so a pocketed/locked phone can't open the laptop.
             val lockAction = if (laptopLocked) {
                 VortexService.ACTION_UNLOCK_LAPTOP
             } else {
@@ -245,10 +182,6 @@ class VortexNotification(
                 android.view.View.GONE,
             )
         }
-        // Send-clipboard button (top-right of the custom row). Shown only when
-        // sync is on AND the laptop is actually connected (fresh peer state) —
-        // tapping it with no peer would just read the clipboard and fail to
-        // deliver. Same freshness gate as the lock button above.
         val laptopConnected = peer != null && host.peerStateAgeMs() < PEER_FRESH_MS
         if (laptopConnected && com.vortex.a3.core.clipboard.ClipboardSyncSetting.isEnabled()) {
             rv.setViewVisibility(
@@ -305,14 +238,8 @@ class VortexNotification(
     companion object {
         private const val CHANNEL_ID = "vortex_bg"
         private const val NOTIF_ID = 0x701E5
-        /** How often the foreground notification re-reads batteries. */
         private const val REFRESH_MS = 2_000L
-        /** Keep the earbuds row visible (showing "…") this long after the
-         *  buds momentarily belong to neither device, so it doesn't blink
-         *  out during a switch. */
         private const val OWNER_HOLD_MS = 12_000L
-        /** Peer state older than this = laptop unreachable → hide the lock
-         *  glyph (mirrors MainActivity's LAPTOP_STALE_MS). */
         private const val PEER_FRESH_MS = 30_000L
     }
 }

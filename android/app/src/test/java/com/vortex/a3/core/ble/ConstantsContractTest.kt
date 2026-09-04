@@ -3,15 +3,6 @@ package com.vortex.a3.core.ble
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
-/**
- * Drift tripwire for the BINDING CONTRACT (spec §10.1).
- *
- * These literals are duplicated in `l3/daemon/src/core/ble/mod.rs`
- * (`uuid_contract_pins`). If you change a UUID here, this test fails — a
- * deliberate nudge to update the spec and the Rust mirror in the same
- * change. The values are the on-air contract: two builds with mismatched
- * UUIDs never discover each other.
- */
 class ConstantsContractTest {
     @Test
     fun uuidContractPins() {

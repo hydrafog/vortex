@@ -3,12 +3,6 @@ import { computed } from "vue";
 
 const props = defineProps<{ rssi: number }>();
 
-// 4 bars based on RSSI. Stronger (less negative) = more bars.
-//   ≥ -55  → 4 bars  (very strong)
-//   ≥ -65  → 3 bars
-//   ≥ -75  → 2 bars
-//   ≥ -85  → 1 bar
-//   else   → 1 bar (weak)
 const bars = computed(() => {
   const r = props.rssi;
   if (r >= -55) return 4;

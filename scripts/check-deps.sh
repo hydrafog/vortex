@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-# 🌀 Vortex-Lab dependency checker
 # NOTE: This script is intentionally non-fatal. It reports what is available.
 
 set -u

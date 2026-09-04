@@ -15,58 +15,26 @@ import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import kotlin.math.abs
 
-/**
- * Laptop → phone input injector. The mirror window on the laptop captures the
- * user's mouse/touchpad/keyboard and sends 5-byte `[type][x:u16][y:u16]` packets
- * over the sealed control plane; [MirrorSession] hands each to [onPacket]. We
- * replay them as touch gestures via the AccessibilityService gesture API — the
- * only no-root, no-adb way an app can drive other apps' UI (phone-mirroring
- * style: one accessibility toggle, no cable, no developer mode).
- *
- * Coordinates arrive normalized to 0..65535 of the mirrored frame; we scale to
- * the phone's real display pixels (the capture is the full display).
- *
- * Robustness model — the framework BLOCKS all `dispatchGesture` calls while a
- * `willContinue` gesture is open, so leaving one open (a paused drag, or a lost
- * UP when the mouse releases off-window) freezes all control. We avoid that:
- *   - A stationary press (no movement) is committed only on UP as ONE gesture:
- *     a quick tap, or a long-press if the button was held. Never opens a chain.
- *   - A moving press (drag/swipe/scroll) uses a live `continueStroke` chain, but
- *     the moment motion stops it CLOSES within [IDLE_CLOSE_MS] instead of
- *     hanging open — so a lost UP self-heals fast and taps are never blocked.
- *   - A [watchdog] is the final backstop if input stops mid-gesture.
- * Nav packets (BACK/HOME/RECENTS) map to global actions and ignore x/y.
- *
- * All gesture state is touched only on the main thread (packets are re-posted
- * there in [onPacket]).
- */
 class VortexInputService : AccessibilityService() {
 
     private val main = Handler(Looper.getMainLooper())
 
-    // Real display size in px, cached on connect (gesture coords are absolute
-    // display pixels including system bars — getRealMetrics gives exactly that).
     private var dispW = 0f
     private var dispH = 0f
 
-    // Browsing-handoff state: the last URL advertised to the laptop (dedup), its
-    // source package (for the heartbeat re-assert), and when we last read the
-    // address bar (debounce the content-changed stream).
     private var lastHandoffUrl: String? = null
     private var lastHandoffPkg: String? = null
     private var lastHandoffAt = 0L
 
-    // Press tracking (decides tap vs long-press vs drag).
     private var downActive = false
     private var movedSinceDown = false
     private var downX = 0f
     private var downY = 0f
     private var downAtMs = 0L
 
-    // Live-drag chain state.
     private var lastStroke: GestureDescription.StrokeDescription? = null
     private var gestureInFlight = false
-    private var touchActive = false // the synthetic finger is down (a drag chain)
+    private var touchActive = false
     private var pendingLift = false
     private var curX = 0f
     private var curY = 0f
@@ -94,11 +62,6 @@ class VortexInputService : AccessibilityService() {
         super.onDestroy()
     }
 
-    // Re-assert the active page to the laptop every ~25s. The laptop sweeps a
-    // handoff pill it hasn't heard about for 90s (force-stop safety net), but a
-    // user sitting on one page emits NO nav events, so without this heartbeat
-    // the pill vanishes mid-read. Mirrors the laptop's live-activity heartbeat
-    // model; no-op (and harmless) while no browser page is foreground.
     private val handoffHeartbeat = object : Runnable {
         override fun run() {
             val url = lastHandoffUrl
@@ -113,15 +76,10 @@ class VortexInputService : AccessibilityService() {
         }
     }
 
-    // Browsing HANDOFF (seamless-continuity): while a known browser is foreground,
-    // read its address bar and advertise the page to the laptop (a "continue
-    // from phone" pill). We never CONSUME events (return without handling). The
-    // laptop opens the URL only on the user's click, so this read is advisory.
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         try {
             handleHandoff(event)
         } catch (_: Throwable) {
-            // never let an accessibility read crash the (control) service
         }
     }
 
@@ -129,19 +87,14 @@ class VortexInputService : AccessibilityService() {
 
     private fun handleHandoff(event: AccessibilityEvent?) {
         event ?: return
-        // Debounce the very noisy content/state stream.
         val now = android.os.SystemClock.uptimeMillis()
         if (now - lastHandoffAt < HANDOFF_THROTTLE_MS) return
         lastHandoffAt = now
 
-        // Use the ACTUAL foreground window's package (not the event source) so a
-        // transient overlay/keyboard/system-ui event while the user is in Chrome
-        // doesn't look like "they left the browser" and clear the pill.
         val root = rootInActiveWindow ?: return
         val pkg = root.packageName?.toString() ?: return
         val urlBarId = BROWSER_URL_BARS[pkg]
         if (urlBarId == null) {
-            // Foreground is a non-browser app → stop offering the page.
             if (lastHandoffUrl != null) {
                 lastHandoffUrl = null
                 lastHandoffPkg = null
@@ -166,13 +119,10 @@ class VortexInputService : AccessibilityService() {
         )
     }
 
-    /** The omnibox text may be a full URL, a bare domain ("example.com"), or a
-     *  search term. Return a usable http(s) URL or null (don't hand off a search). */
     private fun normalizeUrl(raw: String?): String? {
         if (raw.isNullOrBlank()) return null
         val s = raw.trim()
         if (s.startsWith("http://") || s.startsWith("https://")) return s
-        // A bare domain (has a dot, no whitespace) → assume https.
         if (!s.any { it.isWhitespace() } && s.contains('.')) return "https://$s"
         return null
     }
@@ -190,7 +140,6 @@ class VortexInputService : AccessibilityService() {
         }
     }
 
-    // Fires if input stops mid-gesture (lost UP / cancelled by a physical touch).
     private val watchdog = Runnable {
         if (touchActive || gestureInFlight || downActive) {
             Log.i(TAG, "watchdog: clearing stuck input state")
@@ -198,8 +147,6 @@ class VortexInputService : AccessibilityService() {
         }
     }
 
-    // Closes a live drag once motion has paused, so the chain is never left open
-    // (which would block all further injection).
     private val idleClose = Runnable {
         if (touchActive && !pendingLift) {
             pendingLift = true
@@ -207,7 +154,6 @@ class VortexInputService : AccessibilityService() {
         }
     }
 
-    /** Called from the mirror network thread with a 5-byte input packet. */
     fun onPacket(pkt: ByteArray) {
         if (pkt.size != 5) return
         val type = pkt[0].toInt() and 0xFF
@@ -244,8 +190,6 @@ class VortexInputService : AccessibilityService() {
         tgtX = x; tgtY = y
         movedSinceDown = true
         when {
-            // Start a live drag, or resume one that idle-closed while the button
-            // was still held (re-press from where the finger lifted).
             !touchActive && downActive -> beginDrag()
             touchActive -> { main.removeCallbacks(idleClose); tick() }
         }
@@ -256,9 +200,8 @@ class VortexInputService : AccessibilityService() {
             tgtX = x; tgtY = y
             pendingLift = true
             main.removeCallbacks(idleClose)
-            tick() // move to target, then release
+            tick()
         } else if (downActive && !movedSinceDown) {
-            // A stationary press → tap, or long-press if the button was held.
             val held = SystemClock.uptimeMillis() - downAtMs
             if (held >= LONG_PRESS_MS) longPress(downX, downY, held) else quickTap(downX, downY)
         }
@@ -268,27 +211,21 @@ class VortexInputService : AccessibilityService() {
     private fun beginDrag() {
         touchActive = true
         pendingLift = false
-        lastStroke = null // fresh press at the current finger point
+        lastStroke = null
         tick()
     }
 
-    /**
-     * The ONLY place a drag segment is dispatched. Guarded by [gestureInFlight]
-     * so there is never more than one gesture pending. Drives cur→tgt and
-     * re-arms from the completion callback; when it catches up it schedules
-     * [idleClose] rather than leaving the gesture open.
-     */
     private fun tick() {
         if (!touchActive || gestureInFlight) return
         val needMove = abs(tgtX - curX) >= 0.5f || abs(tgtY - curY) >= 0.5f
         if (!needMove && !pendingLift) {
             main.removeCallbacks(idleClose)
-            main.postDelayed(idleClose, IDLE_CLOSE_MS) // caught up — close soon
+            main.postDelayed(idleClose, IDLE_CLOSE_MS)
             return
         }
 
         val willContinue = !pendingLift
-        val nx = if (needMove) tgtX else curX + 1f // non-empty contour on lift
+        val nx = if (needMove) tgtX else curX + 1f
         val ny = if (needMove) tgtY else curY
         val p = Path()
         p.moveTo(curX, curY)
@@ -316,7 +253,7 @@ class VortexInputService : AccessibilityService() {
                     gestureInFlight = false
                     curX = nx; curY = ny
                     lastStroke = null
-                    endDrag() // a cancelled stroke is already released by the OS
+                    endDrag()
                 }
             },
             main,
@@ -337,7 +274,6 @@ class VortexInputService : AccessibilityService() {
 
     private fun quickTap(x: Float, y: Float, retry: Boolean = true) {
         if (!dispatchStationary(x, y, TAP_MS) && retry) {
-            // A dangling gesture is blocking dispatch — clear state and retry once.
             forceReset()
             main.postDelayed({ quickTap(x, y, retry = false) }, RETRY_MS)
         }
@@ -347,8 +283,6 @@ class VortexInputService : AccessibilityService() {
         dispatchStationary(x, y, heldMs.coerceIn(LONG_PRESS_MS, MAX_PRESS_MS))
     }
 
-    /** Dispatch a one-shot stationary press of [durMs] (tap / long-press).
-     *  Returns false if the framework rejected it (a gesture is in progress). */
     private fun dispatchStationary(x: Float, y: Float, durMs: Long): Boolean {
         val p = Path()
         p.moveTo(x, y)
@@ -362,7 +296,6 @@ class VortexInputService : AccessibilityService() {
         }
     }
 
-    /** Hard-reset to idle so the next laptop action starts clean. */
     private fun forceReset() {
         gestureInFlight = false
         touchActive = false
@@ -379,15 +312,10 @@ class VortexInputService : AccessibilityService() {
     companion object {
         private const val TAG = "VortexInput"
 
-        /** Min gap between address-bar reads — the content-changed stream is very
-         *  noisy (scroll, animations); we only need the URL when it changes. */
         private const val HANDOFF_THROTTLE_MS = 1200L
 
-        /** Re-assert the active page this often so the laptop's 90s staleness
-         *  sweep never drops the pill while the user lingers on one page. */
         private const val HANDOFF_HEARTBEAT_MS = 25_000L
 
-        /** Browsers we can read the address bar of → its URL-bar view id. */
         private val BROWSER_URL_BARS = mapOf(
             "com.android.chrome" to "com.android.chrome:id/url_bar",
             "com.chrome.beta" to "com.chrome.beta:id/url_bar",
@@ -397,12 +325,9 @@ class VortexInputService : AccessibilityService() {
             "org.mozilla.firefox" to "org.mozilla.firefox:id/mozac_browser_toolbar_url_view",
         )
 
-        /** Live instance while the service is connected (same process as the
-         *  app, so a direct singleton is the simplest hand-off). */
         @Volatile
         var instance: VortexInputService? = null
 
-        // Wire protocol (mirror l3 mirror.rs `input_proto`).
         const val T_DOWN = 0
         const val T_MOVE = 1
         const val T_UP = 2
@@ -410,23 +335,14 @@ class VortexInputService : AccessibilityService() {
         const val T_HOME = 11
         const val T_RECENTS = 12
 
-        // Drag segment length: short so the finger tracks the cursor tightly.
         private const val SEG_MS = 5L
-        // Tap press duration — near-instant.
         private const val TAP_MS = 1L
-        // Held-press threshold for a long-press, and its dispatch cap.
         private const val LONG_PRESS_MS = 400L
         private const val MAX_PRESS_MS = 1_500L
-        // Pause after motion stops before the drag finger lifts (keeps the
-        // framework from staying blocked on an open gesture).
         private const val IDLE_CLOSE_MS = 150L
-        // Idle time with a touch still down before we assume a lost UP and reset.
         private const val WATCHDOG_MS = 700L
-        // Backoff before retrying a tap that couldn't be dispatched.
         private const val RETRY_MS = 12L
 
-        /** Whether the user has enabled our accessibility service (canonical
-         *  check via Secure settings — valid even before the service binds). */
         fun isEnabled(ctx: Context): Boolean {
             val flat = Settings.Secure.getString(
                 ctx.contentResolver,

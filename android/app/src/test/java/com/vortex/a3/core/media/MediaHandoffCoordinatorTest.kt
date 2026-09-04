@@ -5,17 +5,8 @@ import com.vortex.a3.core.media.MediaHandoffCoordinator.Companion.decideGrab
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/**
- * Pure decision tests for the smart audio-follow grab arbitration
- * ([MediaHandoffCoordinator.decideGrab]) — the "last-play-wins" core of Phase 3,
- * which previously had no test (only the live device exercised it). No Android
- * runtime needed: the function is side-effect-free, the caller [maybeGrab]
- * applies the pause/grab effects.
- */
 class MediaHandoffCoordinatorTest {
 
-    /** Baseline inputs that resolve to GRAB; each test overrides just the field
-     *  it exercises (named args), so a failure points straight at one guard. */
     private fun decide(
         smartSwitchEnabled: Boolean = true,
         callActive: Boolean = false,
@@ -57,7 +48,6 @@ class MediaHandoffCoordinatorTest {
 
     @Test
     fun `manual pin to laptop blocks the grab`() {
-        // Even with a fresher local epoch, a manual pin to the laptop wins.
         assertEquals(
             GrabDecision.SKIP,
             decide(
@@ -79,8 +69,6 @@ class MediaHandoffCoordinatorTest {
 
     @Test
     fun `nothing to grab when the peer does not hold the buds`() {
-        // The "pauses for no reason" bug: don't pause-to-grab a hand-off that
-        // can't complete because the buds aren't on the laptop.
         assertEquals(GrabDecision.SKIP, decide(peerHoldsBuds = false))
     }
 
@@ -102,8 +90,6 @@ class MediaHandoffCoordinatorTest {
 
     @Test
     fun `missing epoch on either side disables yield (grabs)`() {
-        // The yield guard requires BOTH epochs non-zero — a peer "playing" with
-        // no recorded epoch must not steal priority.
         assertEquals(
             GrabDecision.GRAB,
             decide(peerPlaying = true, peerPlayEpochMono = 500L, localPlayEpochMono = 0L),
@@ -112,7 +98,6 @@ class MediaHandoffCoordinatorTest {
 
     @Test
     fun `cooldown blocks a rapid re-grab`() {
-        // Grabbed 600ms ago, cooldown is 4s → must skip.
         assertEquals(
             GrabDecision.SKIP,
             decide(now = 1_100L, lastAutoGrabMs = 500L, cooldownMs = 4_000L),

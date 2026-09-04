@@ -9,22 +9,6 @@ import android.os.Build
 import android.os.BatteryManager
 import android.util.Log
 
-/**
- * The two infrastructure broadcast receivers VortexService relies on,
- * pulled out so the service file stays focused on the stack itself:
- *
- *  - **BT adapter state** — Android tears down all BLE advertising + the
- *    GATT server when the adapter turns off and never restores them, so we
- *    rebuild on STATE_ON (via [onBluetoothReenabled]).
- *  - **Battery** — edge-detected: a charging flip pushes instantly, a level
- *    change only on a ≥2-point delta, so a slow drain doesn't spam the peer
- *    (via [onBatteryChanged]).
- *
- * The service supplies the reactions as callbacks; this class owns the
- * receiver instances, the battery edge-detect state, and register/unregister
- * lifecycle. (The debug-only FAKE_CALL receiver stays in the service — it is
- * wired directly to the call-flow orchestrator.)
- */
 class VortexReceivers(
     private val context: Context,
     private val onBluetoothReenabled: () -> Unit,
@@ -63,12 +47,6 @@ class VortexReceivers(
         btStateReceiver = receiver
     }
 
-    /**
-     * Event-driven battery push. ACTION_BATTERY_CHANGED fires on every
-     * charging flip (plug/unplug) and level tick. We edge-detect: a
-     * charging-state flip fires [onBatteryChanged] instantly; a level change
-     * only when it moves ≥2 points so a slow drain doesn't spam the peer.
-     */
     private fun registerBattery() {
         if (batteryReceiver != null) return
         val receiver = object : BroadcastReceiver() {
@@ -87,7 +65,6 @@ class VortexReceivers(
                 val firstSeen = lastBattCharging == null
                 lastBattCharging = charging
                 lastBattLevel = level
-                // Skip the very first sticky broadcast (just seeds state).
                 if (firstSeen) return
                 if (chargingFlipped || levelMoved) {
                     Log.i(TAG, "battery event (charging=$charging level=$level) → push")

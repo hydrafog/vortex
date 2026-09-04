@@ -17,6 +17,15 @@ pre-commit:
   commands:
     pre-commit-guard:
       run: scripts/hooks/pre-commit
+    strip-comments:
+      glob:
+        - "linux/ui-tauri/src/**/*.{ts,vue,css}"
+        - "linux/daemon/src/**/*.rs"
+        - "android/app/src/**/*.{kt,java}"
+        - "scripts/**/*.{sh,py}"
+      exclude: '(AGENTS\.md|\.agents/.*)'
+      stage_fixed: true
+      run: python3 scripts/tools/strip-comments {staged_files}
     line-limit:
       glob:
         - "linux/ui-tauri/src/**/*.{ts,vue,css}"

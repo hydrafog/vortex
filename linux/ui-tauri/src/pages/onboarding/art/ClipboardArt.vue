@@ -1,6 +1,4 @@
 <script setup lang="ts">
-// A copied chip flies from phone to laptop, flipping clipboard → check —
-// "one clipboard". Ported from the design's feature-2 stage.
 </script>
 
 <template>

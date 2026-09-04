@@ -74,18 +74,12 @@ import com.vortex.a3.ui.str
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
-/**
- * Notes + Todos screen. A sliding two-segment toggle (Notes | To-dos) swaps
- * between a note list (tap → editor) and a to-do checklist with a live progress
- * ring + a bottom add bar. All data lives in [NoteStore]; sync is layered on
- * separately. Phone adaptation of the laptop's two-pane Notes design.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotesScreen(onBack: () -> Unit) {
     val items by NoteStore.notes.collectAsState()
     var editing by remember { mutableStateOf<Note?>(null) }
-    var mode by remember { mutableStateOf("notes") } // "notes" | "todos"
+    var mode by remember { mutableStateOf("notes") }
     var newTodo by remember { mutableStateOf("") }
 
     BackHandler(enabled = editing != null) { editing = null }
@@ -154,8 +148,6 @@ fun NotesScreen(onBack: () -> Unit) {
     }
 }
 
-/** A sliding two-segment toggle (Notes | To-dos) — the highlight glides between
- *  cells (sidebar-style) rather than snapping. */
 @Composable
 private fun NotesSegment(mode: String, onSelect: (String) -> Unit) {
     val tabs = listOf("notes" to str("notes.notes"), "todos" to str("notes.todos"))
@@ -202,7 +194,6 @@ private fun NotesSegment(mode: String, onSelect: (String) -> Unit) {
     }
 }
 
-/** Weighted list area: a centered empty message OR the LazyColumn content. */
 @Composable
 private fun ListArea(
     empty: Boolean,
@@ -255,7 +246,6 @@ private fun NoteRow(n: Note, onOpen: () -> Unit) {
     }
 }
 
-/** A to-do row: round check + title (+ reminder) + remove. Tap opens the editor. */
 @Composable
 private fun TodoRow(n: Note, onOpen: () -> Unit) {
     Row(
@@ -296,7 +286,6 @@ private fun TodoRow(n: Note, onOpen: () -> Unit) {
     }
 }
 
-/** Round 24dp checkbox (matches the laptop's circular to-do check). */
 @Composable
 private fun TodoCheck(done: Boolean, onToggle: (Boolean) -> Unit) {
     Box(
@@ -323,7 +312,6 @@ private fun TodoCheck(done: Boolean, onToggle: (Boolean) -> Unit) {
     }
 }
 
-/** Checklist-style progress ring above the to-do list. */
 @Composable
 private fun TodoProgress(done: Int, total: Int) {
     val pct = if (total > 0) done.toFloat() / total else 0f
@@ -362,7 +350,6 @@ private fun TodoProgress(done: Int, total: Int) {
     }
 }
 
-/** Bottom add bar — pill input + green add button. */
 @Composable
 private fun TodoAddBar(value: String, onChange: (String) -> Unit, onAdd: () -> Unit) {
     Row(
@@ -420,7 +407,6 @@ private fun NoteEditor(note: Note, onClose: () -> Unit, onDelete: () -> Unit) {
     var body by remember(note.id) { mutableStateOf(note.body) }
     var dueAt by remember(note.id) { mutableStateOf(note.dueAt) }
 
-    // Debounced auto-save: persist ~400ms after the last change.
     androidx.compose.runtime.LaunchedEffect(title, body, dueAt) {
         delay(400)
         NoteStore.upsert(note.copy(title = title, body = body, dueAt = dueAt))
@@ -439,7 +425,6 @@ private fun NoteEditor(note: Note, onClose: () -> Unit, onDelete: () -> Unit) {
                 },
                 actions = {
                     if (note.kind == "todo") {
-                        // Reminder bell: tap → date+time picker, long-press → clear.
                         Box(
                             Modifier
                                 .size(48.dp)
@@ -496,7 +481,6 @@ private fun transparentFieldColors() = TextFieldDefaults.colors(
     unfocusedIndicatorColor = Color.Transparent,
 )
 
-/** Chain a date then a time picker to set a todo's reminder epoch-ms. */
 private fun pickDueDateTime(ctx: android.content.Context, initial: Long, onSet: (Long) -> Unit) {
     val cal = java.util.Calendar.getInstance().apply { if (initial > 0L) timeInMillis = initial }
     android.app.DatePickerDialog(

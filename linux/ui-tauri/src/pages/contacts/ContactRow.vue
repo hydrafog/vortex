@@ -1,7 +1,4 @@
 <script setup lang="ts">
-// One contact row. Presentation only — the parent owns the data window and
-// the message/call actions it emits; the shared Avatar handles the initial +
-// deterministic tint so contacts, calls and messages all match.
 import { useI18n } from "vue-i18n";
 import { Phone, MessageSquare } from "lucide-vue-next";
 import type { Contact } from "@/composables/useContacts";

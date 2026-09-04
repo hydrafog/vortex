@@ -19,7 +19,6 @@ const sel = ref<{ y: number; m: number; d: number } | null>(
 const hour = ref(props.modelValue > 0 ? init().getHours() : 9);
 const minute = ref(props.modelValue > 0 ? init().getMinutes() : 0);
 
-// Re-seed when the popover opens (the bound value may have changed elsewhere).
 watch(open, (o) => {
   if (!o) return;
   const d = init();
@@ -70,7 +69,6 @@ function clear() {
   emit("update:modelValue", 0);
 }
 
-// Trigger label: "Jun 14 · 2:36 PM" (year only when not the current one).
 const label = computed(() => {
   if (!props.modelValue) return t("notes.add_reminder");
   const d = new Date(props.modelValue);
@@ -155,7 +153,6 @@ const pad = (n: number) => String(n).padStart(2, "0");
 </template>
 
 <style scoped>
-/* Drop the native up/down spinner on the HH:MM number inputs. */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;

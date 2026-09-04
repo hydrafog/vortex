@@ -5,29 +5,6 @@ import android.util.Base64
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
-/**
- * Crash-recovery persistence for [SwitchOrchestrator] (R1 in
- * the earbuds-switch design notes §3).
- *
- * We persist the most-recent non-Idle [SwitchState] together with the
- * peer + mac + entry timestamp. On the next process start, [recover]
- * decides whether to **resume** an in-flight Connecting attempt,
- * **rollback** a stale flow to Idle, or **surface a brief Failed
- * message** so the user sees that the previous attempt did not
- * silently disappear.
- *
- * Stored in [EncryptedSharedPreferences] because the peer public key
- * is a long-lived identifier we do not want world-readable on disk.
- *
- * Wire format (single key/value):
- *   key   = "state.v1"
- *   value = base64(<discriminator>\n<reason>\n<enterMs>\n<peerHex>\n<mac>)
- *
- * The discriminator is a stable lowercase string so any future
- * version can recognize unknown variants and rollback rather than
- * crash. The blob is intentionally tiny (one row, overwritten on
- * every transition) — no log, no growth.
- */
 class SwitchPersistence(context: Context) {
 
     private val prefs = run {
@@ -43,7 +20,6 @@ class SwitchPersistence(context: Context) {
         )
     }
 
-    /** What's currently persisted, or null if Idle / never written. */
     data class Saved(
         val discriminator: String,
         val reason: String?,
@@ -70,7 +46,6 @@ class SwitchPersistence(context: Context) {
         }
     }
 
-    /** Recovery action [SwitchOrchestrator] should take on init. */
     sealed class Action {
         object None : Action()
         data class Rollback(val previousReason: String) : Action()
@@ -110,9 +85,6 @@ class SwitchPersistence(context: Context) {
         }.getOrNull()
     }
 
-    /** Decide what to do based on the persisted state on app start.
-     *  Caller (orchestrator init path) must clear the slot after
-     *  acting on the result. */
     fun recover(nowMs: Long = System.currentTimeMillis()): Action {
         val s = load() ?: return Action.None
         if (s.discriminator == DISC_IDLE) return Action.None
@@ -131,8 +103,6 @@ class SwitchPersistence(context: Context) {
                 }
             }
             DISC_FAILED -> Action.Rollback(s.reason ?: "previous switch failed")
-            // WaitingApproval, WaitingReleased, Preparing — peer's view
-            // already moved on. Honest thing is rollback with reason.
             else -> Action.Rollback("previous switch interrupted (${s.discriminator})")
         }
     }
@@ -142,8 +112,6 @@ class SwitchPersistence(context: Context) {
         const val PREFS_FILENAME: String = "vortex_switch_state_v1"
         private const val KEY: String = "state.v1"
 
-        // Discriminators — kept stable; if a state is renamed the
-        // discriminator stays so old persisted blobs still decode.
         const val DISC_IDLE: String = "idle"
         const val DISC_PREPARING: String = "preparing"
         const val DISC_WAITING_APPROVAL: String = "waiting_approval"
@@ -151,13 +119,8 @@ class SwitchPersistence(context: Context) {
         const val DISC_CONNECTING: String = "connecting"
         const val DISC_FAILED: String = "failed"
 
-        /** Resume window: if a Connecting state is newer than this, we
-         *  retry the BT connect — peer already released, so re-attempt
-         *  is idempotent (already-connected = no-op). */
         const val RESUME_CONNECT_MAX_MS: Long = 10_000
 
-        /** Anything older than this is unconditional rollback. Above
-         *  this age the wire protocol context is already gone. */
         const val STALE_TTL_MS: Long = 30_000
     }
 }
@@ -168,9 +131,6 @@ private fun SwitchState.discriminator(): String = when (this) {
     SwitchState.WaitingApproval -> SwitchPersistence.DISC_WAITING_APPROVAL
     SwitchState.WaitingReleased -> SwitchPersistence.DISC_WAITING_RELEASED
     SwitchState.Connecting -> SwitchPersistence.DISC_CONNECTING
-    // AlmostDone is the optimistic-UI variant of Connecting: BT is
-    // still settling, so for persistence we treat it as Connecting
-    // and resume the connect attempt if the process is restarted.
     SwitchState.AlmostDone -> SwitchPersistence.DISC_CONNECTING
     is SwitchState.Failed -> SwitchPersistence.DISC_FAILED
 }

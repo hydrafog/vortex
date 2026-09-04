@@ -1,6 +1,4 @@
 <script setup lang="ts">
-// "What is Vortex" hero — a laptop + phone glowing under a soft halo, both
-// carrying the real Vortex logo (same asset as the sidebar). Floats gently.
 import logo from "@/assets/vortex_logo.png";
 </script>
 

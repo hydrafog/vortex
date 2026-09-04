@@ -7,7 +7,6 @@ const STORAGE_KEY = "vortex.theme";
 function detect(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
   if (stored === "light" || stored === "dark") return stored;
-  // default to dark
   return "dark";
 }
 

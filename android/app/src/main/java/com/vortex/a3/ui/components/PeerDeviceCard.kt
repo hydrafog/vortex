@@ -39,13 +39,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight as FW
 import androidx.compose.ui.unit.dp
 
-/**
- * The "paired Linux laptop" card on the home screen. Body is just
- * name + caption + battery; long-press surfaces the Forget dialog.
- * When the peer reports a lock-screen state ([locked] != null) a small
- * lock/unlock action sits next to the battery row — tap locks the
- * laptop, or (behind a biometric confirm upstream) unlocks it.
- */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PeerDeviceCard(
@@ -59,8 +52,6 @@ fun PeerDeviceCard(
     onLongPress: () -> Unit,
     locked: Boolean? = null,
     onToggleLock: (() -> Unit)? = null,
-    /** Tap to view the laptop's screen on this phone (laptop→phone mirror).
-     *  Null hides the action (e.g. the peer isn't a laptop / not reachable). */
     onViewScreen: (() -> Unit)? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -71,9 +62,6 @@ fun PeerDeviceCard(
         label = "card-press",
     )
 
-    // Note ordering: shadow → clip → border → background → click.
-    // The clip MUST come before combinedClickable so the ripple is
-    // bounded by the rounded corners.
     Column(
         modifier = modifier
             .scale(scale)
@@ -99,15 +87,12 @@ fun PeerDeviceCard(
         Spacer(modifier = Modifier.height(14.dp))
         Text(name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FW.SemiBold, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
         Text(caption, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-        // Pushes the battery row to the bottom regardless of content above.
         Spacer(modifier = Modifier.weight(1f))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.weight(1f)) {
                 BatteryRow(battery, charging = charging)
             }
             if (onViewScreen != null) {
-                // View laptop screen (laptop→phone mirror) ships Experimental in
-                // v1 — a small amber dot flags it as a beta feature.
                 Box(contentAlignment = Alignment.TopEnd) {
                     Icon(
                         imageVector = Icons.Outlined.Cast,

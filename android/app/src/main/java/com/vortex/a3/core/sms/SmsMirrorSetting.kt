@@ -6,11 +6,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/**
- * Whether this phone shares its recent SMS with the paired laptop's companion
- * Messages page. LOCAL-only (like the contacts/call-log mirrors); SharedPreferences
- * singleton, default ON.
- */
 object SmsMirrorSetting {
     private const val PREFS = "vortex_ui_settings"
     private const val KEY = "sms_share_enabled"

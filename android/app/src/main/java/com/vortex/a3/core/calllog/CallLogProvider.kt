@@ -14,12 +14,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-/**
- * Reads the phone's recent call log and emits the list whenever it changes, so
- * the laptop companion's Recents page can mirror it. Bounded to the most recent
- * [LIMIT] calls (DATE DESC); a `ContentObserver` re-emits on any new/changed
- * call. READ_CALL_LOG gated (already granted for the call-mirror caller lookup).
- */
 class CallLogProvider(
     private val context: Context,
     private val onCallLog: (List<CallLogEntry>) -> Unit,
@@ -29,13 +23,8 @@ class CallLogProvider(
     private var observer: ContentObserver? = null
 
     companion object {
-        // Kept modest on purpose: the whole list ships as one chunked BLE burst,
-        // and a big burst risks lost notifies (which desync the Noise cipher).
-        // 60 recent calls is plenty for a Recents view and stays well within the
-        // proven-reliable chunk count.
         private const val LIMIT = 60
 
-        /** Quiet window before re-reading + re-sending after an onChange burst. */
         private const val EMIT_DEBOUNCE_MS = 2_000L
     }
 
@@ -60,9 +49,6 @@ class CallLogProvider(
         }
     }
 
-    /** Battery: each emit ships the full list as a BLE chunk burst, so collapse
-     *  observer bursts (one call updates several rows) into one re-read after a
-     *  quiet window. */
     private fun scheduleEmit() {
         pendingEmit?.cancel()
         pendingEmit = scope.launch {
@@ -96,11 +82,6 @@ class CallLogProvider(
     private fun readCallLog(): List<CallLogEntry> =
         queryCallLog(null, null, "${CallLog.Calls.DATE} DESC LIMIT $LIMIT", LIMIT)
 
-    /**
-     * Read calls NEWER than [sinceMs] (oldest-first, up to [limit]) for the
-     * laptop's LAN bulk-sync history backfill — the watermark twin of
-     * [com.vortex.a3.core.sms.SmsProvider.readHistorySince].
-     */
     fun readHistorySince(sinceMs: Long, limit: Int): List<CallLogEntry> {
         if (!hasPermission()) return emptyList()
         val cap = limit.coerceIn(1, 5000)
@@ -141,7 +122,7 @@ class CallLogProvider(
             val dateIdx = c.getColumnIndex(CallLog.Calls.DATE)
             val durIdx = c.getColumnIndex(CallLog.Calls.DURATION)
             while (c.moveToNext()) {
-                if (out.size >= cap) break // guard if the SQL LIMIT is ignored
+                if (out.size >= cap) break
                 val id = if (idIdx >= 0) c.getString(idIdx).orEmpty() else ""
                 out.add(
                     CallLogEntry(

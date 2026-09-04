@@ -13,8 +13,6 @@ const { t } = useI18n();
 const router = useRouter();
 
 function message(number: string) {
-  // Straight to the thread route — back then pops to THIS page naturally
-  // (the old ?to= indirection added a replace hop into history).
   if (number) router.push(`/messages/${encodeURIComponent(number)}`);
 }
 const query = ref("");
@@ -30,8 +28,6 @@ const filtered = computed(() => {
   );
 });
 
-// Virtualised rendering (same as RecentsPage): only the rows on screen are
-// in the DOM, so a 2000-contact phone scrolls as cheaply as a handful.
 const ROW_H = 64;
 const {
   list: vlist,

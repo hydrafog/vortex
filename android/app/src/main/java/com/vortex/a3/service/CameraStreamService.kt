@@ -27,17 +27,6 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 
-/**
- * Continuity-Camera SENDER (phone → laptop): open the phone camera with
- * Camera2, feed its frames straight into a MediaCodec **H.264** encoder's input
- * Surface (no copy), seal each access unit ([com.vortex.a3.core.mirror.MirrorTcpSealer],
- * the same wire as the screen mirror) and serve it over TCP on [CAMERA_PORT].
- * The laptop dials in, decodes, and writes the frames into a v4l2 webcam.
- *
- * H.264 (not the screen mirror's HEVC) so the laptop's plain `avdec_h264` path
- * works and webcam apps stay happy. The media key arrives via [EXTRA_KEY] (the
- * caller generated it and shipped it to the laptop in the AppState camera offer).
- */
 class CameraStreamService : Service() {
 
     private val tag = "VortexCamera"
@@ -63,21 +52,11 @@ class CameraStreamService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Promote FIRST, before any decision that might bail out. The laptop
-        // starts us with startForegroundService(), and Android then requires a
-        // startForeground() within a few seconds no matter what we decide —
-        // every early return below used to skip it, so a missing CAMERA
-        // permission did not merely refuse the stream, it killed the whole app
-        // with RemoteServiceException. Posting the notice costs nothing on the
-        // paths that go on to stream, and `stopSelf()` takes it down again on
-        // the ones that do not.
         startForegroundNotice()
         if (intent?.action == ACTION_STOP) {
             stopSelf()
             return START_NOT_STICKY
         }
-        // Lens flip: swap the camera in place — keep the encoder, TCP server and
-        // the connected laptop, so the flip is seamless (no reconnect).
         if (intent?.action == ACTION_FLIP && running) {
             wantFront = intent.getStringExtra(EXTRA_FACING) == "front"
             Log.i(tag, "flip → ${if (wantFront) "front" else "back"}")
@@ -89,10 +68,6 @@ class CameraStreamService : Service() {
             }
             return START_NOT_STICKY
         }
-        // Normal path: the 32-byte key arrives as a byte array. Debug builds
-        // ALSO accept a hex string via `--es key_hex <64 hex>` so the stream can
-        // be exercised from `adb` without the laptop UI — compiled out of release
-        // (a media key must never be accepted in plaintext from an intent).
         val key = intent?.getByteArrayExtra(EXTRA_KEY)
             ?: (if (com.vortex.a3.BuildConfig.DEBUG) {
                 intent?.getStringExtra(EXTRA_KEY_HEX)?.let { hex ->
@@ -128,9 +103,6 @@ class CameraStreamService : Service() {
                 soTimeout = 1000
                 bind(InetSocketAddress(CAMERA_PORT))
             }
-            // The accept loop and the encoder loop BOTH block, so each needs its
-            // OWN thread — sharing one would starve whichever runs second (the
-            // encoder's while-loop would never yield to accept the laptop).
             Thread({ acceptLoop() }, "camera-accept").start()
             openCamera()
         } catch (t: Throwable) {
@@ -145,7 +117,6 @@ class CameraStreamService : Service() {
             setInteger(MediaFormat.KEY_BIT_RATE, BITRATE)
             setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)
             setInteger(MediaFormat.KEY_FRAME_RATE, fps)
-            // ~1s keyframes so the laptop locks on quickly when it dials in.
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
@@ -167,11 +138,9 @@ class CameraStreamService : Service() {
         Thread({ encoderLoop() }, "camera-encoder").start()
     }
 
-    @Suppress("MissingPermission") // checked in onStartCommand
+    @Suppress("MissingPermission")
     private fun openCamera() {
         val mgr = getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        // Pick the requested lens (front=selfie / back), falling back to the
-        // other facing, then to whatever's available.
         val want = if (wantFront) CameraMetadata.LENS_FACING_FRONT else CameraMetadata.LENS_FACING_BACK
         fun byFacing(f: Int) = mgr.cameraIdList.firstOrNull { id ->
             mgr.getCameraCharacteristics(id)
@@ -197,9 +166,6 @@ class CameraStreamService : Service() {
                         try {
                             val req = device.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
                                 addTarget(surface)
-                                // FPS range: pick a camera-supported range containing
-                                // our target (a fixed [30,30] some sensors reject and
-                                // then deliver NO frames). Fall back to leaving it unset.
                                 pickFpsRange(mgr, camId)?.let {
                                     set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, it)
                                 }
@@ -223,8 +189,6 @@ class CameraStreamService : Service() {
         }, camHandler)
     }
 
-    /** A camera-supported AE FPS range containing our target (or the one with the
-     *  largest min ≤ target); null if none, so the request leaves it unset. */
     private fun pickFpsRange(mgr: CameraManager, camId: String): Range<Int>? = try {
         val ranges = mgr.getCameraCharacteristics(camId)
             .get(android.hardware.camera2.CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
@@ -253,7 +217,7 @@ class CameraStreamService : Service() {
                         val au = ByteArray(info.size)
                         buf.get(au)
                         if (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
-                            configAnnexB = au // SPS/PPS — resend on each new client
+                            configAnnexB = au
                         } else {
                             frames++
                             if (frames == 1L || frames % 90L == 0L) {
@@ -288,9 +252,8 @@ class CameraStreamService : Service() {
                 client = s
                 out = BufferedOutputStream(s.getOutputStream())
                 Log.i(tag, "laptop connected ${s.inetAddress?.hostAddress}")
-                configAnnexB?.let { runCatching { write(it) } } // SPS/PPS first
+                configAnnexB?.let { runCatching { write(it) } }
             } catch (_: java.net.SocketTimeoutException) {
-                // keep waiting for the laptop to dial in
             } catch (e: Exception) {
                 if (running) Log.w(tag, "accept failed: ${e.message}"); break
             }
@@ -356,9 +319,9 @@ class CameraStreamService : Service() {
         const val ACTION_STOP = "com.vortex.a3.action.CAMERA_STOP"
         const val ACTION_FLIP = "com.vortex.a3.action.CAMERA_FLIP"
         const val EXTRA_KEY = "key"
-        const val EXTRA_KEY_HEX = "key_hex" // debug: drive from adb
-        const val EXTRA_FACING = "facing" // "front" | "back"
-        const val CAMERA_PORT = 51824 // mirror_tcp::CAMERA_VIDEO_PORT
+        const val EXTRA_KEY_HEX = "key_hex"
+        const val EXTRA_FACING = "facing"
+        const val CAMERA_PORT = 51824
         private const val CHANNEL = "vortex_camera"
         private const val NOTIF_ID = 0x5CA
         private const val WIDTH = 1280

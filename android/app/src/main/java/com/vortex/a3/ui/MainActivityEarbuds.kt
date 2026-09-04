@@ -9,17 +9,7 @@ import com.vortex.a3.core.earbuds.BluetoothScanner
 import com.vortex.a3.core.earbuds.EarbudsStore
 import com.vortex.a3.core.earbuds.SavedEarbuds
 
-// MainActivity — Earbuds feature methods, split out of MainActivity.kt.
-// Extension functions on the Activity so its (now `internal`) state stays in one
-// instance; only the handler methods move here.
 
-/**
- * Open the in-app earbuds picker. Acquires BT scan/connect
- * permission if needed, then kicks off a short BlueZ-equivalent
- * `BluetoothAdapter.startDiscovery()` sweep. The modal renders the
- * combined list (bonded ∪ freshly discovered) and the user picks
- * which device should "own" the earbuds card.
- */
 internal fun MainActivity.openEarbudsPicker() {
     earbudsPickerState.value = PickerState(open = true, scanning = true, rows = emptyList())
     val needed = pickerRequiredPermissions().filter {
@@ -32,25 +22,15 @@ internal fun MainActivity.openEarbudsPicker() {
     }
 }
 
-/**
- * Force a re-scan from the modal's "Rescan" button. Same flow as
- * `openEarbudsPicker` minus the modal-open toggle.
- */
 internal fun MainActivity.rescanEarbudsPicker() {
     if (earbudsPickerState.value.scanning) return
     startPickerScan()
 }
 
-/**
- * User picked a row in the modal — persist + close + nudge the
- * peer so the laptop's UI updates within ~200 ms instead of
- * waiting for the next 12 s heartbeat.
- */
 internal fun MainActivity.pickEarbud(row: BluetoothDeviceRow) {
     EarbudsStore.save(applicationContext, SavedEarbuds(address = row.address, name = row.name))
     savedEarbudsExists.value = true
     earbudsPickerState.value = PickerState(open = false)
-    // Refresh local earbuds state right away so the card updates without waiting for poll.
     lifecycleScope.launch {
         try {
             localEarbudsState.value = com.vortex.a3.core.earbuds.EarbudsDetector
@@ -62,10 +42,6 @@ internal fun MainActivity.pickEarbud(row: BluetoothDeviceRow) {
     }
 }
 
-/**
- * Long-press "Remove from Vortex" confirmed — drop the saved entry.
- * The bonded Bluetooth pairing on this device is left untouched.
- */
 internal fun MainActivity.removeSavedEarbuds() {
     EarbudsStore.clear(applicationContext)
     savedEarbudsExists.value = false
@@ -108,7 +84,6 @@ internal fun MainActivity.startPickerScan() {
             android.util.Log.w("VortexEarbuds", "discover threw", t)
             emptyList()
         }
-        // Don't overwrite a closed modal — user might have backed out.
         val s = earbudsPickerState.value
         if (s.open) {
             earbudsPickerState.value = s.copy(scanning = false, rows = rows)

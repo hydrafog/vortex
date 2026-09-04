@@ -12,8 +12,6 @@ import RecentRow from "./RecentRow.vue";
 const { t } = useI18n();
 const router = useRouter();
 
-// One input, two jobs: filters the history below AND — when it looks like a
-// phone number — offers a direct "Call <number>" action (manual dial).
 const query = ref("");
 
 const filtered = computed(() => {
@@ -27,8 +25,6 @@ const filtered = computed(() => {
   );
 });
 
-/** The trimmed query when it's a dialable number (digits with optional
- *  leading + and separators), else null. */
 const dialable = computed(() => {
   const q = query.value.trim();
   if (!/^\+?[\d\s()-]{3,}$/.test(q)) return null;
@@ -44,9 +40,6 @@ function callTyped() {
   }
 }
 
-// Virtualised rendering: the full history is ~1000+ rows (and grows). Only
-// the rows on screen (plus a little overscan) are ever in the DOM — fixed
-// row height makes a 10k-row list scroll as cheaply as a 10-row one.
 const ROW_H = 64;
 const {
   list: vlist,
@@ -54,12 +47,9 @@ const {
   wrapperProps,
   scrollTo: vScrollTo,
 } = useVirtualList(filtered, { itemHeight: ROW_H, overscan: 6 });
-// Filtering changes the dataset — jump back to the top so the viewport
-// isn't left scrolled past the (now shorter) result set.
 watch(query, () => vScrollTo(0));
 
 function message(number: string) {
-  // Straight to the thread route — back then pops to THIS page naturally.
   if (number) router.push(`/messages/${encodeURIComponent(number)}`);
 }
 </script>

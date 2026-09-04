@@ -34,30 +34,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
 
-/**
- * Screen-mirror SENDER (phone → laptop). MediaProjection → VirtualDisplay
- * (AUTO_MIRROR, captures the lock screen too) → MediaCodec H.264 (Baseline,
- * realtime) → AVCC→Annex-B → sealed **TCP** video to the laptop.
- *
- * Adapted from the upstream `ecosystem` prototype (which, like scrcpy, sends
- * video over TCP for reliability), keeping Vortex's encryption:
- *  - The phone runs a **TCP video server** on [MIRROR_VIDEO_PORT]; the laptop
- *    connects out to it (its firewall blocks unsolicited inbound but allows
- *    established). Each H.264 access unit is sealed whole with
- *    ChaCha20-Poly1305 ([com.vortex.a3.core.mirror.MirrorTcpSealer]) and
- *    length-prefixed. TCP is ordered + reliable, so a frame is never lost —
- *    no UDP-style burst-loss freezes.
- *  - Control (keyframe requests, ping/pong, stop) rides the encrypted TCP Noise
- *    session (`MirrorSession`); the laptop's keyframe request arrives as
- *    [ACTION_REQUEST_KEYFRAME].
- *
- * FGS ordering (Android 14+): `startForeground(..., MEDIA_PROJECTION)` happens
- * BEFORE `getMediaProjection`, and a `MediaProjection.Callback` is registered.
- *
- * The encoder params + media key arrive via Intent extras (the caller in
- * `VortexStack` has them once the Noise session's START frame is parsed and the
- * consent token is in hand).
- */
 class ScreenMirrorService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -68,8 +44,6 @@ class ScreenMirrorService : Service() {
     private var codec: MediaCodec? = null
     private var inputSurface: Surface? = null
 
-    // TCP video server (reliable + ordered, like scrcpy): the phone listens, the
-    // laptop connects out (its firewall blocks inbound but allows established).
     private var videoServer: java.net.ServerSocket? = null
     private var videoClient: java.net.Socket? = null
     private var videoOut: java.io.OutputStream? = null
@@ -77,16 +51,13 @@ class ScreenMirrorService : Service() {
     @Volatile private var clientConnected = false
     private val writeLock = Any()
 
-    /** `System.nanoTime()` at which the in-flight socket write started, 0 when
-     *  none is. Read by the watchdog from another thread. */
     @Volatile private var writeStartedNs = 0L
 
     private var encoderJob: Job? = null
 
     @Volatile private var running = false
-    @Volatile private var bitrate: Int = 6_000_000        // ceiling (requested)
-    @Volatile private var currentBitrate: Int = 6_000_000 // live adaptive value
-    // Adaptive-bitrate (congestion control) state — touched only under writeLock.
+    @Volatile private var bitrate: Int = 6_000_000
+    @Volatile private var currentBitrate: Int = 6_000_000
     private var adaptWindowStartNs: Long = 0
     private var adaptBlockedNs: Long = 0
     @Volatile private var framesSent: Long = 0
@@ -114,10 +85,6 @@ class ScreenMirrorService : Service() {
     private fun startMirroring(intent: Intent) {
         try {
             if (running) {
-                // Restart cleanly instead of ignoring: a stale session would
-                // keep port 51822 + the old client, so the new laptop connection
-                // collides and resets → the user sees a freeze. Tear the old one
-                // down fully, then fall through to start fresh.
                 Log.i(TAG, "mirror: restart — tearing down previous session")
                 running = false
                 encoderJob?.cancel()
@@ -138,8 +105,6 @@ class ScreenMirrorService : Service() {
             val height = (intent.getIntExtra(EXTRA_HEIGHT, 0) / 2) * 2
             val fps = intent.getIntExtra(EXTRA_FPS, 30).coerceIn(15, 60)
             bitrate = intent.getIntExtra(EXTRA_BITRATE, 6_000_000)
-            // Start below the ceiling and let adaptive bitrate ramp up — like
-            // congestion-control slow start; avoids an initial overshoot freeze.
             currentBitrate = (bitrate * ADAPT_START_FRAC).toInt().coerceAtLeast(ADAPT_MIN_BITRATE)
             val key = intent.getByteArrayExtra(EXTRA_KEY)
             if (resultCode == Int.MIN_VALUE || resultData == null ||
@@ -150,7 +115,6 @@ class ScreenMirrorService : Service() {
                 return
             }
 
-            // FGS BEFORE getMediaProjection (Android 14+ requirement).
             createNotificationChannel()
             val notif = buildNotification("Mirroring to laptop")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -174,7 +138,6 @@ class ScreenMirrorService : Service() {
                 stopSelf()
                 return
             }
-            // Android 14 throws if no callback is registered before capture.
             proj.registerCallback(object : MediaProjection.Callback() {
                 override fun onStop() {
                     running = false
@@ -184,9 +147,6 @@ class ScreenMirrorService : Service() {
             projection = proj
 
             tcpSealer = com.vortex.a3.core.mirror.MirrorTcpSealer(key)
-            // TCP video server: bind the fixed port; the laptop connects out to
-            // us. The accept loop is launched below, AFTER `running = true`, so
-            // its `while (running …)` guard doesn't see a stale false and exit.
             videoServer = java.net.ServerSocket().apply {
                 reuseAddress = true
                 bind(java.net.InetSocketAddress(MIRROR_VIDEO_PORT))
@@ -210,9 +170,6 @@ class ScreenMirrorService : Service() {
             running = true
             framesSent = 0
             updateStatus("Streaming ${width}x${height}@${fps} (TCP :$MIRROR_VIDEO_PORT)")
-            // Accept the laptop (it connects out to us). Its own coroutine so the
-            // encoder can spin up meanwhile; frames are dropped until connected,
-            // then we force an immediate keyframe so the laptop decodes at once.
             scope.launch { acceptVideoClient() }
             encoderJob = scope.launch { encoderLoop() }
         } catch (t: Throwable) {
@@ -222,22 +179,14 @@ class ScreenMirrorService : Service() {
     }
 
     private fun configureEncoder(width: Int, height: Int, fps: Int) {
-        // HEVC (H.265): ~40% better quality-per-bit than H.264 — the go-to
-        // screen-mirroring codec. Same hardware-surface encode path; the laptop
-        // decodes it on the GPU (nvh265dec). The Annex-B / CSD plumbing below is
-        // codec-agnostic (HEVC just packs VPS+SPS+PPS into csd-0, csd-1 null).
         val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_HEVC, width, height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             setInteger(MediaFormat.KEY_BIT_RATE, currentBitrate)
             setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)
             setInteger(MediaFormat.KEY_FRAME_RATE, fps)
-            // Long GOP: TCP never loses a frame, so periodic IDRs only add
-            // bandwidth spikes (a recurring hitch). One IDR at start (forced on
-            // connect) + on-request is enough; 60 s keeps a rare resync point.
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 60)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 setInteger(MediaFormat.KEY_PRIORITY, 0)
-                // HEVC Main profile, level 4.1 (covers 1080p up to 60 fps).
                 setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.HEVCProfileMain)
                 setInteger(MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel41)
             }
@@ -248,9 +197,6 @@ class ScreenMirrorService : Service() {
                 setInteger(MediaFormat.KEY_LATENCY, 0)
                 setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0)
                 // NOTE: KEY_MAX_FPS_TO_ENCODER (encoder-input cap) was tried to
-                // bound high-refresh (120 Hz) phones but made THIS encoder drop
-                // frames unevenly → multi-second stalls. Left out; the encoder
-                // runs at its natural rate, which is smooth here.
             }
         }
         codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_HEVC).apply {
@@ -300,25 +246,21 @@ class ScreenMirrorService : Service() {
         stopSelf()
     }
 
-    /** Accept the laptop's outbound video connection, then force a keyframe so
-     *  it can start decoding immediately. Retries within the service lifetime. */
     private fun acceptVideoClient() {
         val server = videoServer ?: return
         while (scope.isActive && running && !clientConnected) {
             try {
                 val client = server.accept()
-                client.tcpNoDelay = true                 // Nagle off — low latency
-                client.sendBufferSize = VIDEO_SEND_BUFFER // small → backpressure paces the encoder
+                client.tcpNoDelay = true
+                client.sendBufferSize = VIDEO_SEND_BUFFER
                 videoClient = client
                 videoOut = java.io.BufferedOutputStream(client.getOutputStream(), VIDEO_SEND_BUFFER)
                 clientConnected = true
                 startWriteWatchdog()
                 Log.i(TAG, "mirror: laptop video client connected ${client.inetAddress?.hostAddress}")
-                // Push SPS/PPS + an immediate IDR so the decoder locks on at once.
                 codecConfigAnnexB?.let { runCatching { writeFrame(it) } }
                 requestSyncFrame()
             } catch (_: java.net.SocketTimeoutException) {
-                // No laptop yet (still granting consent / connecting) — loop.
             } catch (e: Exception) {
                 Log.w(TAG, "mirror: accept failed: ${e.message}")
                 break
@@ -326,24 +268,16 @@ class ScreenMirrorService : Service() {
         }
     }
 
-    /** Seal one Annex-B access unit and write it to the laptop over TCP. */
     private fun sendAccessUnit(data: ByteArray) {
-        if (!clientConnected) return // laptop not connected yet — drop until it is
+        if (!clientConnected) return
         writeFrame(data)
     }
 
-    /** Serialised: the encoder loop and the accept coroutine both write here,
-     *  and the sealer's nonce counter must stay monotone (single writer). */
     private fun writeFrame(data: ByteArray) = synchronized(writeLock) {
         val s = tcpSealer ?: return
         val out = videoOut ?: return
         try {
-            // One sealed, length-prefixed message per AU. TCP is ordered +
-            // reliable, so the laptop just concatenates — no loss, no freezes.
             val sealed = s.sealAccessUnit(data)
-            // Time only the network write: with a small send buffer it BLOCKS
-            // when the link is saturated, so the blocked duration is our
-            // congestion signal for adaptive bitrate.
             val t0 = System.nanoTime()
             writeStartedNs = t0
             out.write(sealed)
@@ -359,14 +293,6 @@ class ScreenMirrorService : Service() {
         }
     }
 
-    /** Java sockets have no write timeout, so a laptop that stops draining
-     *  leaves the sender parked in sendto() forever — the session never ends,
-     *  it just freezes, and any teardown that touches the stream deadlocks
-     *  behind it. This watchdog turns that into a clean disconnect: if one
-     *  write has been in flight longer than [WRITE_STALL_LIMIT_NS], close the
-     *  raw socket, which makes the blocked write throw. Adaptive bitrate still
-     *  owns the ordinary case (short blocks = congestion); this only catches
-     *  the pathological one. */
     private fun startWriteWatchdog() = scope.launch(Dispatchers.IO) {
         while (isActive && running) {
             delay(1_000)
@@ -380,13 +306,6 @@ class ScreenMirrorService : Service() {
         }
     }
 
-    /** Adaptive bitrate (congestion control), the scrcpy trick for a
-     *  freeze-free stream: once per window, look at how much of the wall time
-     *  was spent BLOCKED in socket writes. High blocked-fraction = the Wi-Fi
-     *  link can't carry the current bitrate → drop it (frames shrink, the link
-     *  keeps up, no buffer-then-freeze). Low = headroom → ramp back up toward
-     *  the ceiling. Net effect: quality flexes, frame rate stays smooth.
-     *  Called under [writeLock]. */
     private fun maybeAdaptBitrate(now: Long) {
         if (adaptWindowStartNs == 0L) { adaptWindowStartNs = now; return }
         val elapsed = now - adaptWindowStartNs
@@ -431,16 +350,6 @@ class ScreenMirrorService : Service() {
         try { projection?.stop() } catch (_: Throwable) {}
         projection = null
         clientConnected = false
-        // Drop the buffered stream WITHOUT closing it, and close the raw socket
-        // first. Closing the wrapper would flush, and flush takes the stream's
-        // monitor — which the sender coroutine holds for as long as it sits in
-        // sendto(). When the laptop stops draining the socket that is forever,
-        // so tearing down here parked the MAIN thread and Android killed us
-        // with "Vortex isn't responding" (ANR: onDestroy → FilterOutputStream
-        // .close → BufferedOutputStream.flush, blocked on the send thread).
-        // Socket.close() makes that blocked write throw instead, and the
-        // buffered wrapper owns no OS resource of its own, so letting it go is
-        // enough.
         videoOut = null
         try { videoClient?.close() } catch (_: Throwable) {}
         videoClient = null
@@ -449,7 +358,6 @@ class ScreenMirrorService : Service() {
         tcpSealer = null
     }
 
-    // ── H264 helpers (ported verbatim) ──────────────────────────────────────
 
     private fun normalizeAccessUnit(accessUnit: ByteArray, isKeyframe: Boolean): ByteArray {
         val annexB = avccToAnnexB(accessUnit)
@@ -496,7 +404,6 @@ class ScreenMirrorService : Service() {
             (b[0].toInt() == 0 && b[1].toInt() == 0 && b[2].toInt() == 1)
     }
 
-    // ── Notification ────────────────────────────────────────────────────────
 
     private fun buildNotification(text: String): Notification {
         val stop = PendingIntent.getService(
@@ -514,9 +421,6 @@ class ScreenMirrorService : Service() {
             .build()
     }
 
-    // Log-only: we deliberately DON'T re-post the notification with live status
-    // (frame counts etc.) — the constant "frames=N" updates were noisy in the
-    // status bar. The foreground notification stays as its initial quiet text.
     private fun updateStatus(text: String) {
         Log.d(TAG, text)
     }
@@ -533,31 +437,20 @@ class ScreenMirrorService : Service() {
         private const val CHANNEL_ID = "vortex_mirror"
         private const val NOTIFICATION_ID = 7301
 
-        /** Fixed TCP port the phone serves video on; the laptop connects out to
-         *  it. MUST match the Rust `mirror_tcp::VIDEO_PORT`. */
         private const val MIRROR_VIDEO_PORT = 51822
 
-        /** accept() poll timeout so the coroutine can re-check running/cancel. */
         private const val VIDEO_ACCEPT_TIMEOUT_MS = 1_000
 
-        /** Small send buffer → when the link congests, the blocking write()
-         *  back-pressures the encoder (it drops to the deliverable frame rate)
-         *  instead of bloating a big buffer that later bursts out as a freeze.
-         *  scrcpy's trick: trade fluidity for steadiness under a weak link. */
         private const val VIDEO_SEND_BUFFER = 64 * 1024
 
-        // Adaptive-bitrate (congestion-control) tuning.
-        private const val ADAPT_MIN_BITRATE = 800_000     // floor (keeps it legible)
-        private const val ADAPT_START_FRAC = 0.6          // start at 60% of ceiling, ramp up
-        private const val ADAPT_WINDOW_NS = 700_000_000L  // re-evaluate ~1.4×/sec
-        private const val ADAPT_BLOCKED_HI = 0.20         // >20% time blocked → link saturated
-        private const val ADAPT_BLOCKED_LO = 0.05         // <5% blocked → headroom
-        private const val ADAPT_DOWN = 0.75               // back off fast on congestion
-        private const val ADAPT_UP = 1.12                 // ramp up gently
+        private const val ADAPT_MIN_BITRATE = 800_000
+        private const val ADAPT_START_FRAC = 0.6
+        private const val ADAPT_WINDOW_NS = 700_000_000L
+        private const val ADAPT_BLOCKED_HI = 0.20
+        private const val ADAPT_BLOCKED_LO = 0.05
+        private const val ADAPT_DOWN = 0.75
+        private const val ADAPT_UP = 1.12
 
-        /** One socket write stuck this long means the laptop is not draining at
-         *  all — congestion never looks like this, and no adaptive bitrate can
-         *  fix it. Long enough that a bad Wi-Fi moment is not mistaken for it. */
         private const val WRITE_STALL_LIMIT_NS = 6_000_000_000L
 
         const val ACTION_START = "com.vortex.a3.action.MIRROR_START"
@@ -573,8 +466,6 @@ class ScreenMirrorService : Service() {
         const val EXTRA_BITRATE = "bitrate"
         const val EXTRA_KEY = "media_key"
 
-        /** Start streaming. Caller (VortexStack) supplies the consent token +
-         *  the mirror-session params (UDP target, encoder config, media key). */
         fun start(
             context: Context,
             resultCode: Int,

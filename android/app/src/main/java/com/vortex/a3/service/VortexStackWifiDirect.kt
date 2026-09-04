@@ -5,15 +5,7 @@ import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.launch
 
-/**
- * Wi-Fi Direct (direct-link fast pull) — split out of [VortexStack]. A big
- * shared file brings up a P2P group owner on the phone and tells the laptop to
- * join for an ~20 MB/s direct link; the group is torn down after an idle window.
- * Also wires a debug-only broadcast hook for manual GO validation.
- */
 
-/** Create the Wi-Fi Direct GO (idempotent) and, once it's up, tell the laptop
- *  to join; tear it down after an idle window (reset on each big file). */
 internal fun VortexStack.maybeStartWifiDirect() {
     com.vortex.a3.core.lan.WifiDirect.start(ctx) {
         val o = org.json.JSONObject()
@@ -33,13 +25,6 @@ internal fun VortexStack.maybeStartWifiDirect() {
     }
 }
 
-/**
- * Debug-only Wi-Fi Direct validation hook:
- *   adb shell am broadcast -a com.vortex.a3.WIFI_DIRECT --es mode on
- *   adb shell am broadcast -a com.vortex.a3.WIFI_DIRECT --es mode off
- * `on` brings up the GO (logs SSID/passphrase/IP); the laptop joins manually
- * to measure the direct-link speed. EXPORTED so adb can reach it (debug only).
- */
 internal fun VortexStack.registerWifiDirectReceiver() {
     if (!com.vortex.a3.BuildConfig.DEBUG) return
     val receiver = object : android.content.BroadcastReceiver() {
