@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+commit_msg_file=$1
+task_pattern="\[task #[0-9]+\]"
+
+subject=$(head -n 1 "$commit_msg_file")
+
+# Skip validation for merge commits
+if [[ "$subject" =~ ^Merge ]]; then
+    exit 0
+fi
+
+# Auto-fix casing: Convert subject to lowercase
+subject_lower="${subject,,}"
+if [[ "$subject" != "$subject_lower" ]]; then
+    echo "$subject_lower" > "$commit_msg_file.tmp"
+    tail -n +2 "$commit_msg_file" >> "$commit_msg_file.tmp"
+    mv "$commit_msg_file.tmp" "$commit_msg_file"
+    subject="$subject_lower"
+    echo "INFO: Automatically converted commit message to lowercase."
+fi
+
+subject_clean=$(echo "$subject" | sed -E "s/$task_pattern//g")
+
+valid_regex="^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)(\(.+\))?: .+$"
+
+if [[ ! $subject_clean =~ $valid_regex ]]; then
+    echo "ERROR: Invalid commit message format."
+    echo "Message: $subject_clean"
+    echo "Standard: <prefix>: <description>"
+    echo "Allowed prefixes: feat, fix, chore, docs, style, refactor, perf, test, build, ci, revert"
+    exit 1
+fi
+
+if [ "${#subject_clean}" -gt 72 ]; then
+    echo "ERROR: Commit subject is too long (${#subject_clean} chars). Max 72 characters."
+    exit 1
+fi
+
+exit 0

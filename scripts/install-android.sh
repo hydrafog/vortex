@@ -16,5 +16,5 @@
 # (can't be done over adb): Autostart (MIUI) so the service survives reboots.
 set -euo pipefail
 
-REPO="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
 exec "$REPO/android/install.sh" "$@"

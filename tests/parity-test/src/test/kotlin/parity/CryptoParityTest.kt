@@ -24,7 +24,7 @@ class CryptoParityTest {
     private val vectorsDir = locateVectorsDir()
 
     private fun locateVectorsDir(): File {
-        // tools/parity-test/<gradle-cwd> → vectors are at
+        // tests/parity-test/<gradle-cwd> → vectors are at
         // <repoRoot>/shared/vectors/v1
         var dir = File(System.getProperty("user.dir"))
         repeat(5) {

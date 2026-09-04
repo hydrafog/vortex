@@ -32,7 +32,7 @@
 # Re-run any time to update; it replaces the binary and restarts the app.
 set -euo pipefail
 
-REPO="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
 UI="$REPO/linux/ui-tauri"
 BIN_SRC="$UI/src-tauri/target/release/vortex-ui-tauri"
 ICON_SRC="$UI/src-tauri/icons/icon.png"          # 512px brand logo

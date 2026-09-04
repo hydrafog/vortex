@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM || true)
+
+if [ -z "$STAGED_FILES" ]; then
+    exit 0
+fi
+
+echo "--- Pre-Commit Quality Guard ---"
+
+echo "[Scan] Checking for merge conflict markers..."
+if git diff --cached | grep -qE "^[<>=]{7}"; then
+    echo "[Error] ERROR: Merge conflict markers detected in staged files."
+    exit 1
+fi
+
+echo "[Scan] Scanning for potential sensitive secrets..."
+SECRET_REGEX="(key|token|secret|password|passwd|auth)\s*[:=]\s*['\"][0-9a-zA-Z]{16,}['\"]"
+if git diff --cached | grep -qiE "$SECRET_REGEX"; then
+    echo "[Warn] WARNING: Potential secrets detected in diff. Please review carefully."
+fi
+
+echo "[Scan] Checking file size limits..."
+MAX_SIZE=5242880 # 5MB
+for file in $STAGED_FILES; do
+    if [ -f "$file" ]; then
+        size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo 0)
+        if [ "$size" -gt "$MAX_SIZE" ]; then
+            echo "[Error] ERROR: File '$file' is too large ($((size / 1024 / 1024))MB). Max limit is 5MB."
+            exit 1
+        fi
+    fi
+done
+
+echo "[Done] Pre-commit security & sanity checks passed."
+exit 0

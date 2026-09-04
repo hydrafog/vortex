@@ -1,0 +1,200 @@
+# Vortex git hooks — managed by lefthook (https://github.com/evilmartians/lefthook).
+#
+# One-time setup:
+#   nix profile install nixpkgs#lefthook   # or any method from the link above
+#   lefthook install
+#
+# Bypass once with: LEFTHOOK=0 git commit ... / LEFTHOOK=0 git push ...
+#
+# Mirrors CI (.github/workflows/ci.yml): fast checks on commit, full suites on push.
+# Coverage: Rust (daemon + Tauri backend) · Vue/TS frontend · Android (Kotlin) ·
+# parity vectors (Kotlin/JVM) · protobuf contract · GNOME extension JS · JSON ·
+# shell scripts · whitespace hygiene · Conventional Commits.
+min_version: 2.1.5
+
+pre-commit:
+  parallel: true
+  commands:
+    pre-commit-guard:
+      run: scripts/hooks/pre-commit
+    line-limit:
+      glob:
+        - "linux/ui-tauri/src/**/*.{ts,vue,css}"
+        - "linux/daemon/src/**/*.rs"
+        - "android/app/src/**/*.{kt,java}"
+      exclude: '(AGENTS\.md|\.agents/.*)'
+      run: python3 scripts/maintenance/check-line-limit {staged_files}
+    # Zero-dependency hygiene: flags leftover conflict markers, trailing
+    # whitespace, and missing trailing newlines in staged changes.
+    no-whitespace-errors:
+      run: git diff --cached --check
+    # `cargo fmt` formats the whole package, so there is one command per Rust
+    # workspace; `glob` keeps each one idle unless its side actually changed.
+    rustfmt-daemon:
+      glob:
+        - "linux/daemon/**/*.rs"
+        - "linux/daemon/*.rs"
+      stage_fixed: true
+      root: linux
+      run: |
+        command -v cargo >/dev/null || { echo "cargo not found — run ./scripts/setup-rust.sh, then retry" >&2; exit 1; }
+        cargo fmt --all
+    rustfmt-tauri:
+      glob:
+        - "linux/ui-tauri/src-tauri/**/*.rs"
+        - "linux/ui-tauri/src-tauri/*.rs"
+      stage_fixed: true
+      root: linux/ui-tauri/src-tauri
+      run: |
+        command -v cargo >/dev/null || { echo "cargo not found — run ./scripts/setup-rust.sh, then retry" >&2; exit 1; }
+        cargo fmt --all
+    frontend-typecheck:
+      glob:
+        - "linux/ui-tauri/src/**/*.{ts,vue}"
+        - "linux/ui-tauri/src/*.{ts,vue}"
+        - "linux/ui-tauri/*.config.{js,ts}"
+        - "linux/ui-tauri/tsconfig*.json"
+        - "linux/ui-tauri/package.json"
+        - "linux/ui-tauri/pnpm-lock.yaml"
+      root: linux/ui-tauri
+      run: |
+        command -v node >/dev/null || { echo "node not found — install Node 18+ (see ./scripts/check-deps.sh), then retry" >&2; exit 1; }
+        command -v pnpm >/dev/null || { echo "pnpm not found — install it (https://pnpm.io/installation), then retry" >&2; exit 1; }
+        pnpm install --frozen-lockfile
+        pnpm exec vue-tsc -b
+    # Pure syntax check — never executes the scripts.
+    shell-syntax:
+      glob:
+        - "**/*.sh"
+        - "*.sh"
+      run: |
+        for f in {staged_files}; do bash -n "$f" || exit 1; done
+    # Blocking only on `error` severity: the tree is warning-clean except for
+    # pre-existing warnings in tests/stress-test/scenarios (SC2188/SC2164),
+    # which are tracked tech debt, not commit blockers. Soft-skips when
+    # shellcheck isn't installed (optional tool, not in scripts/check-deps.sh).
+    shellcheck:
+      glob:
+        - "**/*.sh"
+        - "*.sh"
+      run: |
+        command -v shellcheck >/dev/null || { echo "note: shellcheck not installed — skipping (nix profile install nixpkgs#shellcheck)"; exit 0; }
+        shellcheck -S error {staged_files}
+    # Contract check: shared/proto is the Rust↔Kotlin wire contract — a broken
+    # schema must never land. Descriptor output is discarded; this only parses.
+    proto-syntax:
+      glob:
+        - "shared/proto/**/*.proto"
+        - "shared/proto/*.proto"
+      run: |
+        command -v protoc >/dev/null || { echo "protoc not found — install protobuf-compiler (see ./scripts/check-deps.sh), then retry" >&2; exit 1; }
+        protoc --descriptor_set_out=/dev/null -I shared/proto {staged_files}
+    # Parse-only check: never executes GNOME Shell imports.
+    gnome-js-syntax:
+      glob:
+        - "linux/gnome-extension/**/*.js"
+        - "linux/gnome-extension/*.js"
+      run: |
+        command -v node >/dev/null || { echo "node not found — install Node 18+ (see ./scripts/check-deps.sh), then retry" >&2; exit 1; }
+        for f in {staged_files}; do node --check "$f" || exit 1; done
+    # Catches broken metadata.json / tsconfig / package.json before they
+    # break the extension install or the frontend build.
+    json-syntax:
+      glob:
+        - "**/*.json"
+        - "*.json"
+      run: |
+        command -v node >/dev/null || { echo "node not found — install Node 18+ (see ./scripts/check-deps.sh), then retry" >&2; exit 1; }
+        for f in {staged_files}; do node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$f" || exit 1; done
+
+pre-push:
+  commands:
+    clippy-daemon:
+      glob:
+        - "linux/daemon/**/*.rs"
+        - "linux/daemon/*.rs"
+        - "linux/Cargo.{toml,lock}"
+        - "linux/daemon/Cargo.{toml,lock}"
+      root: linux
+      run: |
+        command -v cargo >/dev/null || { echo "cargo not found — run ./scripts/setup-rust.sh, then retry" >&2; exit 1; }
+        cargo clippy --locked --all-targets -- -D warnings
+    clippy-tauri:
+      glob:
+        - "linux/ui-tauri/src-tauri/**/*.rs"
+        - "linux/ui-tauri/src-tauri/*.rs"
+        - "linux/ui-tauri/src-tauri/Cargo.{toml,lock}"
+      root: linux/ui-tauri/src-tauri
+      run: |
+        command -v cargo >/dev/null || { echo "cargo not found — run ./scripts/setup-rust.sh, then retry" >&2; exit 1; }
+        cargo clippy --locked --all-targets -- -D warnings
+    test-daemon:
+      glob:
+        - "linux/daemon/**/*.rs"
+        - "linux/daemon/*.rs"
+        - "linux/Cargo.{toml,lock}"
+        - "linux/daemon/Cargo.{toml,lock}"
+        - "shared/proto/**/*.proto"
+        - "shared/proto/*.proto"
+      root: linux
+      run: |
+        command -v cargo >/dev/null || { echo "cargo not found — run ./scripts/setup-rust.sh, then retry" >&2; exit 1; }
+        cargo test --locked
+    test-tauri:
+      glob:
+        - "linux/ui-tauri/src-tauri/**/*.rs"
+        - "linux/ui-tauri/src-tauri/*.rs"
+        - "linux/ui-tauri/src-tauri/Cargo.{toml,lock}"
+        - "linux/daemon/**/*.rs"
+        - "linux/daemon/*.rs"
+        - "shared/proto/**/*.proto"
+        - "shared/proto/*.proto"
+      root: linux/ui-tauri/src-tauri
+      run: |
+        command -v cargo >/dev/null || { echo "cargo not found — run ./scripts/setup-rust.sh, then retry" >&2; exit 1; }
+        cargo test --lib --locked
+    # Full frontend build (vue-tsc + vite), same as CI's app job.
+    build-app:
+      glob:
+        - "linux/ui-tauri/src/**/*.{ts,vue}"
+        - "linux/ui-tauri/src/*.{ts,vue}"
+        - "linux/ui-tauri/*.config.{js,ts}"
+        - "linux/ui-tauri/tsconfig*.json"
+        - "linux/ui-tauri/package.json"
+        - "linux/ui-tauri/pnpm-lock.yaml"
+      root: linux/ui-tauri
+      run: |
+        command -v node >/dev/null || { echo "node not found — install Node 18+ (see ./scripts/check-deps.sh), then retry" >&2; exit 1; }
+        command -v pnpm >/dev/null || { echo "pnpm not found — install it (https://pnpm.io/installation), then retry" >&2; exit 1; }
+        pnpm install --frozen-lockfile
+        pnpm run build
+    # Same suite as CI's android job. Needs JDK 17+ and an Android SDK.
+    test-android:
+      glob:
+        - "android/**/*.{kt,kts,java,xml}"
+        - "android/*.{kt,kts,java,xml}"
+        - "android/gradle.properties"
+        - "shared/proto/**/*.proto"
+        - "shared/proto/*.proto"
+      root: android
+      run: |
+        command -v java >/dev/null || { echo "java not found — install JDK 17+ (see ./scripts/check-deps.sh), then retry" >&2; exit 1; }
+        [ -n "${ANDROID_HOME:-}" ] || [ -n "${ANDROID_SDK_ROOT:-}" ] || [ -d "$HOME/Android/Sdk" ] || { echo "Android SDK not found — set ANDROID_HOME (see ./scripts/setup-android.sh), then retry" >&2; exit 1; }
+        ./gradlew test --no-daemon
+    # Cross-implementation crypto parity: Kotlin replays shared/vectors.
+    test-parity:
+      glob:
+        - "tests/parity-test/**/*.{kt,kts}"
+        - "tests/parity-test/*.{kt,kts}"
+        - "tests/parity-test/gradle.properties"
+        - "shared/vectors/**/*.json"
+        - "shared/vectors/*.json"
+      root: tests/parity-test
+      run: |
+        command -v java >/dev/null || { echo "java not found — install JDK 17+ (see ./scripts/check-deps.sh), then retry" >&2; exit 1; }
+        ./gradlew test --no-daemon
+
+commit-msg:
+  commands:
+    conventional-commits:
+      run: scripts/hooks/commit-msg {1}

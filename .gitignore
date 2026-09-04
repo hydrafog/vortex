@@ -150,3 +150,25 @@ benchmarks/results/
 .tmp-build/
 *.tsbuildinfo
 .eslintcache
+
+# ===== Direnv & Nix =====
+.direnv/
+.envrc
+
+# ===== Agents Framework & Task Management =====
+.agents/artifacts/
+.kanban/
+.gitagent-state
+.session_id
+.worktrees/
+.kilo/
+
+# ===== Explicit Whitelist =====
+!scripts/
+!AGENTS.md
+!.agents/
+!flake.nix
+!flake.lock
+!lefthook.yml
+!rustfmt.toml
+!docs/

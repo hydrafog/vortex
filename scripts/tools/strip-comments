@@ -1,0 +1,153 @@
+#!/usr/bin/env python3
+import sys
+import os
+
+ALLOWED_ANNOTATIONS = ["TODO", "FIXME", "NOTE", "cSpell"]
+
+TRIPLE_QUOTE_MARKERS = ['"""', "'''"]
+
+
+def _toggle_multiline_state(line, in_multiline, multiline_char):
+    for marker in TRIPLE_QUOTE_MARKERS:
+        count = line.count(marker)
+        if count == 0:
+            continue
+        if not in_multiline:
+            if count % 2 == 1:
+                in_multiline = True
+                multiline_char = marker
+        elif marker == multiline_char:
+            if count % 2 == 1:
+                in_multiline = False
+                multiline_char = None
+    return in_multiline, multiline_char
+
+
+def strip_comments(file_path):
+    if not os.path.exists(file_path):
+        print(f"File {file_path} not found")
+        return
+
+    ext = os.path.splitext(file_path)[1]
+
+    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+        lines = f.readlines()
+
+    new_lines = []
+    in_multiline = False
+    multiline_char = None
+    in_block_comment = False
+
+    for line in lines:
+        stripped = line.strip()
+
+        if not stripped:
+            new_lines.append(line)
+            continue
+
+        keep = any(annotation in line for annotation in ALLOWED_ANNOTATIONS)
+        if keep:
+            new_lines.append(line)
+            continue
+
+        if ext in [".py", ".sh", ".yaml", ".yml", ".toml", ".rb", ".nix"]:
+            if ext == ".py":
+                prev_state = in_multiline
+                in_multiline, multiline_char = _toggle_multiline_state(
+                    line, in_multiline, multiline_char
+                )
+                if in_multiline or prev_state:
+                    new_lines.append(line)
+                    continue
+
+            if stripped.startswith("#"):
+                continue
+            if "#" in line:
+                idx = line.find("#")
+                if (
+                    line.count('"', 0, idx) % 2 == 0
+                    and line.count("'", 0, idx) % 2 == 0
+                ):
+                    line = line[:idx].rstrip() + "\n"
+                    if not line.strip():
+                        continue
+
+        elif ext in [
+            ".js",
+            ".ts",
+            ".jsx",
+            ".tsx",
+            ".vue",
+            ".css",
+            ".cpp",
+            ".c",
+            ".h",
+            ".hpp",
+            ".java",
+            ".kt",
+            ".go",
+            ".rs",
+        ]:
+            if in_block_comment:
+                if "*/" in line:
+                    in_block_comment = False
+                    idx = line.find("*/") + 2
+                    line = line[idx:]
+                    if not line.strip():
+                        continue
+                else:
+                    continue
+
+            if "/*" in line and "*/" in line:
+                start_idx = line.find("/*")
+                end_idx = line.find("*/", start_idx)
+                if (
+                    line.count('"', 0, start_idx) % 2 == 0
+                    and line.count("'", 0, start_idx) % 2 == 0
+                    and line.count("`", 0, start_idx) % 2 == 0
+                ):
+                    line = line[:start_idx] + line[end_idx + 2:]
+                    if not line.strip():
+                        continue
+
+            elif "/*" in line:
+                start_idx = line.find("/*")
+                if (
+                    line.count('"', 0, start_idx) % 2 == 0
+                    and line.count("'", 0, start_idx) % 2 == 0
+                    and line.count("`", 0, start_idx) % 2 == 0
+                ):
+                    in_block_comment = True
+                    line = line[:start_idx]
+                    if not line.strip():
+                        continue
+
+            if stripped.startswith("//"):
+                continue
+            if "//" in line:
+                idx = line.find("//")
+                if (
+                    line.count('"', 0, idx) % 2 == 0
+                    and line.count("'", 0, idx) % 2 == 0
+                    and line.count("`", 0, idx) % 2 == 0
+                ):
+                    line = line[:idx].rstrip() + "\n"
+                    if not line.strip():
+                        continue
+
+        new_lines.append(line)
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.writelines(new_lines)
+
+
+if __name__ == "__main__":
+    for arg in sys.argv[1:]:
+        if os.path.isdir(arg):
+            for root, _, files in os.walk(arg):
+                for file in files:
+                    ext = os.path.splitext(file)[1]
+                    if ext in [".ts", ".tsx", ".vue", ".js", ".jsx", ".css", ".py", ".sh", ".yaml", ".yml", ".nix", ".rs", ".kt"]:
+                        strip_comments(os.path.join(root, file))
+        else:
+            strip_comments(arg)
