@@ -101,15 +101,55 @@ fn read_file(path: &Path) -> Option<OutgoingFile> {
     OutgoingFile::from_path(path)
 }
 
+fn share_staging_dir() -> std::path::PathBuf {
+    let dir = std::env::var_os("XDG_CACHE_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".cache")))
+        .map(|c| c.join("vortex/staging"))
+        .unwrap_or_else(|| std::env::temp_dir().join("vortex_staging"));
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+fn clean_stale_staging() {
+    let staging = share_staging_dir();
+    if let Ok(entries) = std::fs::read_dir(&staging) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().is_some_and(|ext| ext == "zip") {
+                let _ = std::fs::remove_file(path);
+            }
+        }
+    }
+    let tmp = std::env::temp_dir();
+    if let Ok(entries) = std::fs::read_dir(&tmp) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                if name.starts_with("vortex_") && name.ends_with(".zip") {
+                    let _ = std::fs::remove_file(path);
+                }
+            }
+        }
+    }
+}
+
 fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
+    clean_stale_staging();
     let folder_name = dir
         .file_name()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_else(|| "folder".to_string());
 
     let tmp_path =
-        std::env::temp_dir().join(format!("vortex_{}_{}.zip", folder_name, std::process::id()));
-    let file = std::fs::File::create(&tmp_path).ok()?;
+        share_staging_dir().join(format!("vortex_{}_{}.zip", folder_name, std::process::id()));
+    let file = match std::fs::File::create(&tmp_path) {
+        Ok(f) => f,
+        Err(e) => {
+            tracing::warn!(path = ?tmp_path, "share: failed to create staging zip: {e}");
+            return None;
+        }
+    };
     let buf_writer = std::io::BufWriter::with_capacity(1024 * 1024, file);
     let mut zw = zip::ZipWriter::new(buf_writer);
     let opts: zip::write::FileOptions<()> =
@@ -127,8 +167,9 @@ fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
         }
         let arc_name = rel.to_string_lossy().to_string();
         if entry.file_type().is_dir() {
-            if zw.add_directory(format!("{arc_name}/"), opts).is_err() {
-                tracing::warn!(folder = %folder_name, "share: zip add_directory failed");
+            if let Err(e) = zw.add_directory(format!("{arc_name}/"), opts) {
+                tracing::warn!(folder = %folder_name, "share: zip add_directory failed: {e}");
+                let _ = zw.abort_file();
                 let _ = std::fs::remove_file(&tmp_path);
                 return None;
             }
@@ -140,11 +181,15 @@ fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
                     continue;
                 }
             };
-            if zw.start_file(&arc_name, opts).is_err() {
+            if let Err(e) = zw.start_file(&arc_name, opts) {
+                tracing::warn!(folder = %folder_name, "share: zip start_file failed: {e}");
+                let _ = zw.abort_file();
                 let _ = std::fs::remove_file(&tmp_path);
                 return None;
             }
-            if std::io::copy(&mut f, &mut zw).is_err() {
+            if let Err(e) = std::io::copy(&mut f, &mut zw) {
+                tracing::warn!(folder = %folder_name, "share: zip write failed: {e}");
+                let _ = zw.abort_file();
                 let _ = std::fs::remove_file(&tmp_path);
                 return None;
             }
@@ -152,12 +197,26 @@ fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
         }
     }
 
-    if zw.finish().is_err() || count == 0 {
+    if count == 0 {
+        let _ = zw.abort_file();
         let _ = std::fs::remove_file(&tmp_path);
-        tracing::warn!(folder = %folder_name, "share: folder empty or finish failed; skipping");
+        tracing::warn!(folder = %folder_name, "share: folder empty; skipping");
         return None;
     }
-    let meta = std::fs::metadata(&tmp_path).ok()?;
+
+    if let Err(e) = zw.finish() {
+        tracing::warn!(folder = %folder_name, "share: zip finish failed: {e}");
+        let _ = std::fs::remove_file(&tmp_path);
+        return None;
+    }
+    let meta = match std::fs::metadata(&tmp_path) {
+        Ok(m) => m,
+        Err(e) => {
+            tracing::warn!(folder = %folder_name, "share: zip metadata failed: {e}");
+            let _ = std::fs::remove_file(&tmp_path);
+            return None;
+        }
+    };
     tracing::info!(folder = %folder_name, files = count, size = meta.len(), "share: folder packaged to disk");
     Some(OutgoingFile {
         name: format!("{folder_name}.zip"),

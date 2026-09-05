@@ -234,6 +234,14 @@ pub async fn run_lan_reconnect(
                 crate::core::outgoing_share::OutProgress::Fail,
             );
         }
+        for f in &files {
+            if f.extract {
+                if let Some(ref p) = f.path {
+                    let _ = std::fs::remove_file(p);
+                    tracing::debug!(path = ?p, "share: cleaned up temporary staged zip");
+                }
+            }
+        }
     }
 
     let _ = stream.shutdown().await;
