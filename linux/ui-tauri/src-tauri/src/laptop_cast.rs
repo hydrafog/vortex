@@ -163,13 +163,15 @@ async fn start_portal(
     if let Err(e) = gst::init() {
         return Err(format!("gst init: {e}"));
     }
-    ensure_pipewiresrc();
+    ensure_cast_plugins();
+    let encoder = resolve_h264_encoder();
     let raw_fd = fd.as_raw_fd();
     let desc = format!(
         "pipewiresrc fd={raw_fd} path={node_id} do-timestamp=true keepalive-time=1000 ! \
          videorate ! videoconvert ! videoscale ! \
-         video/x-raw,format=I420,width=1280,height=720,framerate=30/1 ! \
-         x264enc tune=zerolatency speed-preset=veryfast bitrate=4000 key-int-max=30 ! \
+         video/x-raw,width=1280,height=720,framerate=30/1 ! \
+         videoconvert ! \
+         {encoder} ! \
          h264parse config-interval=-1 ! \
          video/x-h264,stream-format=byte-stream,alignment=au ! \
          appsink name=vsink emit-signals=false max-buffers=3 drop=true sync=false"
@@ -293,7 +295,8 @@ async fn start_extend(phone_ip: std::net::IpAddr, key: [u8; 32]) -> Result<(), S
     if let Err(e) = gst::init() {
         return Err(format!("gst init: {e}"));
     }
-    ensure_pipewiresrc();
+    ensure_cast_plugins();
+    let encoder = resolve_h264_encoder();
     let cursor_stage = match crate::virtual_display::stage_cursor_image() {
         Some(p) => format!("gdkpixbufoverlay name=cursor location=\"{}\" alpha=0 ! ", p.display()),
         None => {
@@ -305,9 +308,10 @@ async fn start_extend(phone_ip: std::net::IpAddr, key: [u8; 32]) -> Result<(), S
         "pipewiresrc path={node_id} do-timestamp=true keepalive-time=1000 ! \
          video/x-raw,width={EXTEND_W},height={EXTEND_H} ! \
          videorate ! videoconvert ! \
-         video/x-raw,format=I420,framerate=30/1 ! \
+         video/x-raw,framerate=30/1 ! \
          {cursor_stage}\
-         x264enc tune=zerolatency speed-preset=veryfast bitrate=4000 key-int-max=30 ! \
+         videoconvert ! \
+         {encoder} ! \
          h264parse config-interval=-1 ! \
          video/x-h264,stream-format=byte-stream,alignment=au ! \
          appsink name=vsink emit-signals=false max-buffers=3 drop=true sync=false"
@@ -405,11 +409,16 @@ pub fn stop() {
     }
 }
 
-fn ensure_pipewiresrc() {
-    if gst::ElementFactory::find("pipewiresrc").is_some() {
+fn ensure_cast_plugins() {
+    let has_src = gst::ElementFactory::find("pipewiresrc").is_some();
+    let has_enc = gst::ElementFactory::find("vah264enc").is_some()
+        || gst::ElementFactory::find("x264enc").is_some()
+        || gst::ElementFactory::find("openh264enc").is_some();
+
+    if has_src && has_enc {
         return;
     }
-    tracing::info!("laptop-cast: pipewiresrc element not found; searching plugin directories");
+    tracing::info!("laptop-cast: required elements missing (src={has_src}, enc={has_enc}); searching plugin directories");
 
     let registry = gst::Registry::get();
     let mut candidate_dirs: Vec<std::path::PathBuf> = Vec::new();
@@ -443,9 +452,13 @@ fn ensure_pipewiresrc() {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name.contains("pipewire") && !name.ends_with(".drv") {
+                    if (name.contains("pipewire")
+                        || name.contains("gst-plugins-bad")
+                        || name.contains("gst-plugins-ugly"))
+                        && !name.ends_with(".drv")
+                    {
                         let gst_dir = path.join("lib/gstreamer-1.0");
-                        if gst_dir.join("libgstpipewire.so").exists() {
+                        if gst_dir.is_dir() {
                             candidate_dirs.push(gst_dir);
                         }
                     }
@@ -457,13 +470,33 @@ fn ensure_pipewiresrc() {
     for dir in candidate_dirs {
         if dir.is_dir() {
             let _ = registry.scan_path(&dir);
-            if gst::ElementFactory::find("pipewiresrc").is_some() {
-                tracing::info!(dir = ?dir, "laptop-cast: loaded pipewiresrc successfully");
+            let s = gst::ElementFactory::find("pipewiresrc").is_some();
+            let e = gst::ElementFactory::find("vah264enc").is_some()
+                || gst::ElementFactory::find("x264enc").is_some()
+                || gst::ElementFactory::find("openh264enc").is_some();
+            if s && e {
+                tracing::info!(dir = ?dir, "laptop-cast: loaded casting plugins successfully");
                 return;
             }
         }
     }
+}
 
-    tracing::warn!("laptop-cast: pipewiresrc element could not be found after scanning candidate paths");
+fn resolve_h264_encoder() -> &'static str {
+    ensure_cast_plugins();
+    if gst::ElementFactory::find("vah264enc").is_some() {
+        tracing::info!("laptop-cast: using hardware VA-API encoder (vah264enc)");
+        return "vah264enc bitrate=4000 key-int-max=30 rate-control=cbr";
+    }
+    if gst::ElementFactory::find("x264enc").is_some() {
+        tracing::info!("laptop-cast: using software x264 encoder (x264enc)");
+        return "x264enc tune=zerolatency speed-preset=veryfast bitrate=4000 key-int-max=30";
+    }
+    if gst::ElementFactory::find("openh264enc").is_some() {
+        tracing::info!("laptop-cast: using software OpenH264 encoder (openh264enc)");
+        return "openh264enc usage-type=screen complexity=low rate-control=bitrate bitrate=4000000 gop-size=30";
+    }
+    tracing::warn!("laptop-cast: no preferred H264 encoder found; defaulting to x264enc");
+    "x264enc tune=zerolatency speed-preset=veryfast bitrate=4000 key-int-max=30"
 }
 

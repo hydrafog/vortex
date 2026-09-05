@@ -396,15 +396,104 @@ pub fn detect_decoder_backend() -> &'static str {
     "software"
 }
 
+fn ensure_video_sink() {
+    if gst::ElementFactory::find("gtksink").is_some()
+        || gst::ElementFactory::find("gtkwaylandsink").is_some()
+    {
+        return;
+    }
+    tracing::info!("mirror: gtksink/gtkwaylandsink not found; searching plugin directories");
+
+    let registry = gst::Registry::get();
+    let mut candidate_dirs: Vec<std::path::PathBuf> = Vec::new();
+
+    if let Ok(paths) = std::env::var("GST_PLUGIN_SYSTEM_PATH_1_0") {
+        for p in std::env::split_paths(&paths) {
+            candidate_dirs.push(p);
+        }
+    }
+    if let Ok(paths) = std::env::var("GST_PLUGIN_PATH_1_0") {
+        for p in std::env::split_paths(&paths) {
+            candidate_dirs.push(p);
+        }
+    }
+    if let Ok(paths) = std::env::var("LD_LIBRARY_PATH") {
+        for p in std::env::split_paths(&paths) {
+            let gst_dir = p.join("gstreamer-1.0");
+            if gst_dir.is_dir() {
+                candidate_dirs.push(gst_dir);
+            }
+        }
+    }
+
+    candidate_dirs.push(std::path::PathBuf::from("/run/current-system/sw/lib/gstreamer-1.0"));
+    candidate_dirs.push(std::path::PathBuf::from("/usr/lib/gstreamer-1.0"));
+    candidate_dirs.push(std::path::PathBuf::from("/usr/lib/x86_64-linux-gnu/gstreamer-1.0"));
+    candidate_dirs.push(std::path::PathBuf::from("/usr/local/lib/gstreamer-1.0"));
+
+    if std::path::Path::new("/nix/store").is_dir() {
+        if let Ok(entries) = std::fs::read_dir("/nix/store") {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if (name.contains("gst-plugins-good") || name.contains("gst-plugins-bad"))
+                        && !name.ends_with(".drv")
+                    {
+                        let gst_dir = path.join("lib/gstreamer-1.0");
+                        if gst_dir.join("libgstgtk.so").exists()
+                            || gst_dir.join("libgstgtkwayland.so").exists()
+                        {
+                            candidate_dirs.push(gst_dir);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for dir in candidate_dirs {
+        if dir.is_dir() {
+            let _ = registry.scan_path(&dir);
+            if gst::ElementFactory::find("gtksink").is_some()
+                || gst::ElementFactory::find("gtkwaylandsink").is_some()
+            {
+                tracing::info!(dir = ?dir, "mirror: loaded GTK video sink successfully");
+                return;
+            }
+        }
+    }
+
+    tracing::warn!("mirror: no GTK video sink found after scanning candidate paths");
+}
+
+fn resolve_video_sink(paced: bool) -> String {
+    ensure_video_sink();
+    let (sink_elem, has_aspect) = if gst::ElementFactory::find("gtksink").is_some() {
+        ("gtksink", true)
+    } else if gst::ElementFactory::find("gtkwaylandsink").is_some() {
+        ("gtkwaylandsink", false)
+    } else {
+        ("gtksink", true)
+    };
+
+    if paced {
+        if has_aspect {
+            format!("videorate ! capsfilter name=pacecaps caps=video/x-raw,framerate=30/1 ! {sink_elem} name=vsink sync=true force-aspect-ratio=true")
+        } else {
+            format!("videorate ! capsfilter name=pacecaps caps=video/x-raw,framerate=30/1 ! {sink_elem} name=vsink sync=true")
+        }
+    } else {
+        if has_aspect {
+            format!("{sink_elem} name=vsink sync=false force-aspect-ratio=true")
+        } else {
+            format!("{sink_elem} name=vsink sync=false")
+        }
+    }
+}
+
 fn pipeline_string_for_backend(backend: &str, _disp_w: u32, _disp_h: u32) -> String {
     let paced = !std::env::var("VORTEX_MIRROR_PACE").is_ok_and(|v| v == "0");
-    let sink = if paced {
-        "videorate ! capsfilter name=pacecaps caps=video/x-raw,framerate=30/1 ! \
-         gtksink name=vsink sync=true force-aspect-ratio=true"
-    } else {
-        "gtksink name=vsink sync=false force-aspect-ratio=true"
-    };
-    let sink = &sink;
+    let sink = resolve_video_sink(paced);
     match backend {
         "nvdec" => format!(
             "appsrc name=src is-live=true format=time block=true max-bytes=1048576 do-timestamp=true \
