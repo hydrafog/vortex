@@ -24,17 +24,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.ContentPaste
-import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.FileDownload
-import androidx.compose.material.icons.outlined.Headset
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.LightMode
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.NotificationsActive
-import androidx.compose.material.icons.outlined.TouchApp
+import com.vortex.a3.ui.icons.SolarIcons
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -90,7 +80,7 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Outlined.ArrowBack, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                Icon(SolarIcons.ArrowBack, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
             }
             Text(
                 str("settings.title"),
@@ -111,7 +101,7 @@ fun SettingsScreen(
         ) {
             SectionLabel(str("settings.sec_appearance"))
             SectionCard {
-                PickerRow(icon = Icons.Outlined.Language, label = str("settings.language")) {
+                PickerRow(icon = SolarIcons.Language, label = str("settings.language")) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         for (loc in VortexLocale.entries) {
                             SegmentedButton(
@@ -125,7 +115,7 @@ fun SettingsScreen(
                 }
                 RowDivider()
                 PickerRow(
-                    icon = if (currentTheme == ThemeMode.Light) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
+                    icon = if (currentTheme == ThemeMode.Light) SolarIcons.LightMode else SolarIcons.DarkMode,
                     label = str("settings.theme"),
                 ) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -133,14 +123,14 @@ fun SettingsScreen(
                             label = str("settings.theme_dark"),
                             selected = currentTheme == ThemeMode.Dark,
                             onClick = { onSelectTheme(ThemeMode.Dark) },
-                            leadingIcon = Icons.Outlined.DarkMode,
+                            leadingIcon = SolarIcons.DarkMode,
                             modifier = Modifier.weight(1f),
                         )
                         SegmentedButton(
                             label = str("settings.theme_light"),
                             selected = currentTheme == ThemeMode.Light,
                             onClick = { onSelectTheme(ThemeMode.Light) },
-                            leadingIcon = Icons.Outlined.LightMode,
+                            leadingIcon = SolarIcons.LightMode,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -150,7 +140,7 @@ fun SettingsScreen(
             SectionLabel(str("settings.sec_continuity"))
             SectionCard {
                 ToggleRow(
-                    icon = Icons.Outlined.Headset,
+                    icon = SolarIcons.Headset,
                     title = str("settings.smart_switch"),
                     hint = str("settings.smart_switch_hint"),
                     checked = smartSwitchOn,
@@ -158,7 +148,7 @@ fun SettingsScreen(
                 )
                 RowDivider()
                 ToggleRow(
-                    icon = Icons.Outlined.Notifications,
+                    icon = SolarIcons.Notifications,
                     title = str("settings.notif_mirror"),
                     hint = str("settings.notif_mirror_hint"),
                     checked = notifMirrorOn,
@@ -166,7 +156,7 @@ fun SettingsScreen(
                 )
                 RowDivider()
                 ToggleRow(
-                    icon = Icons.Outlined.NotificationsActive,
+                    icon = SolarIcons.NotificationsActive,
                     title = str("settings.peer_notif"),
                     hint = str("settings.peer_notif_hint"),
                     checked = peerNotifShowOn,
@@ -174,7 +164,7 @@ fun SettingsScreen(
                 )
                 RowDivider()
                 ToggleRow(
-                    icon = Icons.Outlined.ContentPaste,
+                    icon = SolarIcons.ContentPaste,
                     title = str("settings.clipboard_sync"),
                     hint = if (clipboardAutoGranted) str("settings.clipboard_auto_on")
                     else str("settings.clipboard_sync_hint"),
@@ -183,7 +173,7 @@ fun SettingsScreen(
                 )
                 RowDivider()
                 ToggleRow(
-                    icon = Icons.Outlined.FileDownload,
+                    icon = SolarIcons.FileDownload,
                     title = str("settings.file_auto_accept"),
                     hint = str("settings.file_auto_accept_hint"),
                     checked = fileAutoAcceptOn,
@@ -202,7 +192,7 @@ fun SettingsScreen(
             SectionLabel(str("settings.sec_device"))
             SectionCard {
                 ActionRow(
-                    icon = Icons.Outlined.TouchApp,
+                    icon = SolarIcons.TouchApp,
                     title = "Screen control",
                     hint = if (screenControlOn) "On. The laptop can control this phone while mirroring"
                     else "Off. Tap to enable in Accessibility",

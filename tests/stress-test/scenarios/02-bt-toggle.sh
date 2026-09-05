@@ -11,7 +11,7 @@ SUMMARY_FILE="${REPORTS_DIR}/summary.md"
 L1_DIR="${SCRIPT_DIR}/../../../l1/daemon"
 mkdir -p "${REPORTS_DIR}"
 
-echo "🔨 Starting daemon in background for BT toggle test..."
+echo "Starting daemon in background for BT toggle test..."
 cd "${L1_DIR}"
 cargo run --release > "${REPORTS_DIR}/vortex-bt-toggle.log" 2>&1 &
 DAEMON_PID=$!

@@ -1,6 +1,5 @@
 package com.vortex.a3.ui
 import android.os.Build
-import androidx.compose.material.icons.outlined.Settings
 import android.bluetooth.BluetoothAdapter
 import android.content.ComponentName
 import android.content.Intent

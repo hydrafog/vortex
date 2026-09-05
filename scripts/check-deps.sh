@@ -21,21 +21,21 @@ print_line() {
 
 print_header() {
   print_line
-  printf '       🌀 Vortex-Lab Dependency Check\n'
+  printf '       Vortex-Lab Dependency Check\n'
   print_line
   printf '\n'
 }
 
 ok() {
-  printf "${GREEN}✅ %s${NC}\n" "$1"
+  printf "${GREEN}[OK] %s${NC}\n" "$1"
 }
 
 warn() {
-  printf "${YELLOW}⚠️  %s${NC}\n" "$1"
+  printf "${YELLOW}[WARN] %s${NC}\n" "$1"
 }
 
 err() {
-  printf "${RED}❌ %s${NC}\n" "$1"
+  printf "${RED}[FAIL] %s${NC}\n" "$1"
 }
 
 have_cmd() {
@@ -242,12 +242,12 @@ final_status() {
 
   if [ "${#MISSING_REQUIRED[@]}" -eq 0 ]; then
     if [ "${#MISSING_LIBS[@]}" -eq 0 ]; then
-      printf 'Status: %b✅ Ready for development%b\n' "$GREEN" "$NC"
+      printf 'Status: %b[OK] Ready for development%b\n' "$GREEN" "$NC"
     else
-      printf 'Status: %b⚠️  Core tools ready, some system libs are missing%b\n' "$YELLOW" "$NC"
+      printf 'Status: %b[WARN] Core tools ready, some system libs are missing%b\n' "$YELLOW" "$NC"
     fi
   else
-    printf 'Status: %b❌ Missing required dependencies%b\n' "$RED" "$NC"
+    printf 'Status: %b[FAIL] Missing required dependencies%b\n' "$RED" "$NC"
   fi
 
   print_line

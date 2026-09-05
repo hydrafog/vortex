@@ -41,6 +41,6 @@ EOF
 
 Without the file `assembleRelease` still works and emits an unsigned APK.
 
-> ⚠️ The release APK is minified (R8). Before trusting any release build,
+> Warning: The release APK is minified (R8). Before trusting any release build,
 > run a full on-device smoke test: pairing, reconnect, call mirror,
 > notifications, SMS send/receive, earbuds switch.

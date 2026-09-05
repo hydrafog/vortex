@@ -16,11 +16,11 @@ mkdir -p "${REPORTS_DIR}"
 BD_ADDR=$(adb shell settings get secure bluetooth_address)
 if [ -z "$BD_ADDR" ] || [ "$BD_ADDR" = "null" ]; then
     # Agar manzilni olib bo'lmasa, loglardan yoki boshqa yo'l bilan qidiramiz
-    echo "⚠️  Could not get BD_ADDR via settings, trying dumpsys..."
+    echo "[WARN] Could not get BD_ADDR via settings, trying dumpsys..."
     BD_ADDR=$(adb shell dumpsys bluetooth_manager | grep -i "address:" | head -n 1 | awk '{print $NF}')
 fi
 
-echo "📱 Target Phone BD_ADDR: $BD_ADDR"
+echo "Target Phone BD_ADDR: $BD_ADDR"
 
 for i in $(seq 1 $ITERATIONS); do
     echo "[$i/$ITERATIONS] Starting reconnect test..."
@@ -29,13 +29,13 @@ for i in $(seq 1 $ITERATIONS); do
     # --max-attempts 1 bilan bitta ulanishni tekshiramiz
     VORTEX_INSECURE=1 $L3_DAEMON auto-reconnect $BD_ADDR --max-attempts 1 --fast > "${REPORTS_DIR}/vortex-l3-test-$i.log" 2>&1
     
-    if grep -q "✅ attempt 1 succeeded" "${REPORTS_DIR}/vortex-l3-test-$i.log"; then
+    if grep -q "attempt 1 succeeded" "${REPORTS_DIR}/vortex-l3-test-$i.log"; then
         SUCCESS=$((SUCCESS + 1))
-        echo "  ✅ Connected"
+        echo "  [OK] Connected"
         rm "${REPORTS_DIR}/vortex-l3-test-$i.log"
     else
         FAIL=$((FAIL + 1))
-        echo "  ❌ Failed"
+        echo "  [FAIL] Failed"
         mv "${REPORTS_DIR}/vortex-l3-test-$i.log" "${REPORTS_DIR}/failed-l3-$i.log"
     fi
     

@@ -7,10 +7,10 @@ TAG=${1:-}
 SRC=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && git rev-parse --show-toplevel)
 SRC_HEAD=$(git -C "$SRC" rev-parse --short HEAD)
 if [[ -n $(git -C "$SRC" status --porcelain) ]]; then
-  echo "✗ working tree is dirty — commit first (the snapshot mirrors HEAD)" >&2
+  echo "FAIL: working tree is dirty — commit first (the snapshot mirrors HEAD)" >&2
   exit 1
 fi
-[[ -f "$SRC/README.en.md" ]] || { echo "✗ README.en.md missing" >&2; exit 1; }
+[[ -f "$SRC/README.en.md" ]] || { echo "FAIL: README.en.md missing" >&2; exit 1; }
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -41,16 +41,16 @@ mv "$TMP/pub/README.en.md" "$TMP/pub/README.md"
 cd "$TMP/pub"
 git add -A
 if git diff --cached --quiet; then
-  echo "✓ public repo already up to date — nothing to publish"
+  echo "OK: public repo already up to date — nothing to publish"
 else
   MSG="release: snapshot ${TAG:-$(date +%Y-%m-%d)} (dev @${SRC_HEAD})"
   git commit -q -m "$MSG"
   git push origin main
-  echo "✓ pushed: $MSG"
+  echo "OK: pushed: $MSG"
 fi
 
 if [[ -n "$TAG" ]]; then
   git tag -f "$TAG"
   git push -f origin "$TAG"
-  echo "✓ tagged $TAG → the public repo's release workflow builds the signed APK"
+  echo "OK: tagged $TAG — the public repo release workflow builds the signed APK"
 fi

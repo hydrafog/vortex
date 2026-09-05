@@ -12,7 +12,7 @@ L1_DIR="${SCRIPT_DIR}/../../../l1/daemon"
 mkdir -p "${REPORTS_DIR}"
 
 # Build daemon in release mode before test to avoid timeouts during compilation
-echo "🔨 Building daemon..."
+echo "Building daemon..."
 cd "${L1_DIR}"
 cargo build --release
 
@@ -36,11 +36,11 @@ for i in $(seq 1 $ITERATIONS); do
     
     if [ "$CONNECTED" = true ]; then
         SUCCESS=$((SUCCESS + 1))
-        echo "  ✅ Connected in <40s"
+        echo "  [OK] Connected in <40s"
         rm "${REPORTS_DIR}/vortex-test-$i.log" # Cleanup on success
     else
         FAIL=$((FAIL + 1))
-        echo "  ❌ Timeout"
+        echo "  [FAIL] Timeout"
         mv "${REPORTS_DIR}/vortex-test-$i.log" "${REPORTS_DIR}/failed-01-$i.log"
     fi
     

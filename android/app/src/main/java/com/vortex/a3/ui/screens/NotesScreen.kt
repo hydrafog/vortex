@@ -30,14 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.StickyNote2
+import com.vortex.a3.ui.icons.SolarIcons
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -102,13 +95,13 @@ fun NotesScreen(onBack: () -> Unit) {
                 title = { Text(str("notes.title")) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
+                        Icon(SolarIcons.ArrowBack, contentDescription = null)
                     }
                 },
                 actions = {
                     if (mode == "notes") {
                         IconButton(onClick = { editing = NoteStore.create("note") }) {
-                            Icon(Icons.Outlined.Add, contentDescription = str("notes.new_note"))
+                            Icon(SolarIcons.Add, contentDescription = str("notes.new_note"))
                         }
                     }
                 },
@@ -222,7 +215,7 @@ private fun NoteRow(n: Note, onOpen: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Icon(
-            Icons.Outlined.StickyNote2,
+            SolarIcons.StickyNote2,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -277,7 +270,7 @@ private fun TodoRow(n: Note, onOpen: () -> Unit) {
         }
         IconButton(onClick = { NoteStore.delete(n.id) }) {
             Icon(
-                Icons.Outlined.Close,
+                SolarIcons.Close,
                 contentDescription = str("notes.delete"),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp),
@@ -303,7 +296,7 @@ private fun TodoCheck(done: Boolean, onToggle: (Boolean) -> Unit) {
     ) {
         if (done) {
             Icon(
-                Icons.Outlined.Check,
+                SolarIcons.Check,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(15.dp),
@@ -391,7 +384,7 @@ private fun TodoAddBar(value: String, onChange: (String) -> Unit, onAdd: () -> U
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Outlined.Add,
+                SolarIcons.Add,
                 contentDescription = str("notes.add_todo"),
                 tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(20.dp),
@@ -420,7 +413,7 @@ private fun NoteEditor(note: Note, onClose: () -> Unit, onDelete: () -> Unit) {
                 title = { Text("") },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
+                        Icon(SolarIcons.ArrowBack, contentDescription = null)
                     }
                 },
                 actions = {
@@ -436,7 +429,7 @@ private fun NoteEditor(note: Note, onClose: () -> Unit, onDelete: () -> Unit) {
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
-                                Icons.Outlined.Notifications,
+                                SolarIcons.Notifications,
                                 contentDescription = str("notes.add_reminder"),
                                 tint = if (dueAt > 0L) MaterialTheme.colorScheme.primary
                                 else androidx.compose.material3.LocalContentColor.current,
@@ -444,7 +437,7 @@ private fun NoteEditor(note: Note, onClose: () -> Unit, onDelete: () -> Unit) {
                         }
                     }
                     IconButton(onClick = onDelete) {
-                        Icon(Icons.Outlined.Delete, contentDescription = str("notes.delete"))
+                        Icon(SolarIcons.Delete, contentDescription = str("notes.delete"))
                     }
                 },
             )

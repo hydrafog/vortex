@@ -36,11 +36,13 @@ Located in `linux/ui-tauri/`.
 - Frontend built with Vue 3, TypeScript, and Vite.
 - Backend implemented with Tauri v2.
 - Handles system tray icon, notifications, clipboard listening (`arboard` and `wl-clipboard-rs`), and GStreamer screen rendering.
+- Artwork uses the Solar Linear family locked at stroke 1.5-1.8. Vue screens import from `src/lib/solarIcons.ts`, the brand mark is sourced from `assets/vortex_solar_source.svg` (see `assets/SOLAR_LICENSE.txt`), and Tauri tray plus bundle icons are regenerated from that source with monochrome simplification for status targets.
 
 ### 3. Android Application
 Located in `android/app/`.
 - Native Kotlin application utilizing Android Jetpack, Coroutines, and BLE APIs.
 - Communicates with the native helper binary to inject touch, mouse, and keyboard input.
+- Artwork uses the Solar Linear family via `ui/icons/SolarIcons.kt` with `batteryIconFor` plus `lockIconFor` state mapping. Notification plus media `drawable` vectors are redrawn from Solar paths on viewport 24 with white fill, and launcher foregrounds are regenerated from the Solar brand source.
 
 ### 4. Input Injection Helper (`vortex_inject`)
 Located in `android/inject/`.

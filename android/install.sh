@@ -32,9 +32,9 @@ if [ -n "$SUDO" ] && ! command -v sudo >/dev/null 2>&1; then
 fi
 
 pm_install() {
-  [ -z "$PM" ] && { echo "✗ no supported package manager (apt/dnf/pacman/zypper)"; return 1; }
+  [ -z "$PM" ] && { echo "FAIL: no supported package manager (apt/dnf/pacman/zypper)"; return 1; }
   if [ "${NO_SUDO:-0}" = 1 ]; then
-    echo "✗ not root and 'sudo' is not installed — as root, run:"
+    echo "FAIL: not root and 'sudo' is not installed — as root, run:"
     echo "    $PM install $*"
     return 1
   fi
@@ -81,7 +81,7 @@ if ! JAVA_HOME="$(find_jdk)"; then
     *)          pm_install jdk || true ;;
   esac
   if ! JAVA_HOME="$(find_jdk)"; then
-    echo "✗ JDK still not found — see the package-manager error above, fix it"
+    echo "FAIL: JDK still not found — see the package-manager error above, fix it"
     echo "  (e.g. sudo apt install openjdk-17-jdk-headless) and re-run."
     exit 1
   fi
@@ -143,13 +143,13 @@ if ! command -v adb >/dev/null 2>&1; then
     *)       pm_install android-tools || true ;;
   esac
   if ! command -v adb >/dev/null 2>&1; then
-    echo "✗ adb still not found — see the package-manager error above, fix it"
+    echo "FAIL: adb still not found — see the package-manager error above, fix it"
     echo "  (apt: adb, others: android-tools) and re-run."
     exit 1
   fi
 fi
 if ! adb get-state >/dev/null 2>&1; then
-  echo "✗ no adb device ready. Plug the phone in over USB, enable Developer"
+  echo "FAIL: no adb device ready. Plug the phone in over USB, enable Developer"
   echo "  options → USB debugging, and accept the RSA fingerprint prompt."
   adb devices
   exit 1
@@ -175,7 +175,7 @@ if ! ./gradlew $CLEAN :app:installDebug 2>&1 | tee "$GRADLE_LOG"; then
     # 2026-07-21). Try that first; fall back to hand-sideloading only if a
     # ROM closes this hole too.
     echo ""
-    echo "⚠ the PHONE blocked the USB install (MIUI 'Install via USB' needs a"
+    echo "WARN: the PHONE blocked the USB install (MIUI 'Install via USB' needs a"
     echo "  Mi account). Trying the on-device pm-install path…"
     adb push "$APK" /data/local/tmp/vortex.apk
     if adb shell pm install -r /data/local/tmp/vortex.apk 2>&1 | grep -q Success; then
@@ -191,7 +191,7 @@ if ! ./gradlew $CLEAN :app:installDebug 2>&1 | tee "$GRADLE_LOG"; then
       echo "  (allow 'install unknown apps' for Files if asked — no account needed)."
       read -r -p "  Press Enter here AFTER the app is installed on the phone… " _ || true
       if ! adb shell pm list packages 2>/dev/null | grep -q "$PKG"; then
-        echo "✗ $PKG still isn't installed — install vortex.apk on the"
+        echo "FAIL: $PKG still isn't installed — install vortex.apk on the"
         echo "  phone, then re-run: ./install_android.sh --fast"
         rm -f "$GRADLE_LOG"
         exit 1
@@ -200,7 +200,7 @@ if ! ./gradlew $CLEAN :app:installDebug 2>&1 | tee "$GRADLE_LOG"; then
     fi
   else
     echo ""
-    echo "✗ build/install failed — see the gradle error above."
+    echo "FAIL: build/install failed — see the gradle error above."
     rm -f "$GRADLE_LOG"
     exit 1
   fi
@@ -259,9 +259,9 @@ adb shell settings put secure accessibility_enabled 1 >/dev/null 2>&1
 if adb shell settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r' | grep -q "$A11Y"; then
   echo "▶ enabled Accessibility (screen control + browsing-handoff pill)"
 else
-  echo "⚠ couldn't enable Accessibility over adb (MIUI: needs 'USB debugging"
+  echo "WARN: couldn't enable Accessibility over adb (MIUI: needs 'USB debugging"
   echo "  (Security settings)' ON, or flip it by hand ONCE on the phone:"
-  echo "  Settings → Accessibility → Vortex ✓ — the in-app card links there too)"
+  echo "  Settings → Accessibility → Vortex [enabled] — the in-app card links there too)"
 fi
 
 # Notification access (notification / SMS / call mirroring + media live
@@ -274,6 +274,6 @@ adb shell cmd notification allow_listener "$NL" >/dev/null 2>&1 \
 adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 \
   >/dev/null 2>&1 || true
 
-echo "✓ installed + launched $PKG (accesses auto-enabled over adb)"
+echo "OK: installed + launched $PKG (accesses auto-enabled over adb)"
 echo "  Autostart was attempted over adb too (MIUI appop) — still verify it once:"
-echo "   • Security app → Autostart → Vortex ✓  (MIUI can't be read back reliably)"
+echo "   • Security app → Autostart → Vortex [enabled]  (MIUI can't be read back reliably)"

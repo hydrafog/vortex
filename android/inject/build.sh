@@ -43,13 +43,13 @@ find_ndk() {
 }
 
 NDK=$(find_ndk) || {
-  echo "✗ no Android NDK found." >&2
+  echo "FAIL: no Android NDK found." >&2
   echo "  Install it (sdkmanager 'ndk;$NDK_PINNED') or set ANDROID_NDK_HOME." >&2
   echo "  scripts/setup-android.sh sets up the SDK if you have neither." >&2
   exit 1
 }
 CC=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android$API-clang
-[[ -x $CC ]] || { echo "✗ $NDK has no aarch64 API-$API compiler" >&2; exit 1; }
+[[ -x $CC ]] || { echo "FAIL: $NDK has no aarch64 API-$API compiler" >&2; exit 1; }
 
 "$CC" -O2 -o "$OUT" "$SRC/vortex_inject.c"
 
@@ -57,8 +57,8 @@ CC=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android$API-clan
 # cryptic "not executable" from adb.
 case $(file -b "$OUT" 2>/dev/null) in
   *aarch64*) ;;
-  *) echo "✗ built for the wrong architecture: $(file -b "$OUT")" >&2; exit 1 ;;
+  *) echo "FAIL: built for the wrong architecture: $(file -b "$OUT")" >&2; exit 1 ;;
 esac
 
-echo "✓ $OUT"
+echo "OK: $OUT"
 echo "  $(basename "$NDK") · API $API · $(stat -c%s "$OUT") bytes"

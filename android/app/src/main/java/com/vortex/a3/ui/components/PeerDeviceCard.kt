@@ -18,10 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Cast
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.LockOpen
+import com.vortex.a3.ui.icons.SolarIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -95,7 +92,7 @@ fun PeerDeviceCard(
             if (onViewScreen != null) {
                 Box(contentAlignment = Alignment.TopEnd) {
                     Icon(
-                        imageVector = Icons.Outlined.Cast,
+                        imageVector = SolarIcons.Cast,
                         contentDescription = "View laptop screen (experimental)",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
@@ -116,7 +113,7 @@ fun PeerDeviceCard(
             }
             if (locked != null && onToggleLock != null) {
                 Icon(
-                    imageVector = if (locked) Icons.Outlined.Lock else Icons.Outlined.LockOpen,
+                    imageVector = SolarIcons.lockIconFor(locked),
                     contentDescription = null,
                     tint = if (locked) {
                         MaterialTheme.colorScheme.primary

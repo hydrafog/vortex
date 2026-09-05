@@ -3,7 +3,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.outlined.Settings
 import com.vortex.a3.BuildConfig
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope

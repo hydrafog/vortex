@@ -20,9 +20,9 @@
 set -uo pipefail
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; BOLD='\033[1m'; NC='\033[0m'
-ok()   { printf "${GREEN}✓ %s${NC}\n" "$1"; }
-warn() { printf "${YELLOW}⚠ %s${NC}\n" "$1"; }
-err()  { printf "${RED}✗ %s${NC}\n" "$1"; }
+ok()   { printf "${GREEN}[OK] %s${NC}\n" "$1"; }
+warn() { printf "${YELLOW}[WARN] %s${NC}\n" "$1"; }
+err()  { printf "${RED}[FAIL] %s${NC}\n" "$1"; }
 info() { printf "${BOLD}▶ %s${NC}\n" "$1"; }
 
 ASSUME_YES=1

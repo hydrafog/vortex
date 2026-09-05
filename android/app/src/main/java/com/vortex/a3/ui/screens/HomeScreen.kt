@@ -20,11 +20,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Laptop
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Smartphone
-import androidx.compose.material.icons.outlined.StickyNote2
+import com.vortex.a3.ui.icons.SolarIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -171,14 +167,14 @@ fun HomeScreen(
             if (peerCount > 0) {
                 IconButton(onClick = onOpenNotes) {
                     Icon(
-                        imageVector = Icons.Outlined.StickyNote2,
+                        imageVector = SolarIcons.StickyNote2,
                         contentDescription = str("notes.title"),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 IconButton(onClick = onOpenSettings) {
                     Icon(
-                        imageVector = Icons.Outlined.Settings,
+                        imageVector = SolarIcons.Settings,
                         contentDescription = str("settings.title"),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -219,7 +215,7 @@ fun HomeScreen(
                 ) {
                     PeerDeviceCard(
                         modifier = Modifier.weight(1f),
-                        icon = Icons.Outlined.Laptop,
+                        icon = SolarIcons.Laptop,
                         name = primaryState?.name?.takeIf { it.isNotBlank() }
                             ?: primaryPeer?.peerName?.takeIf { it.isNotBlank() }
                             ?: str("device.linux"),
@@ -378,7 +374,7 @@ private fun ThisPhoneCard(modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Outlined.Smartphone,
+                imageVector = SolarIcons.Smartphone,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(22.dp),

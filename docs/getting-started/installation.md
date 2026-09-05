@@ -46,4 +46,4 @@ cargo run --manifest-path linux/daemon/Cargo.toml
    ./gradlew assembleDebug
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
-3. Grant notification access and background permissions when prompted in the app.
+3. Grant notification access and background permissions when prompted in the app. Notification plus status bar glyphs use simplified Solar Linear silhouettes (white fill, viewport 24) for legibility at small sizes; no setup step changes.

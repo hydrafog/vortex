@@ -24,7 +24,7 @@ done
 
 if [ "$SKIP_DEPS" -eq 0 ]; then
   bash "$REPO/linux/packaging/install-deps.sh" "${DEPS_ARGS[@]}" || \
-    echo "⚠ dependency step had issues — continuing; the build will flag anything truly missing."
+    echo "WARN: dependency step had issues — continuing; the build will flag anything truly missing."
   [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 else
   echo "▶ --skip-deps: assuming system dependencies are already installed."
@@ -41,7 +41,7 @@ echo "▶ installing UI dependencies…"
 
 echo "▶ building prod binary (embeds UI; --no-bundle skips packaging)…"
 ( cd "$UI" && npm run tauri build -- --no-bundle )
-[ -x "$BIN_SRC" ] || { echo "✗ build produced no binary at $BIN_SRC" >&2; exit 1; }
+[ -x "$BIN_SRC" ] || { echo "FAIL: build produced no binary at $BIN_SRC" >&2; exit 1; }
 
 echo "▶ installing files (user-level, no sudo)…"
 mkdir -p "$BIN_DIR" "$APP_DIR" "$AUTOSTART_DIR"
@@ -162,4 +162,4 @@ case ":$PATH:" in
   *) echo "ℹ note: $BIN_DIR is not on your PATH (the app still runs; only matters for typing 'vortex-ui-tauri')." ;;
 esac
 
-echo "✓ installed. Running now, and it will auto-start on every login."
+echo "OK: installed. Running now, and it will auto-start on every login."

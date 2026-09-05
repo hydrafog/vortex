@@ -20,9 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.Headphones
+import com.vortex.a3.ui.icons.SolarIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -105,7 +103,7 @@ fun EarbudsCard(
             .padding(16.dp),
     ) {
         CardHeader(
-            icon = Icons.Outlined.Headphones,
+            icon = SolarIcons.Headphones,
             iconTint = tintColor,
             iconBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
             statusDot = if (connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -201,7 +199,7 @@ fun EarbudsAddPlaceholder(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Filled.Add,
+                imageVector = SolarIcons.Add,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(22.dp),

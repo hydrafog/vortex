@@ -16,8 +16,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Laptop
 import androidx.compose.material3.AlertDialog
 import com.vortex.a3.BuildConfig
 import androidx.core.content.ContextCompat

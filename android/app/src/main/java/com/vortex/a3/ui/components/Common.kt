@@ -161,7 +161,7 @@ fun PairedRow(label: String, short: String) {
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Outlined.Laptop,
+                imageVector = SolarIcons.Laptop,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(18.dp),

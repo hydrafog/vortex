@@ -1,4 +1,4 @@
-# 🧩 shared/proto README
+# shared/proto README
 
 ## What This Is
 

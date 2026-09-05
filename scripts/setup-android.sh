@@ -28,7 +28,7 @@ check_adb() {
 
 print_header() {
   printf '%s\n' "=============================================="
-  printf '%s\n' "     📱 Vortex-Lab Android Setup Guide"
+  printf '%s\n' "     Vortex-Lab Android Setup Guide"
   printf '%s\n' "=============================================="
 }
 
