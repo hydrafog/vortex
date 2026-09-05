@@ -99,6 +99,25 @@ pub(crate) static PENDING_FILE_OFFERS: std::sync::OnceLock<
 #[derive(Default)]
 pub(crate) struct PairDecisionState(pub(crate) Mutex<Option<oneshot::Sender<LocalDecision>>>);
 
+fn is_tray_enabled() -> bool {
+    if std::env::args().any(|a| a == "--no-tray") {
+        return false;
+    }
+    let base = std::env::var_os("XDG_CONFIG_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config")));
+    if let Some(path) = base.map(|b| b.join("vortex").join("tray.json")) {
+        if let Ok(bytes) = std::fs::read(path) {
+            if let Ok(v) = serde_json::from_slice::<serde_json::Value>(&bytes) {
+                if let Some(enabled) = v.get("enabled").and_then(|e| e.as_bool()) {
+                    return enabled;
+                }
+            }
+        }
+    }
+    true
+}
+
 pub fn run() {
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -193,7 +212,9 @@ pub fn run() {
                 worker::run_worker(handle, rx);
             });
 
-            tray::setup(app)?;
+            if is_tray_enabled() {
+                tray::setup(app)?;
+            }
 
             {
                 use tauri::Manager;
@@ -204,6 +225,17 @@ pub fn run() {
                         let _ = w.show();
                         let _ = w.set_focus();
                     }
+                }
+            }
+
+            let cli_args: Vec<String> = std::env::args().collect();
+            if let Some(pos) = cli_args.iter().position(|a| a == "--share") {
+                let paths: Vec<String> = cli_args[pos + 1..].to_vec();
+                if !paths.is_empty() {
+                    let h = app.handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        let _ = share::handle_share(&h, paths);
+                    });
                 }
             }
 

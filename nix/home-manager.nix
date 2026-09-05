@@ -17,7 +17,8 @@ let
     ]
   );
 
-  execArgs = lib.concatStringsSep " " cfg.extraArgs;
+  allExtraArgs = cfg.extraArgs ++ (lib.optional (!cfg.tray.enable) "--no-tray");
+  execArgs = lib.concatStringsSep " " allExtraArgs;
   execCmd =
     if envPrefix != "" then
       "env ${envPrefix} ${cfg.package}/bin/vortex-ui-tauri${
@@ -73,6 +74,14 @@ in
       type = lib.types.listOf lib.types.str;
       default = [ "--hidden" ];
       description = "Extra command line flags to pass to Vortex on autostart or service launch.";
+    };
+
+    tray = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Show system tray indicator icon for status and quick actions.";
+      };
     };
 
     # Feature Toggles
@@ -238,6 +247,10 @@ in
     xdg.configFile."vortex/proximity.json".text = builtins.toJSON {
       auto_lock = cfg.proximityLock.autoLock;
       auto_unlock = cfg.proximityLock.autoUnlock;
+    };
+
+    xdg.configFile."vortex/tray.json".text = builtins.toJSON {
+      enabled = cfg.tray.enable;
     };
 
     xdg.dataFile = {
