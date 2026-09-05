@@ -4,6 +4,7 @@
     clippy::type_complexity,
     clippy::manual_checked_ops,
     clippy::collapsible_match,
+    clippy::collapsible_if,
     clippy::needless_borrow,
     clippy::question_mark,
     clippy::empty_line_after_doc_comments

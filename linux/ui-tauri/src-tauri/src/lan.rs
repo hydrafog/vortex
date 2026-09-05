@@ -814,9 +814,9 @@ pub(crate) fn spawn_heartbeat(
             } else if had_trust {
                 consec_lan_fail = consec_lan_fail.saturating_add(1);
             }
-            let next = if crate::call::call_pill_active() {
-                Duration::from_secs(2)
-            } else if had_trust && !lan_synced && consec_lan_fail <= 3 {
+            let next = if crate::call::call_pill_active()
+                || (had_trust && !lan_synced && consec_lan_fail <= 3)
+            {
                 Duration::from_secs(2)
             } else if file_pull_active() {
                 if consec_lan_fail <= 15 {

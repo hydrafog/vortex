@@ -61,17 +61,17 @@ pub fn current_offer() -> Option<LaptopCast> {
 pub fn dispatch_request(req: bool, extend: Option<bool>) {
     if req {
         REQ_FALSE_MISSES.store(0, Ordering::SeqCst);
-    } else if REQ_WANTED.load(Ordering::SeqCst) {
-        if REQ_FALSE_MISSES.fetch_add(1, Ordering::SeqCst) + 1 < REQ_FALSE_LIMIT {
-            return;
-        }
+    } else if REQ_WANTED.load(Ordering::SeqCst)
+        && REQ_FALSE_MISSES.fetch_add(1, Ordering::SeqCst) + 1 < REQ_FALSE_LIMIT
+    {
+        return;
     }
     if req && !REQ_WANTED.swap(true, Ordering::SeqCst) {
         let Some(phone_ip) = (match crate::lan::LAST_GOOD_PEER_IP.lock() {
             Ok(g) => *g,
             Err(_) => None,
         }) else {
-            tracing::warn!("laptop-cast: no known phone IP yet — not starting");
+            tracing::warn!("laptop-cast: no known phone IP yet, not starting");
             REQ_WANTED.store(false, Ordering::SeqCst);
             return;
         };
