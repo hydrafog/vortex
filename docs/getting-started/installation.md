@@ -35,7 +35,51 @@ Or run the daemon directly:
 cargo run --manifest-path linux/daemon/Cargo.toml
 ```
 
+### 4. Binary Cache (Instant Pre-built Binaries)
+To avoid compiling Rust and WebKitGTK locally, configure the Cachix binary cache:
+
+In NixOS (`/etc/nixos/configuration.nix` or flake):
+```nix
+nix.settings = {
+  substituters = [ "https://hydrafog.cachix.org" ];
+  trusted-public-keys = [
+    "hydrafog.cachix.org-1:UKlU4vpY+vHoft1i+OAVBaVnFaq6udjRM8FPUSAPKLw="
+  ];
+};
+```
+
+### 5. NixOS & Home Manager Module Integration
+Add Vortex to your flake inputs:
+```nix
+inputs.vortex.url = "github:hydrafog/vortex";
+```
+
+#### Home Manager
+Import the module and enable the service:
+```nix
+{ inputs, ... }:
+{
+  imports = [ inputs.vortex.homeManagerModules.default ];
+
+  services.vortex = {
+    enable = true;
+    backend = "wayland";     # "wayland", "x11", or "auto"
+    autostart = true;        # XDG autostart on login
+    disableDmabuf = true;    # Recommended for WebKitGTK on Wayland
+
+    notifications.enable = true;
+    clipboardSync.enable = true;
+    smartAudioHandoff.enable = true;
+    phoneCompanion.enable = true;
+    browsingHandoff.enable = true;
+    notesSync.enable = true;
+    fileSharing.enable = true;
+  };
+}
+```
+
 ---
+
 
 ## Android Client Setup
 
