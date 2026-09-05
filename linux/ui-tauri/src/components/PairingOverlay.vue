@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, watch, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
-import { Laptop, Smartphone, ShieldCheck, AlertTriangle, Loader2, X } from "lucide-vue-next";
+import { SolarLaptop, SolarSmartphone, SolarShieldCheck, SolarDangerTriangle, SolarLoader, SolarClose } from "@/lib/solarIcons";
 import {
   showPairPhoneModal,
   scanning,
@@ -92,7 +92,7 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
         </div>
         <div class="text-center" style="margin-top: 14px">
           <div class="vp-title">{{ t("pair.prox_title", { name: proximityName }) }}</div>
-          <div class="vp-sub"><ShieldCheck :size="14" />{{ t("pair.prox_sub") }}</div>
+          <div class="vp-sub"><SolarShieldCheck :size="14" />{{ t("pair.prox_sub") }}</div>
         </div>
         <button class="vp-btn vp-btn-primary" style="margin-top: 24px" @click="pairFromProximity">{{ t("pair.add_phone_btn") }}</button>
         <button class="vp-btn vp-btn-quiet" @click="dismissProximity">{{ t("pair.not_now") }}</button>
@@ -100,7 +100,7 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
 
       <!-- ░ RADAR SCAN ░ -->
       <div v-if="screen === 'scan'" class="vp-card" style="width: 560px">
-        <button class="vp-x" :title="t('scan.close')" @click="close"><X :size="18" /></button>
+        <button class="vp-x" :title="t('scan.close')" @click="close"><SolarClose :size="18" /></button>
         <div class="text-center">
           <div class="vp-title">{{ t("scan.looking") }}</div>
           <div class="vp-sub">{{ t("scan.hint_open") }}</div>
@@ -125,7 +125,7 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
             class="vp-row"
             @click="pairWith(d.addr)"
           >
-            <span class="vp-row-icon"><Smartphone :size="20" :stroke-width="1.7" /></span>
+            <span class="vp-row-icon"><SolarSmartphone :size="20" :stroke-width="1.7" /></span>
             <span class="min-w-0 flex-1 text-left">
               <span class="block text-sm font-semibold truncate">{{ d.name }}</span>
               <span class="block text-xs text-muted-foreground">{{ d.meta }}</span>
@@ -148,17 +148,17 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
             <line x1="70" y1="60" x2="230" y2="60" stroke="hsl(var(--primary))" stroke-width="3" stroke-linecap="round" stroke-dasharray="3 9" class="vp-flow" />
           </svg>
           <span class="vp-packet" />
-          <span class="vp-node vp-node-l"><Laptop :size="26" :stroke-width="1.7" /></span>
-          <span class="vp-node vp-node-r"><Smartphone :size="26" :stroke-width="1.8" /></span>
-          <span class="vp-locktag"><ShieldCheck :size="13" :stroke-width="2.2" /></span>
+          <span class="vp-node vp-node-l"><SolarLaptop :size="26" :stroke-width="1.7" /></span>
+          <span class="vp-node vp-node-r"><SolarSmartphone :size="26" :stroke-width="1.8" /></span>
+          <span class="vp-locktag"><SolarShieldCheck :size="13" :stroke-width="2.2" /></span>
         </div>
         <div class="vp-title-sm">{{ t("pair.connecting") }}</div>
-        <div class="vp-sub vp-glow"><ShieldCheck :size="13" class="text-primary" />{{ t("pair.e2e") }}</div>
+        <div class="vp-sub vp-glow"><SolarShieldCheck :size="13" class="text-primary" />{{ t("pair.e2e") }}</div>
       </div>
 
       <!-- ░ EMOJI SECURITY CHECK ░ -->
       <div v-else-if="screen === 'emoji'" class="vp-card text-center" style="width: 500px">
-        <span class="vp-badge"><ShieldCheck :size="13" :stroke-width="2" />{{ t("pair.sec_check") }}</span>
+        <span class="vp-badge"><SolarShieldCheck :size="13" :stroke-width="2" />{{ t("pair.sec_check") }}</span>
         <div class="vp-title" style="margin-top: 16px">{{ t("pair.emoji_title") }}</div>
         <div class="vp-sub" style="max-width: 380px; margin: 9px auto 0; line-height: 1.5">{{ t("pair.emoji_body") }}</div>
         <div class="vp-tiles">
@@ -170,7 +170,7 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
         <!-- The phone is the decision point: it shows the same 3 emoji with
              Approve / Decline. The laptop just waits. -->
         <div class="vp-waiting">
-          <Loader2 :size="16" class="vp-spin" />{{ t("pair.awaiting_phone") }}
+          <SolarLoader :size="16" class="vp-spin" />{{ t("pair.awaiting_phone") }}
         </div>
       </div>
 
@@ -197,7 +197,7 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
 
       <!-- ░ ABORTED (mismatch / possible MITM) ░ -->
       <div v-else-if="screen === 'aborted'" class="vp-card text-center vp-card-danger" style="width: 460px">
-        <div class="vp-warn"><AlertTriangle :size="36" :stroke-width="1.9" /></div>
+        <div class="vp-warn"><SolarDangerTriangle :size="36" :stroke-width="1.9" /></div>
         <div class="vp-title" style="margin-top: 20px">{{ t("pair.abort_title") }}</div>
         <div class="vp-sub" style="max-width: 380px; margin: 9px auto 0; line-height: 1.55">{{ t("pair.abort_body") }}</div>
         <button class="vp-btn vp-btn-primary" style="margin-top: 24px" @click="dismissPairing">{{ t("pair.start_over") }}</button>

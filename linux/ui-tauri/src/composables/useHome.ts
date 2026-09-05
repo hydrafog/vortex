@@ -1,7 +1,7 @@
 import { ref, computed, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { Battery, BatteryLow, BatteryMedium, BatteryFull, BatteryCharging } from "lucide-vue-next";
+import { SolarBattery, SolarBatteryLow, SolarBatteryHalf, SolarBatteryFull, SolarBatteryCharge } from "@/lib/solarIcons";
 import {
   startScan, startPair, forgetPeer, refreshState, refreshLocalEarbuds,
   requestEarbudsSwitch, sendEarbudsClaim, getSavedEarbuds, onSwitchState,
@@ -269,11 +269,11 @@ export function openPairPhoneModal() {
 }
 
 export function batteryIcon(pct: number | null, charging = false) {
-  if (charging) return BatteryCharging;
-  if (pct == null) return Battery;
-  if (pct >= 80) return BatteryFull;
-  if (pct >= 40) return BatteryMedium;
-  return BatteryLow;
+  if (charging) return SolarBatteryCharge;
+  if (pct == null) return SolarBattery;
+  if (pct >= 80) return SolarBatteryFull;
+  if (pct >= 40) return SolarBatteryHalf;
+  return SolarBatteryLow;
 }
 
 export function batteryClass(pct: number | null, charging = false) {

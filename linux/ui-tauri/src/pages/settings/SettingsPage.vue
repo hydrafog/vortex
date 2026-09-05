@@ -3,19 +3,19 @@ import { onMounted, onUnmounted, ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import {
-  Moon,
-  Sun,
-  Globe,
-  ArrowLeft,
-  Headphones,
-  Bell,
-  BellRing,
-  Lock,
-  LockOpen,
-  ClipboardList,
-  MousePointer2,
-  FileDown,
-} from "lucide-vue-next";
+  SolarMoon,
+  SolarSun,
+  SolarGlobe,
+  SolarArrowLeft,
+  SolarHeadphones,
+  SolarBell,
+  SolarBellBing,
+  SolarLock,
+  SolarUnlock,
+  SolarClipboardList,
+  SolarCursor,
+  SolarFileDownload,
+} from "@/lib/solarIcons";
 import { theme } from "@/lib/theme";
 import { smartSwitchEnabled, setSmartSwitch } from "@/lib/smartSwitch";
 import { notifMirrorShow, setNotifMirror, notifMirrorSend, setNotifSend } from "@/lib/notifMirror";
@@ -143,7 +143,7 @@ const pill = (active: boolean) =>
         class="h-9 w-9 rounded-md flex items-center justify-center hover:bg-accent transition-colors"
         @click="router.push('/')"
       >
-        <ArrowLeft class="h-4 w-4" />
+        <SolarArrowLeft class="h-4 w-4" />
       </button>
       <h1 class="text-base font-semibold ml-1">{{ t("settings.title") }}</h1>
     </header>
@@ -160,7 +160,7 @@ const pill = (active: boolean) =>
           <!-- language -->
           <div class="px-[18px] py-4">
             <div class="flex items-center gap-2.5 mb-3">
-              <Globe class="h-[18px] w-[18px] text-muted-foreground" :stroke-width="1.8" />
+              <SolarGlobe class="h-[18px] w-[18px] text-muted-foreground" :stroke-width="1.8" />
               <span class="text-sm font-semibold text-foreground">{{ t("settings.language") }}</span>
             </div>
             <div class="flex gap-2.5">
@@ -178,15 +178,15 @@ const pill = (active: boolean) =>
           <!-- theme -->
           <div class="px-[18px] py-4">
             <div class="flex items-center gap-2.5 mb-3">
-              <component :is="theme === 'dark' ? Moon : Sun" class="h-[18px] w-[18px] text-muted-foreground" :stroke-width="1.9" />
+              <component :is="theme === 'dark' ? SolarMoon : SolarSun" class="h-[18px] w-[18px] text-muted-foreground" :stroke-width="1.9" />
               <span class="text-sm font-semibold text-foreground">{{ t("settings.theme") }}</span>
             </div>
             <div class="flex gap-2.5">
               <button :class="pill(theme === 'dark')" @click="pickTheme('dark')">
-                <Moon class="h-4 w-4" :stroke-width="1.9" />{{ t("settings.theme_dark") }}
+                <SolarMoon class="h-4 w-4" :stroke-width="1.9" />{{ t("settings.theme_dark") }}
               </button>
               <button :class="pill(theme === 'light')" @click="pickTheme('light')">
-                <Sun class="h-4 w-4" :stroke-width="1.9" />{{ t("settings.theme_light") }}
+                <SolarSun class="h-4 w-4" :stroke-width="1.9" />{{ t("settings.theme_light") }}
               </button>
             </div>
           </div>
@@ -196,7 +196,7 @@ const pill = (active: boolean) =>
         <div class="sec-label">{{ t("settings.sec_continuity") }}</div>
         <div class="rounded-[20px] border border-border bg-card overflow-hidden">
           <SettingsRow
-            :icon="Headphones"
+            :icon="SolarHeadphones"
             :title="t('settings.smart_switch')"
             :desc="t('settings.smart_switch_hint')"
             :model-value="smartSwitchEnabled"
@@ -204,7 +204,7 @@ const pill = (active: boolean) =>
           />
           <SettingsRow
             divider
-            :icon="Bell"
+            :icon="SolarBell"
             :title="t('settings.notif_mirror')"
             :desc="t('settings.notif_mirror_hint')"
             :model-value="notifMirrorShow"
@@ -212,7 +212,7 @@ const pill = (active: boolean) =>
           />
           <SettingsRow
             divider
-            :icon="BellRing"
+            :icon="SolarBellBing"
             :title="t('settings.notif_send')"
             :desc="t('settings.notif_send_hint')"
             :model-value="notifMirrorSend"
@@ -220,7 +220,7 @@ const pill = (active: boolean) =>
           />
           <SettingsRow
             divider
-            :icon="ClipboardList"
+            :icon="SolarClipboardList"
             :title="t('settings.clipboard_sync')"
             :desc="t('settings.clipboard_sync_hint')"
             :model-value="clipboardSync"
@@ -228,7 +228,7 @@ const pill = (active: boolean) =>
           />
           <SettingsRow
             divider
-            :icon="FileDown"
+            :icon="SolarFileDownload"
             :title="t('settings.file_auto_accept')"
             :desc="t('settings.file_auto_accept_hint')"
             :model-value="fileAutoAccept"
@@ -236,7 +236,7 @@ const pill = (active: boolean) =>
           />
           <SettingsRow
             divider
-            :icon="MousePointer2"
+            :icon="SolarCursor"
             :title="t('settings.uc')"
             :tag="t('mirror.experimental')"
             :desc="t('settings.uc_hint')"
@@ -259,7 +259,7 @@ const pill = (active: boolean) =>
           <!-- phone placement: which screen edge the phone sits past -->
           <div v-if="ucEnabled" class="px-[18px] py-4 border-t border-border/60">
             <div class="flex items-center gap-2.5 mb-3">
-              <MousePointer2 class="h-[18px] w-[18px] text-muted-foreground" :stroke-width="1.8" />
+              <SolarCursor class="h-[18px] w-[18px] text-muted-foreground" :stroke-width="1.8" />
               <span class="text-sm font-semibold text-foreground">
                 {{ t("settings.uc_placement") }}
               </span>
@@ -291,7 +291,7 @@ const pill = (active: boolean) =>
         <div class="sec-label">{{ t("settings.sec_privacy") }}</div>
         <div class="rounded-[20px] border border-border bg-card overflow-hidden">
           <SettingsRow
-            :icon="Lock"
+            :icon="SolarLock"
             :title="t('settings.proximity_lock')"
             :desc="t('settings.proximity_lock_hint')"
             :model-value="proximityAutoLock"
@@ -299,7 +299,7 @@ const pill = (active: boolean) =>
           />
           <SettingsRow
             divider
-            :icon="LockOpen"
+            :icon="SolarUnlock"
             :title="t('settings.proximity_unlock')"
             :desc="t('settings.proximity_unlock_hint')"
             :model-value="proximityAutoUnlock"

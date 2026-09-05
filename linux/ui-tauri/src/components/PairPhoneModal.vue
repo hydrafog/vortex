@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { Smartphone, Loader2 } from "lucide-vue-next";
+import { SolarSmartphone, SolarLoader } from "@/lib/solarIcons";
 import Modal from "@/components/Modal.vue";
 import SignalBars from "@/components/SignalBars.vue";
 import type { ScanHit } from "@/lib/bridge";
@@ -17,7 +17,7 @@ const { t } = useI18n();
         {{ t("pair.add_phone_modal_hint") }}
       </p>
       <div class="flex items-center gap-2 text-xs text-muted-foreground">
-        <Loader2 v-if="scanning" class="h-3.5 w-3.5 animate-spin" />
+        <SolarLoader v-if="scanning" class="h-3.5 w-3.5 animate-spin" />
         <span v-else class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
         <span>{{ scanning ? t("scan.scanning") : t("discover.looking") }}</span>
       </div>
@@ -30,7 +30,7 @@ const { t } = useI18n();
           >
             <div class="flex items-center gap-2.5">
               <div class="h-9 w-9 rounded-md bg-primary/10 text-primary flex items-center justify-center">
-                <Smartphone class="h-4.5 w-4.5" />
+                <SolarSmartphone class="h-4.5 w-4.5" />
               </div>
               <div class="text-sm font-medium">{{ h.name || t("device.android") }}</div>
             </div>

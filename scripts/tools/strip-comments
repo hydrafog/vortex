@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import sys
 import os
+import re
 
 ALLOWED_ANNOTATIONS = ["TODO", "FIXME", "NOTE", "cSpell", "HACK", "OPTIMIZE"]
+ANNOTATION_REGEX = re.compile(r"\b(" + "|".join(ALLOWED_ANNOTATIONS) + r")\b")
 
 TRIPLE_QUOTE_MARKERS = ['"""', "'''"]
 
@@ -71,8 +73,7 @@ def strip_comments(file_path):
             new_lines.append(line)
             continue
 
-        keep = any(annotation in line for annotation in ALLOWED_ANNOTATIONS)
-        if keep:
+        if not in_block_comment and ANNOTATION_REGEX.search(line):
             new_lines.append(line)
             continue
 

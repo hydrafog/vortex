@@ -18,7 +18,6 @@
     "clsx": "^2.1.1",
     "emoji-picker-element": "^1.29.1",
     "emoji-picker-element-data": "^1.8.0",
-    "lucide-vue-next": "^0.460.0",
     "radix-vue": "^1.9.10",
     "tailwind-merge": "^2.5.0",
     "tailwindcss-animate": "^1.0.7",

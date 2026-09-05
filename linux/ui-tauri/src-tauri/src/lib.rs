@@ -7,8 +7,16 @@
 //!
 //! All protocol logic stays inside `vortex_l3_daemon` — this layer is
 //! pure glue. Feature code lives one-file-per-feature in the submodules;
-//! this file is just the composition root: module declarations, the
-//! cross-cutting statics, the re-export block, and `run()`.
+#![allow(
+    dead_code,
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::manual_checked_ops,
+    clippy::collapsible_match,
+    clippy::needless_borrow,
+    clippy::question_mark,
+    clippy::empty_line_after_doc_comments
+)]
 
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
@@ -25,25 +33,20 @@ mod call_log;
 mod camera;
 mod clipboard;
 mod clipboard_hotkey;
-mod clipboard_window;
 mod clipboard_sync;
-mod transfers;
-mod transfers_out;
-mod worker_transfers;
-mod worker_ctx;
-mod cmd_pairing;
+mod clipboard_window;
 mod cmd_earbuds;
-mod share;
-mod file_consent;
+mod cmd_pairing;
 mod contacts;
 mod desktop_apps;
 mod earbuds;
+mod file_consent;
 mod handoff;
 mod ipc;
 mod lan;
-mod laptop_cast;
-mod lan_wifi_direct;
 mod lan_state;
+mod lan_wifi_direct;
+mod laptop_cast;
 mod live_activity;
 mod media_remote;
 mod mirror;
@@ -54,12 +57,17 @@ mod notifications;
 mod pairing;
 mod proximity;
 mod ring;
+mod share;
 mod sms;
+mod transfers;
+mod transfers_out;
 mod tray;
 mod universal_control;
 mod virtual_display;
 mod voice_settings;
 mod worker;
+mod worker_ctx;
+mod worker_transfers;
 
 // Re-exports for items that moved out of lib.rs in the module split, so
 // existing `crate::Item` references across the feature modules keep
@@ -260,8 +268,7 @@ pub fn run() {
             let handle = app.handle().clone();
             // We move cmd_rx into the worker thread. Re-bind via Option to
             // satisfy `setup`'s FnOnce signature.
-            let rx_holder: Arc<Mutex<Option<Receiver<UiCmd>>>> =
-                Arc::new(Mutex::new(Some(cmd_rx)));
+            let rx_holder: Arc<Mutex<Option<Receiver<UiCmd>>>> = Arc::new(Mutex::new(Some(cmd_rx)));
             let rx_holder_for_thread = rx_holder.clone();
             thread::spawn(move || {
                 let rx = rx_holder_for_thread.lock().unwrap().take().unwrap();

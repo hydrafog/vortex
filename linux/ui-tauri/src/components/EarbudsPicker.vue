@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { Headphones, Bluetooth, X, Loader2, RefreshCw, Check } from "lucide-vue-next";
+import { SolarHeadphones, SolarBluetooth, SolarClose, SolarLoader, SolarRefresh, SolarCheck } from "@/lib/solarIcons";
 import {
   earbudsAddOpen,
   earbudsScanning,
@@ -40,7 +40,7 @@ function close() {
   <Transition name="eb-fade">
     <div v-if="earbudsAddOpen" class="eb-backdrop" @click.self="close">
       <div class="eb-card">
-        <button class="eb-x" :title="t('switch.cancel')" @click="close"><X :size="18" /></button>
+        <button class="eb-x" :title="t('switch.cancel')" @click="close"><SolarClose :size="18" /></button>
 
         <!-- ░ SCANNER ORB ░ -->
         <div class="eb-orb">
@@ -48,7 +48,7 @@ function close() {
           <span class="eb-pulse" />
           <span class="eb-pulse" style="animation-delay: 1.3s" />
           <span class="eb-pulse" style="animation-delay: 2.6s" />
-          <span class="eb-orb-core"><Headphones :size="30" :stroke-width="1.7" /></span>
+          <span class="eb-orb-core"><SolarHeadphones :size="30" :stroke-width="1.7" /></span>
         </div>
 
         <div class="text-center" style="margin-top: 6px">
@@ -58,11 +58,11 @@ function close() {
 
         <!-- status + rescan -->
         <div class="eb-status">
-          <Loader2 v-if="earbudsScanning" :size="14" class="eb-spin" />
+          <SolarLoader v-if="earbudsScanning" :size="14" class="eb-spin" />
           <span v-else class="eb-status-dot" />
           <span>{{ earbudsScanning ? t("earbuds.scanning") : t("earbuds.scan_done") }}</span>
           <button class="eb-rescan" :disabled="earbudsScanning" @click="openEarbudsPicker">
-            <RefreshCw :size="13" :class="{ 'eb-spin': earbudsScanning }" />
+            <SolarRefresh :size="13" :class="{ 'eb-spin': earbudsScanning }" />
             {{ t("earbuds.rescan") }}
           </button>
         </div>
@@ -75,11 +75,11 @@ function close() {
             class="eb-row eb-row-audio"
             @click="pickEarbud(d)"
           >
-            <span class="eb-row-icon eb-row-icon-audio"><Headphones :size="20" :stroke-width="1.8" /></span>
+            <span class="eb-row-icon eb-row-icon-audio"><SolarHeadphones :size="20" :stroke-width="1.8" /></span>
             <span class="min-w-0 flex-1 text-left">
               <span class="block text-sm font-semibold truncate">{{ d.name }}</span>
               <span class="eb-row-meta">
-                <Check v-if="d.connected" :size="12" class="eb-connected-ic" />
+                <SolarCheck v-if="d.connected" :size="12" class="eb-connected-ic" />
                 {{ d.connected ? t("earbuds.now_connected") : d.address }}
               </span>
             </span>
@@ -96,7 +96,7 @@ function close() {
             class="eb-row"
             @click="pickEarbud(d)"
           >
-            <span class="eb-row-icon"><Bluetooth :size="18" :stroke-width="1.8" /></span>
+            <span class="eb-row-icon"><SolarBluetooth :size="18" :stroke-width="1.8" /></span>
             <span class="min-w-0 flex-1 text-left">
               <span class="block text-sm font-medium truncate">{{ d.name }}</span>
               <span class="eb-row-meta">{{ d.address }}</span>

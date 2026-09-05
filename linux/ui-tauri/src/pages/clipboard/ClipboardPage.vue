@@ -5,16 +5,16 @@ import { useVirtualList } from "@vueuse/core";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import {
-  Pin,
-  PinOff,
-  Trash2,
-  ClipboardList,
-  Search,
-  Image as ImageIcon,
-  Type,
-  Clock,
-  HardDrive,
-} from "lucide-vue-next";
+  SolarPin,
+  SolarPinSlash,
+  SolarTrash,
+  SolarClipboardList,
+  SolarSearch,
+  SolarGallery as ImageIcon,
+  SolarText,
+  SolarClock,
+  SolarHardDrive,
+} from "@/lib/solarIcons";
 
 interface ClipEntry {
   id: string;
@@ -276,14 +276,14 @@ onUnmounted(() => {
          edge when narrow) so it claims no extra space when the pane opens. -->
     <div class="flex flex-col w-[460px] shrink-0 min-w-0 min-h-0 border-r border-border">
       <header class="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-card shrink-0">
-        <ClipboardList class="h-4 w-4 text-muted-foreground" />
+        <SolarClipboardList class="h-4 w-4 text-muted-foreground" />
         <span class="text-sm font-semibold flex-1">{{ t("clipboard.title") }}</span>
         <span class="text-[11px] text-muted-foreground">{{ entries.length }}</span>
       </header>
 
       <div class="px-4 pt-3 pb-2 shrink-0 border-b border-border/50">
         <div class="flex items-center gap-2 h-10 px-3 rounded-lg border border-border bg-card">
-          <Search class="h-4 w-4 text-muted-foreground/70 shrink-0" />
+          <SolarSearch class="h-4 w-4 text-muted-foreground/70 shrink-0" />
           <input
             ref="inputEl"
             v-model="filter"
@@ -343,12 +343,12 @@ onUnmounted(() => {
                 :class="{ 'opacity-100': e.pinned }"
               >
                 <component
-                  :is="e.pinned ? PinOff : Pin"
+                  :is="e.pinned ? SolarPinSlash : SolarPin"
                   class="h-4 w-4 text-muted-foreground hover:text-foreground"
                   :class="{ 'text-amber-500': e.pinned }"
                   @click="togglePin(e, $event)"
                 />
-                <Trash2
+                <SolarTrash
                   class="h-4 w-4 text-muted-foreground hover:text-red-500"
                   @click="remove(e, $event)"
                 />
@@ -384,15 +384,15 @@ onUnmounted(() => {
         class="shrink-0 border-t border-border px-5 py-3 flex items-center gap-4 text-[12px] text-muted-foreground bg-card/40"
       >
         <span class="flex items-center gap-1.5">
-          <component :is="full.kind === 'image' ? ImageIcon : Type" class="h-3.5 w-3.5" />
+          <component :is="full.kind === 'image' ? ImageIcon : SolarText" class="h-3.5 w-3.5" />
           {{ full.kind === "image" ? t("clipboard.image") : `${(full.text ?? '').length} ${t("clipboard.chars")}` }}
         </span>
         <span class="flex items-center gap-1.5">
-          <HardDrive class="h-3.5 w-3.5" />
+          <SolarHardDrive class="h-3.5 w-3.5" />
           {{ fmtSize(full.bytes) }}
         </span>
         <span class="flex items-center gap-1.5 ml-auto whitespace-nowrap">
-          <Clock class="h-3.5 w-3.5" />
+          <SolarClock class="h-3.5 w-3.5" />
           {{ fmtDate(full.ts_ms) }}
         </span>
       </footer>

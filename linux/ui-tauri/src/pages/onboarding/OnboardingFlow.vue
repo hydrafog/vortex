@@ -2,7 +2,7 @@
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
-import { ChevronLeft } from "lucide-vue-next";
+import { SolarAltArrowLeft } from "@/lib/solarIcons";
 import { markIntroDone } from "@/lib/intro";
 import VortexMark from "./art/VortexMark.vue";
 import LangTheme from "./steps/LangTheme.vue";
@@ -54,7 +54,7 @@ function finish() {
     <div class="onb-top">
       <div class="onb-brand">
         <button v-if="canBack" class="onb-chip" @click="go(step - 1)">
-          <ChevronLeft :size="17" :stroke-width="2" />
+          <SolarAltArrowLeft :size="17" :stroke-width="2" />
         </button>
         <VortexMark :size="26" />
         <span class="onb-wordmark">Vortex</span>

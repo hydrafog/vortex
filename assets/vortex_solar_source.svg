@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Vortex Solar Linear brand mark: planet plus orbit geometry in brand green, spiral motif retained for continuity. Stroke weight maps Solar Linear 1.7 at 24px viewport to 512px brand scale. -->
+  <g fill="none" stroke="#1AE76F" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="256" cy="256" r="104" stroke-width="34"/>
+    <ellipse cx="256" cy="256" rx="200" ry="84" stroke-width="28" transform="rotate(-24 256 256)"/>
+    <path d="M 214 256 A 42 42 0 0 1 256 214 A 62 62 0 0 0 256 318 A 44 44 0 0 0 300 274" stroke-width="22"/>
+  </g>
+  <circle cx="429" cy="178" r="26" fill="#1AE76F"/>
+  <circle cx="256" cy="256" r="18" fill="#1AE76F"/>
+</svg>

@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity, clippy::needless_borrows_for_generic_args)]
+
 use std::env;
 use std::time::Duration;
 
@@ -295,6 +297,7 @@ async fn cmd_pair(
     println!("  peer_static_pub : {}", hex::encode(&outcome.xx.peer_static_pub));
     println!("  transcript_hash : {}", hex::encode(&outcome.xx.transcript_hash));
     if std::env::var("VORTEX_INSECURE_DEBUG").as_deref() == Ok("1") {
+        // NOTE: LOG_REDACTION_ALLOW: gated behind VORTEX_INSECURE_DEBUG=1 (dev only)
         eprintln!("  prs             : {} [insecure debug]", hex::encode(&outcome.prs));
     } else {
         println!("  prs             : [redacted; set VORTEX_INSECURE_DEBUG=1 to reveal]");

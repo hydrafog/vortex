@@ -35,7 +35,6 @@ object FrameType {
     const val FILE_PUSH: Byte = 0x4A
     const val FILE_PUSH_DECISION: Byte = 0x4B
     const val HANDOFF: Byte = 0x4C
-     *  local edit and LWW-merge (`updated_at`). Mirrors Rust `ty::NOTES_SYNC`. */
     const val NOTES_SYNC: Byte = 0x4D
     const val FRAG: Byte = 0x4E
     const val ERROR: Byte = 0x7F

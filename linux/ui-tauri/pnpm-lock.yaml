@@ -29,9 +29,6 @@ importers:
       emoji-picker-element-data:
         specifier: ^1.8.0
         version: 1.8.0
-      lucide-vue-next:
-        specifier: ^0.460.0
-        version: 0.460.0(vue@3.5.34(typescript@5.6.3))
       radix-vue:
         specifier: ^1.9.10
         version: 1.9.17(vue@3.5.34(typescript@5.6.3))
@@ -908,11 +905,6 @@ packages:
   local-pkg@1.2.1:
     resolution: {integrity: sha512-++gUqRDEvcnN6Zhqrr+y/CkVEHhlrR96vZn3nZZPYzMcBUyBtTKzB9NadClFIsIVSsu+3i9tfk/erqy9kAmt7Q==}
     engines: {node: '>=14'}
-
-  lucide-vue-next@0.460.0:
-    resolution: {integrity: sha512-IhM1tm3gPhc3u6RagNra4W6Oe48Mz0l3fAJzk0oSLzsRQqt3WU3XiX5ngRyjIs8fzCtvgzu7fC6Qk7XVhS00DQ==}
-    peerDependencies:
-      vue: '>=3.0.1'
 
   magic-string-ast@1.0.3:
     resolution: {integrity: sha512-CvkkH1i81zl7mmb94DsRiFeG9V2fR2JeuK8yDgS8oiZSFa++wWLEgZ5ufEOyLHbvSbD1gTRKv9NdX69Rnvr9JA==}
@@ -1965,10 +1957,6 @@ snapshots:
       mlly: 1.8.2
       pkg-types: 2.3.1
       quansync: 0.2.11
-
-  lucide-vue-next@0.460.0(vue@3.5.34(typescript@5.6.3)):
-    dependencies:
-      vue: 3.5.34(typescript@5.6.3)
 
   magic-string-ast@1.0.3:
     dependencies:

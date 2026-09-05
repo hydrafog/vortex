@@ -3,14 +3,14 @@ import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import {
-  MonitorSmartphone,
-  Users,
-  Phone,
-  MessageSquare,
-  NotebookText,
-  Settings,
-  ChevronsLeft,
-} from "lucide-vue-next";
+  SolarDevices,
+  SolarUsersGroup,
+  SolarPhone,
+  SolarChatSquare,
+  SolarNotebook,
+  SolarSettings,
+  SolarChevronsLeft,
+} from "@/lib/solarIcons";
 import logo from "@/assets/vortex_logo.png";
 import { unreadConversations } from "@/composables/useMessages";
 
@@ -21,12 +21,12 @@ const { t } = useI18n();
 const collapsed = ref(true);
 
 const items = computed(() => [
-  { key: "home", icon: MonitorSmartphone, to: "/", label: t("nav.home") },
-  { key: "contacts", icon: Users, to: "/contacts", label: t("nav.contacts") },
-  { key: "recents", icon: Phone, to: "/recents", label: t("nav.recents") },
-  { key: "messages", icon: MessageSquare, to: "/messages", label: t("nav.messages") },
-  { key: "notes", icon: NotebookText, to: "/notes", label: t("nav.notes") },
-  { key: "settings", icon: Settings, to: "/settings", label: t("nav.settings") },
+  { key: "home", icon: SolarDevices, to: "/", label: t("nav.home") },
+  { key: "contacts", icon: SolarUsersGroup, to: "/contacts", label: t("nav.contacts") },
+  { key: "recents", icon: SolarPhone, to: "/recents", label: t("nav.recents") },
+  { key: "messages", icon: SolarChatSquare, to: "/messages", label: t("nav.messages") },
+  { key: "notes", icon: SolarNotebook, to: "/notes", label: t("nav.notes") },
+  { key: "settings", icon: SolarSettings, to: "/settings", label: t("nav.settings") },
 ]);
 
 const isActive = (to: string) =>
@@ -107,7 +107,7 @@ function go(to: string) {
       class="flex h-10 items-center justify-start gap-3 rounded-xl px-3 text-muted-foreground transition-colors hover:text-secondary-foreground"
       @click="collapsed = !collapsed"
     >
-      <ChevronsLeft
+      <SolarChevronsLeft
         :size="19"
         :stroke-width="1.9"
         class="shrink-0 transition-transform duration-[420ms]"

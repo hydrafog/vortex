@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { ArrowLeftRight } from "lucide-vue-next";
+import { SolarArrowLeftRight } from "@/lib/solarIcons";
 import Button from "@/components/Button.vue";
 import Modal from "@/components/Modal.vue";
 import ForgetModal from "@/components/ForgetModal.vue";
@@ -50,7 +50,7 @@ const { t } = useI18n();
           class="w-full text-left rounded-md border border-border bg-background hover:bg-accent px-3 py-2.5 text-sm font-medium transition-colors flex items-center gap-2"
           @click="sendToPeer"
         >
-          <ArrowLeftRight class="h-4 w-4 text-primary" />
+          <SolarArrowLeftRight class="h-4 w-4 text-primary" />
           <span>{{ t("switch.send_menu") }}</span>
         </button>
         <button

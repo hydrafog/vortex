@@ -1,0 +1,19 @@
+Solar Icons artwork provenance for Vortex.
+
+UI glyphs follow the Solar icon family in the Linear variant fixed at
+stroke width 1.5-1.8 globally. Brand mark in assets/vortex_solar_source.svg
+is an original planet-plus-orbit composition in Vortex brand green
+(#1AE76F) retaining the prior spiral motif for continuity. It is not a
+copy of any third-party logo.
+
+Bundled Solar-style vectors in linux/ui-tauri/src/lib/solarIcons.ts and
+android/app/src/main/java/com/vortex/a3/ui/icons/SolarIcons.kt plus
+android/app/src/main/res/drawable/*.xml were redrawn as original
+outline geometry in the Solar Linear manner for Vortex. Where the
+upstream Solar set is ISC licensed, redistribution in desktop and mobile
+bundles complies with that license and this file records the vendoring.
+
+Third-party brand symbols in linux/ui-tauri/public/icons.svg
+(bluesky-icon, discord-icon, github-icon, x-icon) are left untouched.
+Only local documentation-icon and social-icon were redrawn in Solar
+Linear style.

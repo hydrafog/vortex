@@ -21,13 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Battery2Bar
-import androidx.compose.material.icons.outlined.BatteryAlert
-import androidx.compose.material.icons.outlined.BatteryChargingFull
-import androidx.compose.material.icons.outlined.BatteryFull
-import androidx.compose.material.icons.outlined.BatteryStd
-import androidx.compose.material.icons.outlined.Laptop
+import com.vortex.a3.ui.icons.SolarIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -112,14 +106,7 @@ fun StatusDot(color: Color) {
 
 @Composable
 fun BatteryRow(pct: Int?, charging: Boolean = false) {
-    val icon = when {
-        charging -> Icons.Outlined.BatteryChargingFull
-        pct == null -> Icons.Outlined.BatteryStd
-        pct >= 80 -> Icons.Outlined.BatteryFull
-        pct >= 40 -> Icons.Outlined.BatteryStd
-        pct >= 15 -> Icons.Outlined.Battery2Bar
-        else -> Icons.Outlined.BatteryAlert
-    }
+    val icon = SolarIcons.batteryIconFor(pct, charging)
     val tint = when {
         charging -> Color(0xFF69B7FF)
         pct == null -> MaterialTheme.colorScheme.onSurfaceVariant

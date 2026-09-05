@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { Bluetooth } from "lucide-vue-next";
+import { SolarBluetooth } from "@/lib/solarIcons";
 
 defineEmits<{ start: [] }>();
 const { t } = useI18n();
@@ -17,7 +17,7 @@ const { t } = useI18n();
     <p style="font-size:15px;color:#8A8D93;margin-top:12px;">{{ t("intro.ready_body") }}</p>
 
     <div class="ble-note">
-      <Bluetooth :size="18" :stroke-width="2.2" class="ble-ic" />
+      <SolarBluetooth :size="18" :stroke-width="2.2" class="ble-ic" />
       <div class="ble-text">
         <div class="ble-title">{{ t("intro.ble_tip_title") }}</div>
         <div class="ble-body">{{ t("intro.ble_tip_body") }}</div>

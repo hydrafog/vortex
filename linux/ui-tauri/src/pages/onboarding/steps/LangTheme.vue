@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { Check } from "lucide-vue-next";
+import { SolarCheck } from "@/lib/solarIcons";
 import { setLocale, LOCALES, type LocaleCode } from "@/lib/i18n";
 import VortexMark from "../art/VortexMark.vue";
 
@@ -35,7 +35,7 @@ function pickLang(code: LocaleCode) {
           @click="pickLang(l.code)"
         >
           <span>{{ l.label }}</span>
-          <Check v-if="locale === l.code" :size="18" :stroke-width="2.4" style="color:#2ECC71;" />
+          <SolarCheck v-if="locale === l.code" :size="18" :stroke-width="2.4" style="color:#2ECC71;" />
         </button>
       </div>
     </div>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { ArrowDownLeft, ArrowUpRight, MessageSquare, Phone } from "lucide-vue-next";
+import { SolarArrowDownLeft, SolarArrowUpRight, SolarChatSquare, SolarPhone } from "@/lib/solarIcons";
 import type { CallLogEntry } from "@/composables/useRecents";
 import Avatar from "@/components/Avatar.vue";
 
@@ -17,13 +17,13 @@ const displayName = computed(
 const meta = computed(() => {
   switch (props.call.type) {
     case 2:
-      return { icon: ArrowUpRight, color: "text-sky-500", label: t("recents.outgoing") };
+      return { icon: SolarArrowUpRight, color: "text-sky-500", label: t("recents.outgoing") };
     case 3:
-      return { icon: ArrowDownLeft, color: "text-rose-500", label: t("recents.missed") };
+      return { icon: SolarArrowDownLeft, color: "text-rose-500", label: t("recents.missed") };
     case 5:
-      return { icon: ArrowDownLeft, color: "text-amber-500", label: t("recents.rejected") };
+      return { icon: SolarArrowDownLeft, color: "text-amber-500", label: t("recents.rejected") };
     default:
-      return { icon: ArrowDownLeft, color: "text-emerald-500", label: t("recents.incoming") };
+      return { icon: SolarArrowDownLeft, color: "text-emerald-500", label: t("recents.incoming") };
   }
 });
 
@@ -73,14 +73,14 @@ function duration(sec: number): string {
         class="h-9 w-9 rounded-full flex items-center justify-center bg-muted/60 border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
         @click="emit('message', call.number)"
       >
-        <MessageSquare class="h-4 w-4" />
+        <SolarChatSquare class="h-4 w-4" />
       </button>
       <button
         :title="t('contacts.call')"
         class="h-9 w-9 rounded-full flex items-center justify-center bg-primary/[0.13] text-primary hover:bg-primary/25 transition-colors"
         @click="emit('call', call.number)"
       >
-        <Phone class="h-4 w-4" />
+        <SolarPhone class="h-4 w-4" />
       </button>
     </div>
   </div>

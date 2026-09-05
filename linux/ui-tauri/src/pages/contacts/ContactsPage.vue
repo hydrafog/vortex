@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useVirtualList } from "@vueuse/core";
-import { Users } from "lucide-vue-next";
+import { SolarUsersGroup } from "@/lib/solarIcons";
 import { contacts, contactsLoaded } from "@/composables/useContacts";
 import { dial } from "@/lib/dial";
 import SearchInput from "@/components/SearchInput.vue";
@@ -41,7 +41,7 @@ watch(query, () => vScrollTo(0));
 <template>
   <div class="h-full flex flex-col">
     <header class="flex items-center gap-2 px-5 py-4 border-b border-border bg-card/30">
-      <Users class="h-5 w-5 text-muted-foreground" />
+      <SolarUsersGroup class="h-5 w-5 text-muted-foreground" />
       <h1 class="text-base font-semibold">{{ t("contacts.title") }}</h1>
       <span v-if="contacts.length" class="ml-auto text-xs text-muted-foreground">
         {{ contacts.length }}
@@ -73,7 +73,7 @@ watch(query, () => vScrollTo(0));
         v-if="contactsLoaded && contacts.length === 0"
         class="flex flex-col items-center justify-center text-center text-muted-foreground py-16"
       >
-        <Users class="h-10 w-10 mb-3 opacity-40" />
+        <SolarUsersGroup class="h-10 w-10 mb-3 opacity-40" />
         <p class="text-sm">{{ t("contacts.empty") }}</p>
       </div>
       <div

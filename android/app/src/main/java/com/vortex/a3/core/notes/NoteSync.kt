@@ -5,7 +5,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
- * Bidirectional notes/todos sync (NOTES_SYNC 0x4D) — the phone half of the
 object NoteSync {
     private const val CHUNK_DATA = 400
 
@@ -81,8 +80,6 @@ object NoteSync {
         }
     }
 
-    /** Handle an inbound NOTES_SYNC chunk: reassemble → LWW merge → persist, and
-     *  reply only if WE hold items the peer's set lacked (→ converges). */
     fun onInbound(payload: ByteArray) {
         val (total, idx, data) = parseChunk(payload) ?: return
         val remote = asm.add(total, idx, data) ?: return

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { Phone, MessageSquare } from "lucide-vue-next";
+import { SolarPhone, SolarChatSquare } from "@/lib/solarIcons";
 import type { Contact } from "@/composables/useContacts";
 import Avatar from "@/components/Avatar.vue";
 
@@ -31,14 +31,14 @@ const { t } = useI18n();
         class="h-9 w-9 rounded-full flex items-center justify-center bg-muted/60 border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
         @click="emit('message', contact.numbers[0])"
       >
-        <MessageSquare class="h-4 w-4" />
+        <SolarChatSquare class="h-4 w-4" />
       </button>
       <button
         :title="t('contacts.call')"
         class="h-9 w-9 rounded-full flex items-center justify-center bg-primary/[0.13] text-primary hover:bg-primary/25 transition-colors"
         @click="emit('call', contact.numbers[0])"
       >
-        <Phone class="h-4 w-4" />
+        <SolarPhone class="h-4 w-4" />
       </button>
     </div>
   </div>

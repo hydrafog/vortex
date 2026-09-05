@@ -204,8 +204,8 @@ fun SettingsScreen(
                 ActionRow(
                     icon = Icons.Outlined.TouchApp,
                     title = "Screen control",
-                    hint = if (screenControlOn) "On — the laptop can control this phone while mirroring"
-                    else "Off — tap to enable in Accessibility",
+                    hint = if (screenControlOn) "On. The laptop can control this phone while mirroring"
+                    else "Off. Tap to enable in Accessibility",
                     status = if (screenControlOn) "On" else "Off",
                     onClick = onScreenControlClick,
                 )

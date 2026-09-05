@@ -130,8 +130,8 @@ mod tests {
 
     fn peer() -> [u8; 32] {
         let mut p = [0u8; 32];
-        for i in 0..32 {
-            p[i] = (i as u8).wrapping_mul(7);
+        for (i, byte) in p.iter_mut().enumerate() {
+            *byte = (i as u8).wrapping_mul(7);
         }
         p
     }

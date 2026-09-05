@@ -3,7 +3,7 @@ import { computed, ref, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { useVirtualList } from "@vueuse/core";
-import { MessageSquare, ArrowLeft, ArrowDown, Send, Loader2, AlertCircle, RotateCw, Trash2, Smile, Phone } from "lucide-vue-next";
+import { SolarChatSquare, SolarArrowLeft, SolarArrowDown, SolarSend, SolarLoader, SolarDangerCircle, SolarRestart, SolarTrash, SolarSmile, SolarPhone } from "@/lib/solarIcons";
 import SearchInput from "@/components/SearchInput.vue";
 import Avatar from "@/components/Avatar.vue";
 import ConversationRow from "./ConversationRow.vue";
@@ -345,7 +345,7 @@ function bubbleClass(m: SmsMessage): string {
     <!-- Conversation list -->
     <template v-if="!activeNumber">
       <header class="flex items-center gap-2 px-5 py-4 border-b border-border bg-card/30">
-        <MessageSquare class="h-5 w-5 text-muted-foreground" />
+        <SolarChatSquare class="h-5 w-5 text-muted-foreground" />
         <h1 class="text-base font-semibold">{{ t("messages.title") }}</h1>
         <span v-if="conversations.length" class="ml-auto text-xs text-muted-foreground">
           {{ conversations.length }}
@@ -375,7 +375,7 @@ function bubbleClass(m: SmsMessage): string {
           v-if="smsLoaded && filteredConversations.length === 0"
           class="flex flex-col items-center justify-center text-center text-muted-foreground py-16"
         >
-          <MessageSquare class="h-10 w-10 mb-3 opacity-40" />
+          <SolarChatSquare class="h-10 w-10 mb-3 opacity-40" />
           <p class="text-sm">{{ query ? t("recents.noResults") : t("messages.empty") }}</p>
         </div>
       </main>
@@ -385,7 +385,7 @@ function bubbleClass(m: SmsMessage): string {
     <template v-else>
       <header class="flex items-center gap-2 px-3 py-3 border-b border-border bg-card/30">
         <button class="h-8 w-8 rounded-md flex items-center justify-center hover:bg-accent" @click="back">
-          <ArrowLeft class="h-4 w-4" />
+          <SolarArrowLeft class="h-4 w-4" />
         </button>
         <Avatar :name="activeName" :size="28" />
         <h1 class="flex-1 text-sm font-semibold truncate">{{ activeName }}</h1>
@@ -397,7 +397,7 @@ function bubbleClass(m: SmsMessage): string {
           class="h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-muted-foreground/60 hover:bg-emerald-500/15 hover:text-emerald-500 transition-colors"
           @click="dial(activeNumber)"
         >
-          <Phone class="h-4 w-4" />
+          <SolarPhone class="h-4 w-4" />
         </button>
       </header>
 
@@ -408,11 +408,11 @@ function bubbleClass(m: SmsMessage): string {
         class="absolute bottom-3 right-3 z-10 h-9 w-9 rounded-full bg-card border border-border shadow-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         @click="jumpToBottom"
       >
-        <ArrowDown class="h-4 w-4" />
+        <SolarArrowDown class="h-4 w-4" />
       </button>
       <main ref="threadEl" class="flex-1 min-h-0 overflow-y-auto p-3 space-y-2 flex flex-col" @scroll.passive="onThreadScroll">
         <div v-if="activeLoading" class="flex justify-center py-1 shrink-0">
-          <Loader2 class="h-4 w-4 animate-spin text-muted-foreground/60" />
+          <SolarLoader class="h-4 w-4 animate-spin text-muted-foreground/60" />
         </div>
         <template v-for="item in threadItems" :key="item.kind === 'date' ? item.key : item.m.id">
           <!-- Telegram-style day separator chip -->
@@ -434,14 +434,14 @@ function bubbleClass(m: SmsMessage): string {
               class="h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-muted-foreground hover:bg-accent hover:text-emerald-500 transition-colors"
               @click="resendSms(item.m.id)"
             >
-              <RotateCw class="h-3.5 w-3.5" />
+              <SolarRestart class="h-3.5 w-3.5" />
             </button>
             <button
               :title="t('messages.delete')"
               class="h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-muted-foreground hover:bg-accent hover:text-rose-500 transition-colors"
               @click="deleteLocalSent(item.m.id)"
             >
-              <Trash2 class="h-3.5 w-3.5" />
+              <SolarTrash class="h-3.5 w-3.5" />
             </button>
           </template>
 
@@ -464,8 +464,8 @@ function bubbleClass(m: SmsMessage): string {
             <template v-else>
               <p class="text-sm whitespace-pre-wrap break-words selectable-text">{{ item.m.body }}</p>
               <p class="text-[10px] mt-0.5 opacity-70 text-right flex items-center justify-end gap-1">
-                <Loader2 v-if="item.m.status === 'sending'" class="h-3 w-3 animate-spin" />
-                <AlertCircle v-else class="h-3 w-3" />
+                <SolarLoader v-if="item.m.status === 'sending'" class="h-3 w-3 animate-spin" />
+                <SolarDangerCircle v-else class="h-3 w-3" />
                 <span>{{ item.m.status === "sending" ? t("messages.sending") : t("messages.failed") }}</span>
               </p>
             </template>
@@ -539,14 +539,14 @@ function bubbleClass(m: SmsMessage): string {
             @mouseleave="emojiLeave"
             @click="emojiOpen = !emojiOpen"
           >
-            <Smile class="h-5 w-5" />
+            <SolarSmile class="h-5 w-5" />
           </button>
           <button
             type="submit"
             :disabled="!draft.trim()"
             class="h-9 w-9 shrink-0 rounded-full flex items-center justify-center bg-emerald-500 text-white disabled:opacity-40 hover:bg-emerald-600 transition-colors"
           >
-            <Send class="h-4 w-4" />
+            <SolarSend class="h-4 w-4" />
           </button>
         </form>
       </div>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { ArrowRightLeft } from "lucide-vue-next";
+import { SolarArrowRightLeft } from "@/lib/solarIcons";
 import logo from "@/assets/vortex_logo.png";
 
 const { t } = useI18n();
@@ -13,7 +13,7 @@ const { t } = useI18n();
       <h1 class="text-base font-semibold leading-tight flex items-center gap-2">
         {{ t("app.title") }}
         <span class="text-muted-foreground">
-          <ArrowRightLeft class="h-3.5 w-3.5 inline" />
+          <SolarArrowRightLeft class="h-3.5 w-3.5 inline" />
         </span>
       </h1>
       <p class="text-xs text-muted-foreground">{{ t("app.tagline") }}</p>

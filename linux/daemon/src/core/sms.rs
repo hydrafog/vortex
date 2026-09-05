@@ -147,7 +147,7 @@ pub fn extract_otp(body: &str) -> Option<String> {
         };
         score += proximity;
         let candidate = &body[start..end];
-        if best.is_none_or(|(s, _)| score > s) {
+        if best.map_or(true, |(s, _)| score > s) {
             best = Some((score, candidate));
         }
     }

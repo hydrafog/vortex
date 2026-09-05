@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { Plus, Check, X, Trash2 } from "lucide-vue-next";
+import { SolarAdd, SolarCheck, SolarClose, SolarTrash } from "@/lib/solarIcons";
 import DateTimePicker from "./DateTimePicker.vue";
 import {
   visibleNotes,
@@ -107,7 +107,7 @@ onMounted(() => {
             :title="t('notes.new_note')"
             @click="createNote('note')"
           >
-            <Plus class="h-[17px] w-[17px]" :stroke-width="2" />
+            <SolarAdd class="h-[17px] w-[17px]" :stroke-width="2" />
           </button>
         </div>
         <!-- segment — a sliding highlight pill (sidebar-style) glides between
@@ -168,7 +168,7 @@ onMounted(() => {
               :class="cn('mt-px grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition-all', n.done ? 'border-primary bg-primary text-black shadow-[0_0_14px_rgba(46,204,113,0.35)]' : 'border-muted-foreground/40 hover:border-muted-foreground')"
               @click="toggleTodo(n.id, !n.done)"
             >
-              <Check v-if="n.done" class="h-[13px] w-[13px]" :stroke-width="3" />
+              <SolarCheck v-if="n.done" class="h-[13px] w-[13px]" :stroke-width="3" />
             </button>
             <div class="min-w-0 flex-1">
               <span :class="cn('text-[14.5px] transition-colors', n.done ? 'text-muted-foreground line-through' : 'text-foreground')">
@@ -181,7 +181,7 @@ onMounted(() => {
               :title="t('notes.delete')"
               @click="remove(n.id)"
             >
-              <X class="h-[15px] w-[15px]" :stroke-width="2" />
+              <SolarClose class="h-[15px] w-[15px]" :stroke-width="2" />
             </button>
           </div>
         </div>
@@ -199,7 +199,7 @@ onMounted(() => {
               :disabled="!newTodo.trim()"
               @click="addNewTodo"
             >
-              <Plus class="h-[19px] w-[19px]" :stroke-width="2.4" />
+              <SolarAdd class="h-[19px] w-[19px]" :stroke-width="2.4" />
             </button>
           </div>
         </div>
@@ -217,7 +217,7 @@ onMounted(() => {
             :title="t('notes.delete')"
             @click="remove(editing.id)"
           >
-            <Trash2 class="h-[17px] w-[17px]" :stroke-width="1.8" />
+            <SolarTrash class="h-[17px] w-[17px]" :stroke-width="1.8" />
           </button>
         </div>
         <input
@@ -234,7 +234,7 @@ onMounted(() => {
         />
       </div>
       <div v-else class="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
-        <Plus class="h-10 w-10 opacity-30" />
+        <SolarAdd class="h-10 w-10 opacity-30" />
         <p class="text-sm">{{ t("notes.pick_or_create") }}</p>
       </div>
     </div>

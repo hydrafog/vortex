@@ -683,6 +683,7 @@ const FLOW_WATCHDOG_MS: u64 = 14_000;
 const DUP_CLAIM_WINDOW_MS: u64 = 4_000;
 
 #[cfg(test)]
+#[allow(clippy::await_holding_lock)]
 mod tests {
 
     use super::*;

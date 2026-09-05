@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { Moon, Sun, Languages } from "lucide-vue-next";
+import { SolarMoon, SolarSun, SolarTranslation } from "@/lib/solarIcons";
 import Modal from "./Modal.vue";
 import Button from "./Button.vue";
 import { theme } from "@/lib/theme";
@@ -24,7 +24,7 @@ function pickTheme(mode: "light" | "dark") {
       <!-- Theme -->
       <div>
         <div class="flex items-center gap-2 mb-2 text-sm font-medium">
-          <Moon class="h-4 w-4" />
+          <SolarMoon class="h-4 w-4" />
           {{ t("settings.theme") }}
         </div>
         <div class="grid grid-cols-2 gap-2">
@@ -33,7 +33,7 @@ function pickTheme(mode: "light" | "dark") {
             :class="theme === 'dark' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-accent'"
             @click="pickTheme('dark')"
           >
-            <Moon class="h-4 w-4" />
+            <SolarMoon class="h-4 w-4" />
             {{ t("settings.theme_dark") }}
           </button>
           <button
@@ -41,7 +41,7 @@ function pickTheme(mode: "light" | "dark") {
             :class="theme === 'light' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-accent'"
             @click="pickTheme('light')"
           >
-            <Sun class="h-4 w-4" />
+            <SolarSun class="h-4 w-4" />
             {{ t("settings.theme_light") }}
           </button>
         </div>
@@ -50,7 +50,7 @@ function pickTheme(mode: "light" | "dark") {
       <!-- Language -->
       <div>
         <div class="flex items-center gap-2 mb-2 text-sm font-medium">
-          <Languages class="h-4 w-4" />
+          <SolarTranslation class="h-4 w-4" />
           {{ t("settings.language") }}
         </div>
         <div class="space-y-1.5">

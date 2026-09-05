@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useVirtualList } from "@vueuse/core";
-import { Phone } from "lucide-vue-next";
+import { SolarPhone } from "@/lib/solarIcons";
 import { allCalls, callLogLoaded } from "@/composables/useRecents";
 import { dial } from "@/lib/dial";
 import SearchInput from "@/components/SearchInput.vue";
@@ -57,7 +57,7 @@ function message(number: string) {
 <template>
   <div class="h-full flex flex-col">
     <header class="flex items-center gap-2 px-5 py-4 border-b border-border bg-card/30">
-      <Phone class="h-5 w-5 text-muted-foreground" />
+      <SolarPhone class="h-5 w-5 text-muted-foreground" />
       <h1 class="text-base font-semibold">{{ t("recents.title") }}</h1>
       <span v-if="allCalls.length" class="ml-auto text-xs text-muted-foreground">
         {{ allCalls.length }}
@@ -76,7 +76,7 @@ function message(number: string) {
       class="mx-3 mb-1 flex items-center gap-3 rounded-lg pl-3 pr-2 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors"
       @click="callTyped"
     >
-      <Phone class="h-4 w-4 shrink-0 text-emerald-500" />
+      <SolarPhone class="h-4 w-4 shrink-0 text-emerald-500" />
       <span class="flex-1 text-left text-sm font-medium text-emerald-600 dark:text-emerald-400 truncate">
         {{ t("recents.callNumber", { n: dialable }) }}
       </span>
@@ -101,7 +101,7 @@ function message(number: string) {
         v-if="callLogLoaded && filtered.length === 0 && !dialable"
         class="flex flex-col items-center justify-center text-center text-muted-foreground py-16"
       >
-        <Phone class="h-10 w-10 mb-3 opacity-40" />
+        <SolarPhone class="h-10 w-10 mb-3 opacity-40" />
         <p class="text-sm">{{ query ? t("recents.noResults") : t("recents.empty") }}</p>
       </div>
     </main>

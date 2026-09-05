@@ -2,7 +2,7 @@
 import { ref, computed, watch } from "vue";
 import { PopoverRoot, PopoverTrigger, PopoverPortal, PopoverContent } from "radix-vue";
 import { useI18n } from "vue-i18n";
-import { Bell, ChevronLeft, ChevronRight } from "lucide-vue-next";
+import { SolarBell, SolarAltArrowLeft, SolarAltArrowRight } from "@/lib/solarIcons";
 
 const props = defineProps<{ modelValue: number }>();
 const emit = defineEmits<{ "update:modelValue": [number] }>();
@@ -86,7 +86,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
         :class="modelValue > 0 ? 'text-primary' : 'text-muted-foreground'"
         :title="modelValue > 0 ? label : t('notes.add_reminder')"
       >
-        <Bell class="h-4 w-4" />
+        <SolarBell class="h-4 w-4" />
       </PopoverTrigger>
       <PopoverPortal>
         <PopoverContent
@@ -96,11 +96,11 @@ const pad = (n: number) => String(n).padStart(2, "0");
         >
           <div class="mb-2 flex items-center justify-between">
             <button class="rounded p-1 text-muted-foreground hover:bg-secondary" @click="prevMonth">
-              <ChevronLeft class="h-4 w-4" />
+              <SolarAltArrowLeft class="h-4 w-4" />
             </button>
             <span class="text-sm font-medium">{{ monthLabel }} {{ viewYear }}</span>
             <button class="rounded p-1 text-muted-foreground hover:bg-secondary" @click="nextMonth">
-              <ChevronRight class="h-4 w-4" />
+              <SolarAltArrowRight class="h-4 w-4" />
             </button>
           </div>
           <div class="mb-1 grid grid-cols-7 gap-0.5 text-center text-[10px] font-medium text-muted-foreground">

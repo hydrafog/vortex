@@ -145,6 +145,9 @@ impl IdentityStore for InMemoryIdentityStore {
     }
 }
 
+#[allow(dead_code)]
+fn _keep_x25519_sec_in_use(_: X25519Sec) {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -182,6 +185,3 @@ mod tests {
         assert_eq!(first.static_pub.0, second.static_pub.0);
     }
 }
-
-#[allow(dead_code)]
-fn _keep_x25519_sec_in_use(_: X25519Sec) {}

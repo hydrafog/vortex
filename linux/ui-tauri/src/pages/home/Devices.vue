@@ -3,15 +3,15 @@ import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { invoke } from "@tauri-apps/api/core";
 import {
-  Laptop,
-  Smartphone,
-  Headphones,
-  Video,
-  MonitorUp,
-  Loader2,
-  Plus,
-  BellRing,
-} from "lucide-vue-next";
+  SolarLaptop,
+  SolarSmartphone,
+  SolarHeadphones,
+  SolarVideocamera,
+  SolarMonitorShare,
+  SolarLoader,
+  SolarAdd,
+  SolarBellBing,
+} from "@/lib/solarIcons";
 import {
   activeEarbuds,
   batteryClass,
@@ -78,7 +78,7 @@ const earbudsStatus = computed(() => {
     <div class="grid grid-cols-2 gap-4">
       <!-- THIS LAPTOP (full width) -->
       <div class="vx-card col-span-2 flex items-center gap-4">
-        <span class="vx-icon"><Laptop class="h-6 w-6" /></span>
+        <span class="vx-icon"><SolarLaptop class="h-6 w-6" /></span>
         <div class="shrink-0">
           <div class="flex items-center gap-2.5">
             <span class="text-base font-semibold">{{ t("device.this") }}</span>
@@ -99,7 +99,7 @@ const earbudsStatus = computed(() => {
         class="vx-card flex flex-col items-center justify-center gap-2 py-7 text-center hover:border-primary/40"
         @click="openPairPhoneModal"
       >
-        <span class="vx-icon"><Plus class="h-5 w-5" /></span>
+        <span class="vx-icon"><SolarAdd class="h-5 w-5" /></span>
         <span class="text-sm font-medium">{{ t("pair.add_phone") }}</span>
         <span class="text-xs text-muted-foreground">{{ t("pair.add_phone_hint") }}</span>
       </button>
@@ -110,7 +110,7 @@ const earbudsStatus = computed(() => {
         @contextmenu.prevent="forgetTarget = primaryPeer"
       >
         <div class="flex items-center gap-3">
-          <span class="vx-icon"><Smartphone class="h-[22px] w-[22px]" /></span>
+          <span class="vx-icon"><SolarSmartphone class="h-[22px] w-[22px]" /></span>
           <div class="min-w-0 flex-1">
             <div class="text-[15px] font-semibold">
               {{ primaryPeerState?.name || primaryPeer.peer_name || t("device.android") }}
@@ -125,7 +125,7 @@ const earbudsStatus = computed(() => {
             :title="t('ring.tip')"
             @click="ringPhone"
           >
-            <BellRing class="h-[18px] w-[18px]" :stroke-width="1.9" />
+            <SolarBellBing class="h-[18px] w-[18px]" :stroke-width="1.9" />
           </button>
         </div>
         <div class="flex items-center gap-2">
@@ -163,14 +163,14 @@ const earbudsStatus = computed(() => {
             :disabled="mirrorStarting"
             @click="startMirror"
           >
-            <Loader2 v-if="mirrorStarting" class="h-3.5 w-3.5 animate-spin" />
-            <MonitorUp v-else class="h-3.5 w-3.5" />
+            <SolarLoader v-if="mirrorStarting" class="h-3.5 w-3.5 animate-spin" />
+            <SolarMonitorShare v-else class="h-3.5 w-3.5" />
             {{ t("mirror.share_screen") }}
             <!-- Screen mirror ships Experimental in v1 (heavy GStreamer deps). -->
             <span class="vx-tag absolute -top-1.5 right-2">{{ t("mirror.experimental") }}</span>
           </button>
           <button class="vx-chip relative" :class="{ 'vx-chip--live': cameraOn }" @click="toggleCamera">
-            <Video class="h-3.5 w-3.5" />
+            <SolarVideocamera class="h-3.5 w-3.5" />
             {{ t("mirror.use_as_webcam") }}
             <!-- Continuity camera ships Experimental in v1 (v4l2loopback dep). -->
             <span class="vx-tag absolute -top-1.5 right-2">{{ t("mirror.experimental") }}</span>
@@ -184,7 +184,7 @@ const earbudsStatus = computed(() => {
         class="vx-card flex flex-col items-center justify-center gap-2 py-7 text-center hover:border-primary/40"
         @click="openEarbudsPicker"
       >
-        <span class="vx-icon"><Plus class="h-5 w-5" /></span>
+        <span class="vx-icon"><SolarAdd class="h-5 w-5" /></span>
         <span class="text-sm font-medium">{{ t("earbuds.add") }}</span>
         <span class="text-xs text-muted-foreground">{{ t("earbuds.add_hint") }}</span>
       </button>
@@ -196,7 +196,7 @@ const earbudsStatus = computed(() => {
         @contextmenu.prevent="earbudsMenuOpen = true"
       >
         <div class="flex items-center gap-3">
-          <span class="vx-icon"><Headphones class="h-[22px] w-[22px]" /></span>
+          <span class="vx-icon"><SolarHeadphones class="h-[22px] w-[22px]" /></span>
           <div class="min-w-0">
             <div class="text-[15px] font-semibold truncate">{{ activeEarbuds.name }}</div>
             <div class="mt-px text-xs text-muted-foreground">{{ t("device.earbuds") }}</div>
