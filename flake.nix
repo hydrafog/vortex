@@ -24,13 +24,13 @@
             };
           };
 
-          gstreamerPackages = with pkgs.gst_all_1; [
+          gstreamerPackages = (with pkgs.gst_all_1; [
             gstreamer
             gst-plugins-base
             gst-plugins-good
             gst-plugins-bad
             gst-libav
-          ];
+          ]) ++ [ pkgs.pipewire ];
 
           tauriLibraries = with pkgs; [
             webkitgtk_4_1
@@ -97,6 +97,10 @@
               export PKG_CONFIG_PATH="${
                 pkgs.lib.makeSearchPathOutput "dev" "lib/pkgconfig" (tauriLibraries ++ gstreamerPackages)
               }:$PKG_CONFIG_PATH"
+
+              export GST_PLUGIN_SYSTEM_PATH_1_0="${
+                pkgs.lib.makeSearchPath "lib/gstreamer-1.0" gstreamerPackages
+              }:$GST_PLUGIN_SYSTEM_PATH_1_0"
 
               export GSETTINGS_SCHEMA_DIR="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:$GSETTINGS_SCHEMA_DIR"
 

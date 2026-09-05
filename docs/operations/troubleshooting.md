@@ -22,6 +22,11 @@ Common issues and remediation steps for Vortex.
 2. BlueZ Pairing Agent Conflicts (KDE Plasma / Bluedevil):
    - Vortex registers a Just Works pairing agent with BlueZ. If desktop environment prompts intercept pairing, restart the BlueZ service or disconnect existing third-party connectors (such as KDE Connect).
    - Verify active controller status with `bluetoothctl show`.
+3. Classic Audio Bearer Conflicts (`ClassicBearerOnly`):
+   - When BlueZ holds a bonded classic (BR/EDR) profile for a phone (such as A2DP audio or HFP), BlueZ refuses to attach GATT services over BLE to the bonded address.
+   - Vortex reports this error when discovery times out:
+     `BlueZ kept the classic (BR/EDR) bearer, so no GATT service is reachable. This phone is also paired to this laptop as a Bluetooth *audio* device, and BlueZ always prefers the bonded bearer. Unpair it as an audio device (bluetoothctl remove <addr>), then pair Vortex.`
+   - Run `bluetoothctl remove <addr>` to remove the audio device entry in BlueZ, then proceed with pairing inside Vortex.
 
 ---
 

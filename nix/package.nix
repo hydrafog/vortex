@@ -26,6 +26,7 @@
   zenity,
   android-tools,
   wl-clipboard,
+  pipewire,
   customSrc ? null,
 }:
 let
@@ -107,6 +108,7 @@ rustPlatform.buildRustPackage rec {
     gst_all_1.gst-plugins-good
     gst_all_1.gst-plugins-bad
     gst_all_1.gst-libav
+    pipewire
     libpulseaudio
     libsecret
   ];
@@ -132,7 +134,7 @@ rustPlatform.buildRustPackage rec {
 [Desktop Entry]
 Type=Application
 Name=Vortex
-Comment=Phone companion — calls, messages, notifications and earbuds hand-off
+Comment=Phone companion - calls, messages, notifications and earbuds hand-off
 Exec=vortex-ui-tauri
 Icon=vortex-ui-tauri
 Terminal=false
@@ -178,6 +180,7 @@ EOF
           gst_all_1.gst-plugins-good
           gst_all_1.gst-plugins-bad
           gst_all_1.gst-libav
+          pipewire
         ]
       }"
       --set-default WEBKIT_DISABLE_DMABUF_RENDERER 1
@@ -187,7 +190,7 @@ EOF
   '';
 
   meta = {
-    description = "Phone companion — calls, messages, notifications and earbuds hand-off for Linux and Android";
+    description = "Phone companion - calls, messages, notifications and earbuds hand-off for Linux and Android";
     homepage = "https://github.com/hydrafog/vortex";
     license = lib.licenses.gpl3Plus;
     platforms = lib.platforms.linux;

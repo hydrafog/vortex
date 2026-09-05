@@ -35,3 +35,23 @@ Android restricts raw input injection from non-system apps. Vortex solves this w
    - A virtual mouse
    - A virtual hardware keyboard
 4. Relative desktop trackpad movements and key events translate to native kernel input events on Android with sub-10ms latency.
+
+## Prerequisites & Setup
+
+Universal Control operates with two system components:
+1. **Wayland InputCapture Portal**: A Wayland compositor supporting `xdg-desktop-portal` with the `InputCapture` portal interface (GNOME 45+, KDE Plasma 6.1+, Hyprland, or Sway).
+2. **Android ADB Debugging**: USB debugging or wireless ADB authorized on the Android device. The desktop client communicates with the `vortex_inject` helper process deployed to `/data/local/tmp/vortex_inject` over an ADB port-forwarded socket.
+
+### Declarative Configuration (Home Manager)
+
+Universal Control can be declared in Home Manager configuration:
+
+```nix
+services.vortex = {
+  enable = true;
+  universalControl = {
+    enable = true;
+    placement = "right"; # "left", "right", "top", or "bottom"
+  };
+};
+```

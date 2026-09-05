@@ -103,13 +103,17 @@ impl VortexClient {
         let t1 = std::time::Instant::now();
         let discovery = timeout(Duration::from_secs(15), async {
             loop {
-                match device.services().await {
-                    Ok(svcs) => match find_vortex_service(svcs).await {
-                        Ok(Some(s)) => return Ok::<Service, bluer::Error>(s),
-                        Ok(None) => {}
-                        Err(e) => debug!(%address, "service UUID read not ready: {e}"),
-                    },
-                    Err(e) => debug!(%address, "services() not ready: {e}"),
+                if device.is_services_resolved().await.unwrap_or(false) {
+                    match device.services().await {
+                        Ok(svcs) => match find_vortex_service(svcs).await {
+                            Ok(Some(s)) => return Ok::<Service, bluer::Error>(s),
+                            Ok(None) => {}
+                            Err(e) => debug!(%address, "service UUID read not ready: {e}"),
+                        },
+                        Err(e) => debug!(%address, "services() not ready: {e}"),
+                    }
+                } else {
+                    debug!(%address, "waiting for services to resolve");
                 }
                 tokio::time::sleep(Duration::from_millis(250)).await;
             }
@@ -118,11 +122,13 @@ impl VortexClient {
         let service: Service = match discovery {
             Ok(res) => res.map_err(ClientError::Bluer)?,
             Err(_) => {
-                return Err(if gatt_link_state(&device).await == GattLink::ClassicOnly {
+                let link = gatt_link_state(&device).await;
+                let is_conn = device.is_connected().await.unwrap_or(false);
+                return Err(if link == GattLink::ClassicOnly || is_conn {
                     ClientError::ClassicBearerOnly
                 } else {
                     ClientError::Timeout("service discovery")
-                })
+                });
             }
         };
         info!(
@@ -214,14 +220,18 @@ async fn gatt_link_state(device: &Device) -> GattLink {
     if !device.is_connected().await.unwrap_or(false) {
         return GattLink::Absent;
     }
-    if !device.services().await.map(|s| s.is_empty()).unwrap_or(true) {
-        return GattLink::Up;
-    }
     if device.is_services_resolved().await.unwrap_or(false) {
-        GattLink::ClassicOnly
-    } else {
-        GattLink::Absent
+        if let Ok(svcs) = device.services().await {
+            if !svcs.is_empty() {
+                return GattLink::Up;
+            }
+        }
+        return GattLink::ClassicOnly;
     }
+    if device.is_paired().await.unwrap_or(false) {
+        return GattLink::ClassicOnly;
+    }
+    GattLink::Absent
 }
 
 async fn connect_round(device: &Device) -> Option<ClientError> {

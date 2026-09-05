@@ -109,6 +109,7 @@ fn remember_enabled(on: bool) {
         if let Some(dir) = p.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
+        let _ = std::fs::remove_file(&p);
         let _ = std::fs::write(p, "1");
     } else {
         let _ = std::fs::remove_file(p);
@@ -116,8 +117,15 @@ fn remember_enabled(on: bool) {
 }
 
 pub(crate) fn restore(app: tauri::AppHandle) {
-    if !enabled_path().is_some_and(|p| p.exists()) {
+    let Some(p) = enabled_path() else { return };
+    if !p.exists() {
         return;
+    }
+    if let Ok(content) = std::fs::read_to_string(&p) {
+        let t = content.trim();
+        if t == "0" || t.eq_ignore_ascii_case("false") {
+            return;
+        }
     }
     tracing::info!("universal-control: was left on — arming the edge again");
     tauri::async_runtime::spawn(async move {
@@ -172,7 +180,6 @@ fn arm(app: tauri::AppHandle, require_injector: bool) -> Result<(), String> {
             if let Err(e) = capture_loop().await {
                 tracing::warn!("universal-control: capture loop ended: {e}");
                 let _ = tauri::Emitter::emit(&app, "vortex:uc-stopped", e.to_string());
-                remember_enabled(false);
             }
         });
     });

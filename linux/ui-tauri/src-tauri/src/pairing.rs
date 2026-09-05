@@ -36,6 +36,7 @@ pub(crate) async fn do_pair(
     if let Ok(device) = adapter.device(addr) {
         if device.is_connected().await.unwrap_or(false) {
             let _ = device.disconnect().await;
+            tokio::time::sleep(Duration::from_millis(300)).await;
         }
     }
     let hygiene_ms = t_pair.elapsed().as_millis();

@@ -34,6 +34,7 @@ mod desktop_apps;
 mod desktop_theme;
 mod earbuds;
 mod file_consent;
+mod fontconfig_compat;
 mod handoff;
 mod ipc;
 mod lan;
@@ -125,6 +126,8 @@ pub fn run() {
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
         .init();
+
+    fontconfig_compat::setup_fontconfig_compat();
 
     let (cmd_tx, cmd_rx) = mpsc::channel::<UiCmd>();
     {

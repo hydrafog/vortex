@@ -209,7 +209,7 @@ in
             [Desktop Entry]
             Type=Application
             Name=Vortex
-            Comment=Phone companion — starts with the session
+            Comment=Phone companion - starts with the session
             Exec=${execCmd}
             Icon=vortex-ui-tauri
             Terminal=false
@@ -258,6 +258,9 @@ in
 
       "vortex/universal_control/placement".text = "${cfg.universalControl.placement}\n";
     }
+    // (lib.optionalAttrs cfg.universalControl.enable {
+      "vortex/universal_control/enabled".text = "1\n";
+    })
     // (lib.optionalAttrs cfg.fileSharing.fileManagerIntegration {
       "kio/servicemenus/vortex-share.desktop" = {
         text = ''

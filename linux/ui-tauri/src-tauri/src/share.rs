@@ -110,9 +110,10 @@ fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
     let tmp_path =
         std::env::temp_dir().join(format!("vortex_{}_{}.zip", folder_name, std::process::id()));
     let file = std::fs::File::create(&tmp_path).ok()?;
-    let mut zw = zip::ZipWriter::new(file);
+    let buf_writer = std::io::BufWriter::with_capacity(1024 * 1024, file);
+    let mut zw = zip::ZipWriter::new(buf_writer);
     let opts: zip::write::FileOptions<()> =
-        zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
     let mut count = 0usize;
     for entry in walkdir::WalkDir::new(dir).into_iter().filter_map(|e| e.ok()) {
@@ -133,7 +134,7 @@ fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
             }
         } else if entry.file_type().is_file() {
             let mut f = match std::fs::File::open(path) {
-                Ok(f) => f,
+                Ok(f) => std::io::BufReader::with_capacity(256 * 1024, f),
                 Err(e) => {
                     tracing::warn!(path = %path.display(), "share: zip skip unreadable: {e}");
                     continue;
@@ -157,7 +158,7 @@ fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
         return None;
     }
     let meta = std::fs::metadata(&tmp_path).ok()?;
-    tracing::info!(folder = %folder_name, files = count, size = meta.len(), "share: folder zipped to disk");
+    tracing::info!(folder = %folder_name, files = count, size = meta.len(), "share: folder packaged to disk");
     Some(OutgoingFile {
         name: format!("{folder_name}.zip"),
         mime: "application/zip".to_string(),

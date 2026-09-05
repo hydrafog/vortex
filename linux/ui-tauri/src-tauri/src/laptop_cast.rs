@@ -163,6 +163,7 @@ async fn start_portal(
     if let Err(e) = gst::init() {
         return Err(format!("gst init: {e}"));
     }
+    ensure_pipewiresrc();
     let raw_fd = fd.as_raw_fd();
     let desc = format!(
         "pipewiresrc fd={raw_fd} path={node_id} do-timestamp=true keepalive-time=1000 ! \
@@ -292,6 +293,7 @@ async fn start_extend(phone_ip: std::net::IpAddr, key: [u8; 32]) -> Result<(), S
     if let Err(e) = gst::init() {
         return Err(format!("gst init: {e}"));
     }
+    ensure_pipewiresrc();
     let cursor_stage = match crate::virtual_display::stage_cursor_image() {
         Some(p) => format!("gdkpixbufoverlay name=cursor location=\"{}\" alpha=0 ! ", p.display()),
         None => {
@@ -402,3 +404,66 @@ pub fn stop() {
         let _ = h.stop_tx.send(());
     }
 }
+
+fn ensure_pipewiresrc() {
+    if gst::ElementFactory::find("pipewiresrc").is_some() {
+        return;
+    }
+    tracing::info!("laptop-cast: pipewiresrc element not found; searching plugin directories");
+
+    let registry = gst::Registry::get();
+    let mut candidate_dirs: Vec<std::path::PathBuf> = Vec::new();
+
+    if let Ok(paths) = std::env::var("GST_PLUGIN_SYSTEM_PATH_1_0") {
+        for p in std::env::split_paths(&paths) {
+            candidate_dirs.push(p);
+        }
+    }
+    if let Ok(paths) = std::env::var("GST_PLUGIN_PATH_1_0") {
+        for p in std::env::split_paths(&paths) {
+            candidate_dirs.push(p);
+        }
+    }
+    if let Ok(paths) = std::env::var("LD_LIBRARY_PATH") {
+        for p in std::env::split_paths(&paths) {
+            let gst_dir = p.join("gstreamer-1.0");
+            if gst_dir.is_dir() {
+                candidate_dirs.push(gst_dir);
+            }
+        }
+    }
+
+    candidate_dirs.push(std::path::PathBuf::from("/run/current-system/sw/lib/gstreamer-1.0"));
+    candidate_dirs.push(std::path::PathBuf::from("/usr/lib/gstreamer-1.0"));
+    candidate_dirs.push(std::path::PathBuf::from("/usr/lib/x86_64-linux-gnu/gstreamer-1.0"));
+    candidate_dirs.push(std::path::PathBuf::from("/usr/local/lib/gstreamer-1.0"));
+
+    if std::path::Path::new("/nix/store").is_dir() {
+        if let Ok(entries) = std::fs::read_dir("/nix/store") {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if name.contains("pipewire") && !name.ends_with(".drv") {
+                        let gst_dir = path.join("lib/gstreamer-1.0");
+                        if gst_dir.join("libgstpipewire.so").exists() {
+                            candidate_dirs.push(gst_dir);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for dir in candidate_dirs {
+        if dir.is_dir() {
+            let _ = registry.scan_path(&dir);
+            if gst::ElementFactory::find("pipewiresrc").is_some() {
+                tracing::info!(dir = ?dir, "laptop-cast: loaded pipewiresrc successfully");
+                return;
+            }
+        }
+    }
+
+    tracing::warn!("laptop-cast: pipewiresrc element could not be found after scanning candidate paths");
+}
+
