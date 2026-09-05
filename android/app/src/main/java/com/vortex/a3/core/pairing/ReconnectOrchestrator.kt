@@ -163,7 +163,7 @@ class ReconnectOrchestrator(
             return null
         }
         handshake.destroy()
-        Log.i(TAG, "✅ IK complete for ${device.address}")
+        Log.i(TAG, "IK complete for ${device.address}")
         Log.i(TAG, "   peer_static_pub = ${peerStaticPub.toHexPrefix()}")
         Log.i(TAG, "   transcript_hash = ${transcript.toHexPrefix()}")
 

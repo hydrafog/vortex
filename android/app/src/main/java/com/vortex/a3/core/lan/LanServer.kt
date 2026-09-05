@@ -381,7 +381,7 @@ class LanServer(
                 )
                 writeFrame(output, Frame(FrameType.RECONNECT_HANDSHAKE, HANDSHAKE_MSG2, writeBuf.copyOf(n)))
                 val transcriptHash = handshake.handshakeHash.copyOf()
-                Log.i(TAG, "✅ IK over TCP complete; transcript=${transcriptHash.toHexPrefix()}")
+                Log.i(TAG, "IK over TCP complete; transcript=${transcriptHash.toHexPrefix()}")
 
                 val pair: CipherStatePair = handshake.split()
                 handshake.destroy()

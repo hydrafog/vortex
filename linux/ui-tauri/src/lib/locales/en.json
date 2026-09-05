@@ -62,7 +62,7 @@
     "title": "Paired devices",
     "empty": "No devices yet. Open Vortex on your Android to begin.",
     "forget_all": "Forget all",
-    "trusted": "trusted ✓",
+    "trusted": "trusted",
     "connected": "Connected",
     "connecting": "Connecting…",
     "offline": "Offline",

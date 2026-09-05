@@ -11,7 +11,7 @@ SUMMARY_FILE="${REPORTS_DIR}/summary.md"
 L1_DIR="${SCRIPT_DIR}/../../../l1/daemon"
 mkdir -p "${REPORTS_DIR}"
 
-echo "🔨 Starting daemon in background for Android force-stop test..."
+echo "Starting daemon in background for Android force-stop test..."
 cd "${L1_DIR}"
 cargo run --release > "${REPORTS_DIR}/vortex-force-stop.log" 2>&1 &
 DAEMON_PID=$!
@@ -44,10 +44,10 @@ for i in $(seq 1 $ITERATIONS); do
     
     if [ "$CONNECTED" = true ]; then
         SUCCESS=$((SUCCESS + 1))
-        echo "  ✅ Reconnected after Android app restart in <20s"
+        echo "  [OK] Reconnected after Android app restart in <20s"
     else
         FAIL=$((FAIL + 1))
-        echo "  ❌ Timeout after Android app restart"
+        echo "  [FAIL] Timeout after Android app restart"
         cp "${REPORTS_DIR}/vortex-force-stop.log" "${REPORTS_DIR}/failed-03-$i.log"
     fi
     

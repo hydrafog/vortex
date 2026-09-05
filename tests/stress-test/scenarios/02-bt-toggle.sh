@@ -44,10 +44,10 @@ for i in $(seq 1 $ITERATIONS); do
     
     if [ "$CONNECTED" = true ]; then
         SUCCESS=$((SUCCESS + 1))
-        echo "  ✅ Reconnected after BT toggle in <20s"
+        echo "  [OK] Reconnected after BT toggle in <20s"
     else
         FAIL=$((FAIL + 1))
-        echo "  ❌ Timeout after BT toggle"
+        echo "  [FAIL] Timeout after BT toggle"
         cp "${REPORTS_DIR}/vortex-bt-toggle.log" "${REPORTS_DIR}/failed-02-$i.log"
     fi
     

@@ -86,7 +86,7 @@ pub(crate) fn update_battery_rows(
         "—"
     };
     let tip = format!(
-        "Vortex   🎧 {} ({})   📱 {}",
+        "Vortex   Buds {} ({})   Phone {}",
         pf(buds_pct),
         owner,
         pf(snap.as_ref().and_then(|s| s.battery))
@@ -103,11 +103,11 @@ pub(crate) fn update_battery_rows(
     .or_else(|| vortex_l3_daemon::core::earbuds_store::load().map(|s| s.name))
     .unwrap_or_else(|| "Buds".to_string());
     let buds_text = format!("{}   {} ({})", trunc(&buds_name, 18), pf(buds_pct), owner);
-    // ⚡ (U+26A1, present in DejaVu Sans — portable) marks a charging device.
+    // NOTE: "(charging)" suffix marks a charging device in plain ASCII for portability.
     // No phone seen yet this session → leave the row on its "Phone   --"
     // placeholder rather than inventing a name.
     let phone_text = snap.as_ref().map(|s| {
-        let bolt = if s.charging { " \u{26A1}" } else { "" };
+        let bolt = if s.charging { " (charging)" } else { "" };
         let name = s
             .name
             .clone()
@@ -133,7 +133,7 @@ pub(crate) fn setup(app: &tauri::App) -> tauri::Result<()> {
     // left-click shows/hides the main window; right-click → menu.
     // Battery readout: two disabled rows (earbuds + phone) with plain
     // WORD labels. We deliberately avoid glyph/icon prefixes: color
-    // emoji (🎧/📱) render blank in the appindicator menu, and the
+    // symbols render blank in the appindicator menu, and the
     // monochrome icon glyphs that do render here (Font Awesome / Nerd
     // Font PUA, e.g. U+F025/U+F10B) are NOT installed on a stock Linux
     // box, so they'd show empty boxes on other machines. Plain text

@@ -1,10 +1,17 @@
 Solar Icons artwork provenance for Vortex.
 
+Brand mark in assets/vortex_solar_source.svg is Solar Black Hole
+Bold Duotone by 480 Design, CC BY 4.0, recolored to Vortex brand
+green (#1AE76F) with secondary orbit layer at 0.5 opacity for
+duotone depth. Source SVG mirrored from
+https://downloadicons.com/svg/solar/black-hole-bold-duotone.svg
+(upstream: https://github.com/480-Design/Solar-Icon-Set).
+Attribution to 480 Design / Solar Icons is recorded here to
+satisfy CC BY 4.0 for desktop and mobile bundle redistribution.
+
 UI glyphs follow the Solar icon family in the Linear variant fixed at
-stroke width 1.5-1.8 globally. Brand mark in assets/vortex_solar_source.svg
-is an original planet-plus-orbit composition in Vortex brand green
-(#1AE76F) retaining the prior spiral motif for continuity. It is not a
-copy of any third-party logo.
+stroke width 1.5-1.8 globally, except the brand mark which is
+Bold Duotone per explicit logo request.
 
 Bundled Solar-style vectors in linux/ui-tauri/src/lib/solarIcons.ts and
 android/app/src/main/java/com/vortex/a3/ui/icons/SolarIcons.kt plus

@@ -36,7 +36,7 @@ Located in `linux/ui-tauri/`.
 - Frontend built with Vue 3, TypeScript, and Vite.
 - Backend implemented with Tauri v2.
 - Handles system tray icon, notifications, clipboard listening (`arboard` and `wl-clipboard-rs`), and GStreamer screen rendering.
-- Artwork uses the Solar Linear family locked at stroke 1.5-1.8. Vue screens import from `src/lib/solarIcons.ts`, the brand mark is sourced from `assets/vortex_solar_source.svg` (see `assets/SOLAR_LICENSE.txt`), and Tauri tray plus bundle icons are regenerated from that source with monochrome simplification for status targets.
+- Artwork uses the Solar family: UI screens stay Linear locked at stroke 1.5-1.8 via `src/lib/solarIcons.ts`, while the brand mark is Solar Black Hole Bold Duotone sourced from `assets/vortex_solar_source.svg` (see `assets/SOLAR_LICENSE.txt`). Tauri tray plus bundle icons are regenerated from that source with monochrome simplification for status targets.
 
 ### 3. Android Application
 Located in `android/app/`.

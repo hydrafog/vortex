@@ -200,7 +200,7 @@ async fn cmd_echo(
         response.ty, response.sub,
     );
     if response.ty == 0x30 && response.sub == 0x02 && pretty_out == pretty_in {
-        println!("✅ round-trip ok — bytes identical");
+        println!("OK: round-trip ok — bytes identical");
         Ok(())
     } else {
         Err("echo response did not match request".into())
@@ -293,7 +293,7 @@ async fn cmd_pair(
     peer_store.save(&trusted)?;
 
     println!();
-    println!("✅ Paired");
+    println!("Paired");
     println!("  peer_static_pub : {}", hex::encode(&outcome.xx.peer_static_pub));
     println!("  transcript_hash : {}", hex::encode(&outcome.xx.transcript_hash));
     if std::env::var("VORTEX_INSECURE_DEBUG").as_deref() == Ok("1") {
@@ -369,7 +369,7 @@ async fn cmd_reconnect(
     let _ = peer_store.bump_counter(&peer.peer_static_pub, outcome.peer_counter);
 
     println!();
-    println!("✅ Trusted reconnect ok");
+    println!("Trusted reconnect ok");
     println!("  peer_static_pub : {}", hex::encode(&outcome.peer_static_pub));
     println!("  transcript_hash : {}", hex::encode(&outcome.transcript_hash));
     println!("  liveness        : {}", if outcome.liveness_ok { "ping/pong ok" } else { "FAIL" });
@@ -438,7 +438,7 @@ async fn cmd_lan_reconnect() -> Result<(), Box<dyn std::error::Error>> {
 
     println!();
     println!(
-        "✅ LAN reconnect ok — peer {} via {}",
+        "LAN reconnect ok — peer {} via {}",
         hex::encode(&outcome.peer_static_pub[..8]),
         outcome.remote
     );
@@ -528,7 +528,7 @@ async fn cmd_auto_reconnect(
                         let _ =
                             peer_store.bump_counter(&peer.peer_static_pub, outcome.peer_counter);
                         println!(
-                            "✅ attempt {} succeeded — transcript_hash={}",
+                            "attempt {} succeeded — transcript_hash={}",
                             backoff.attempt_number(),
                             hex::encode(&outcome.transcript_hash),
                         );
@@ -596,7 +596,7 @@ async fn cmd_handshake(addr: bluer::Address) -> Result<(), Box<dyn std::error::E
         run_xx_initiator(&client, &identity.static_priv.0, std::time::Duration::from_secs(15))
             .await?;
 
-    println!("✅ Noise XX completed");
+    println!("Noise XX completed");
     println!("  transcript_hash : {}", hex::encode(&outcome.transcript_hash));
     println!("  peer_static_pub : {}", hex::encode(&outcome.peer_static_pub));
     Ok(())

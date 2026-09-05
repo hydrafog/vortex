@@ -233,7 +233,7 @@ fun HintCard(
             .border(width = 1.dp, color = MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(10.dp))
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        Text("⚠ $text", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
+        Text("Warning: $text", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
         Row {
             TextButton(
                 onClick = onAction,

@@ -111,7 +111,7 @@ class VortexNotification(
         }
         rv.setTextViewText(
             com.vortex.a3.R.id.notification_laptop_battery,
-            if (laptopCharging) pct(laptopBatt) + " ⚡" else pct(laptopBatt),
+            if (laptopCharging) pct(laptopBatt) + " (charging)" else pct(laptopBatt),
         )
         rv.setTextColor(com.vortex.a3.R.id.notification_laptop_battery, laptopColor)
         rv.setInt(com.vortex.a3.R.id.notification_laptop_icon, "setColorFilter", laptopColor)

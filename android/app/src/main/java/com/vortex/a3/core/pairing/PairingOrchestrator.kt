@@ -239,7 +239,7 @@ class PairingOrchestrator(private val identity: IdentityRecord) {
         val receiver: CipherState = pair.receiver
         state.handshake.destroy()
 
-        Log.i(TAG, "✅ XX complete for ${device.address}")
+        Log.i(TAG, "XX complete for ${device.address}")
         Log.i(TAG, "   transcript_hash = ${transcript.toHexPrefix()}")
         Log.i(TAG, "   peer_static_pub = ${peerStaticPub.toHexPrefix()}")
         Log.i(TAG, "   SAS             = [redacted; shown in UI only]")
@@ -355,7 +355,7 @@ class PairingOrchestrator(private val identity: IdentityRecord) {
                     prs = prs,
                     peerName = s.peerName,
                 )
-                Log.i(TAG, "✅ both approved; trust derived for ${device.address}")
+                Log.i(TAG, "both approved; trust derived for ${device.address}")
                 emitOutcome(
                     HandshakeOutcome(
                         device, s.transcriptHash, s.peerStaticPub,
