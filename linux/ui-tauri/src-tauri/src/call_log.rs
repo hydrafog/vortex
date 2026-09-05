@@ -1,4 +1,3 @@
-
 use std::path::PathBuf;
 
 use tauri::{AppHandle, Emitter};
@@ -25,10 +24,7 @@ pub(crate) fn deliver(app: &AppHandle, json: &[u8], source: &str) {
 }
 
 pub(crate) fn clear(app: &AppHandle) {
-    for p in [cache_path(), history_path(), history_since_path()]
-        .into_iter()
-        .flatten()
-    {
+    for p in [cache_path(), history_path(), history_since_path()].into_iter().flatten() {
         let _ = std::fs::remove_file(&p);
     }
     let _ = app.emit("vortex:call_log", Vec::<CallLogEntry>::new());
@@ -42,7 +38,6 @@ pub(crate) fn cache_hash() -> String {
         .map(|b| hex::encode(Sha256::digest(&b)))
         .unwrap_or_default()
 }
-
 
 fn history_path() -> Option<PathBuf> {
     let mut p = PathBuf::from(std::env::var_os("HOME")?);

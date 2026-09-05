@@ -1,4 +1,3 @@
-
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::time::Duration;
@@ -97,7 +96,6 @@ fn send_input(ty: u8, nx: u16, ny: u16) {
         }
     }
 }
-
 
 pub(crate) fn on_button(down: bool, nx: u16, ny: u16) {
     if down {
@@ -272,7 +270,11 @@ fn ensure_scroll_watcher() {
                 let tx = SCROLL_FINGER_X.load(Ordering::Relaxed);
                 let ty = SCROLL_FINGER_Y.load(Ordering::Relaxed);
                 if tx != last_x || ty != last_y {
-                    send_input(input_proto::MOVE, tx.clamp(0, 65_535) as u16, ty.clamp(0, 65_535) as u16);
+                    send_input(
+                        input_proto::MOVE,
+                        tx.clamp(0, 65_535) as u16,
+                        ty.clamp(0, 65_535) as u16,
+                    );
                     last_x = tx;
                     last_y = ty;
                     idle = 0;
@@ -316,11 +318,7 @@ const PACE_LADDER: [i32; 7] = [24, 30, 40, 48, 60, 90, 120];
 const PACE_RAISE_WINDOWS: usize = 3;
 
 fn pace_grid_for(rate: f64) -> i32 {
-    *PACE_LADDER
-        .iter()
-        .rev()
-        .find(|&&g| (g as f64) <= rate + 2.0)
-        .unwrap_or(&PACE_LADDER[0])
+    *PACE_LADDER.iter().rev().find(|&&g| (g as f64) <= rate + 2.0).unwrap_or(&PACE_LADDER[0])
 }
 
 fn next_pace_grid(current: i32, history: &[f64]) -> Option<i32> {
@@ -340,9 +338,8 @@ fn next_pace_grid(current: i32, history: &[f64]) -> Option<i32> {
 
 fn set_pace_grid(pipeline: &gst::Pipeline, fps: i32) {
     let Some(pace) = pipeline.by_name("pacecaps") else { return };
-    let caps = gst::Caps::builder("video/x-raw")
-        .field("framerate", gst::Fraction::new(fps, 1))
-        .build();
+    let caps =
+        gst::Caps::builder("video/x-raw").field("framerate", gst::Fraction::new(fps, 1)).build();
     pace.set_property("caps", &caps);
     tracing::info!(fps, "mirror: pacing grid retuned to the phone's delivery rate");
 }
@@ -378,10 +375,7 @@ fn attach_cadence_probe(pipeline: &gst::Pipeline) {
 
 fn has_drm_render_node() -> bool {
     std::fs::read_dir("/dev/dri")
-        .map(|rd| {
-            rd.flatten()
-                .any(|e| e.file_name().to_string_lossy().starts_with("renderD"))
-        })
+        .map(|rd| rd.flatten().any(|e| e.file_name().to_string_lossy().starts_with("renderD")))
         .unwrap_or(false)
 }
 
@@ -500,9 +494,8 @@ fn spawn_gstreamer_player(
     tracing::info!(vw, vh, "mirror: decoding at source size, XVideo scales to fit");
     let pipeline_str = pipeline_string_for_backend(backend, disp_w, disp_h);
     let element = gst::parse::launch(&pipeline_str).map_err(|e| format!("gst parse: {e}"))?;
-    let pipeline = element
-        .downcast::<gst::Pipeline>()
-        .map_err(|_| "pipeline downcast".to_string())?;
+    let pipeline =
+        element.downcast::<gst::Pipeline>().map_err(|_| "pipeline downcast".to_string())?;
     let appsrc = pipeline
         .by_name("src")
         .ok_or_else(|| "appsrc not found".to_string())?
@@ -540,7 +533,8 @@ fn spawn_gstreamer_player(
                 }
                 MessageView::Eos(..) => {
                     tracing::warn!("mirror: bus EOS — tearing down");
-                    let _ = app_bus.emit("mirror-player", serde_json::json!({ "message": "gst EOS" }));
+                    let _ =
+                        app_bus.emit("mirror-player", serde_json::json!({ "message": "gst EOS" }));
                     let _ = pipeline_bus.set_state(gst::State::Null);
                     cleanup_session();
                     break;
@@ -551,9 +545,7 @@ fn spawn_gstreamer_player(
         }
     });
 
-    pipeline
-        .set_state(gst::State::Playing)
-        .map_err(|e| format!("set Playing: {e:?}"))?;
+    pipeline.set_state(gst::State::Playing).map_err(|e| format!("set Playing: {e:?}"))?;
     if let Ok(mut g) = MIRROR_PIPELINE.lock() {
         *g = Some(pipeline.clone());
     }
@@ -573,12 +565,16 @@ fn start_player(
             Ok(v) => v,
             Err(e) => {
                 tracing::error!("mirror: GStreamer start FAILED: {e}");
-                let _ = app.emit("mirror-player", serde_json::json!({ "message": format!("gst start failed: {e}") }));
+                let _ = app.emit(
+                    "mirror-player",
+                    serde_json::json!({ "message": format!("gst start failed: {e}") }),
+                );
                 return;
             }
         };
         tracing::info!("mirror: GStreamer pipeline Playing — window should open");
-        let _ = app.emit("mirror-player", serde_json::json!({ "message": "mirror window opening" }));
+        let _ =
+            app.emit("mirror-player", serde_json::json!({ "message": "mirror window opening" }));
         let mut first = true;
         let mut window_start = std::time::Instant::now();
         let mut window_frames = 0u32;

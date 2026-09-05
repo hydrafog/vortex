@@ -8,11 +8,101 @@ import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 
+class IncomingFileSink(
+    private val ctx: Context,
+    rawName: String,
+    private val extractZip: Boolean = false,
+) : AutoCloseable {
+    val name = IncomingFile.sanitizeName(rawName)
+    private var uri: android.net.Uri? = null
+    private var outStream: java.io.OutputStream? = null
+    private var tempFile: java.io.File? = null
+    private var totalBytesWritten: Long = 0
+    private var initialized = false
+
+    private fun initStream() {
+        if (initialized) return
+        initialized = true
+        if (extractZip) {
+            tempFile = java.io.File.createTempFile("vortex_extract_", ".zip", ctx.cacheDir)
+            outStream = java.io.FileOutputStream(tempFile!!)
+        } else {
+            val resolver = ctx.contentResolver
+            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, name)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+            uri = resolver.insert(collection, values)
+            if (uri != null) {
+                outStream = resolver.openOutputStream(uri!!)
+            } else {
+                Log.w("VortexIncomingFile", "MediaStore insert returned null for '$name'")
+            }
+        }
+    }
+
+    fun writeChunk(chunkData: ByteArray): Boolean {
+        initStream()
+        val out = outStream ?: return false
+        return try {
+            out.write(chunkData)
+            totalBytesWritten += chunkData.size
+            true
+        } catch (e: Exception) {
+            Log.e("VortexIncomingFile", "writeChunk failed: ${e.message}")
+            false
+        }
+    }
+
+    fun finish(): Boolean {
+        initStream()
+        return try {
+            outStream?.flush()
+            outStream?.close()
+            outStream = null
+
+            if (extractZip && tempFile != null) {
+                val ok = IncomingFile.extractZipFileToDownloads(ctx, name, tempFile!!)
+                tempFile?.delete()
+                ok
+            } else if (uri != null) {
+                val resolver = ctx.contentResolver
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.IS_PENDING, 0)
+                }
+                resolver.update(uri!!, values, null, null)
+                Log.i("VortexIncomingFile", "saved '$name' ($totalBytesWritten bytes) to Downloads")
+                true
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            Log.e("VortexIncomingFile", "finish failed: ${e.message}")
+            false
+        }
+    }
+
+    override fun close() {
+        try {
+            outStream?.close()
+        } catch (_: Exception) {}
+        outStream = null
+        if (extractZip) {
+            tempFile?.delete()
+        } else if (uri != null && totalBytesWritten == 0L) {
+            try {
+                ctx.contentResolver.delete(uri!!, null, null)
+            } catch (_: Exception) {}
+        }
+    }
+}
+
 object IncomingFile {
     private const val TAG = "VortexIncomingFile"
     private const val CHANNEL = "vortex_files"
 
-    private fun sanitizeName(raw: String): String {
+    fun sanitizeName(raw: String): String {
         val base = raw.substringAfterLast('/').substringAfterLast('\\')
         val cleaned = base
             .filter { it.code >= 0x20 && it.code != 0x7f }
@@ -48,8 +138,7 @@ object IncomingFile {
         }
     }
 
-    private const val MAX_EXTRACT_BYTES = 512L * 1024 * 1024
-    private const val MAX_EXTRACT_ENTRIES = 10_000
+    private const val MAX_EXTRACT_ENTRIES = 50_000
 
     private fun safeComponent(raw: String): String? {
         if (raw == "." || raw == "..") return null
@@ -57,40 +146,39 @@ object IncomingFile {
         return cleaned.ifBlank { null }
     }
 
-    fun saveZipExtracted(ctx: Context, zipName: String, zipBytes: ByteArray): Boolean {
+    fun extractZipFileToDownloads(ctx: Context, zipName: String, file: java.io.File): Boolean {
         val folder = sanitizeName(zipName.removeSuffix(".zip")).ifBlank { "vortex-folder" }
         val resolver = ctx.contentResolver
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         var wrote = 0
         var totalBytes = 0L
         var entries = 0
+        val buffer = ByteArray(65536)
         try {
-            java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(zipBytes)).use { zin ->
+            java.util.zip.ZipInputStream(java.io.FileInputStream(file)).use { zin ->
                 while (true) {
                     val entry = zin.nextEntry ?: break
                     if (++entries > MAX_EXTRACT_ENTRIES) {
                         Log.w(TAG, "extract '$folder': too many entries; stopping")
                         break
                     }
-                    if (entry.isDirectory) { zin.closeEntry(); continue }
+                    if (entry.isDirectory) {
+                        zin.closeEntry()
+                        continue
+                    }
 
                     val parts = entry.name.replace('\\', '/').split('/')
                         .mapNotNull { safeComponent(it) }
-                    if (parts.isEmpty()) { zin.closeEntry(); continue }
+                    if (parts.isEmpty()) {
+                        zin.closeEntry()
+                        continue
+                    }
                     val leaf = parts.last()
                     val subDirs = parts.dropLast(1).joinToString("/")
                     val relPath = buildString {
                         append(android.os.Environment.DIRECTORY_DOWNLOADS).append('/').append(folder)
                         if (subDirs.isNotEmpty()) append('/').append(subDirs)
                         append('/')
-                    }
-
-                    val data = zin.readBytes()
-                    zin.closeEntry()
-                    totalBytes += data.size
-                    if (totalBytes > MAX_EXTRACT_BYTES) {
-                        Log.w(TAG, "extract '$folder': over size cap; stopping")
-                        break
                     }
 
                     val values = ContentValues().apply {
@@ -101,12 +189,21 @@ object IncomingFile {
                     val uri = resolver.insert(collection, values)
                     if (uri == null) {
                         Log.w(TAG, "extract: insert null for '$relPath$leaf'")
+                        zin.closeEntry()
                         continue
                     }
-                    resolver.openOutputStream(uri)?.use { it.write(data) }
+
+                    resolver.openOutputStream(uri)?.use { out ->
+                        var n: Int
+                        while (zin.read(buffer).also { n = it } > 0) {
+                            out.write(buffer, 0, n)
+                            totalBytes += n
+                        }
+                    }
                     values.clear()
                     values.put(MediaStore.Downloads.IS_PENDING, 0)
                     resolver.update(uri, values, null, null)
+                    zin.closeEntry()
                     wrote++
                 }
             }
@@ -115,6 +212,16 @@ object IncomingFile {
         }
         Log.i(TAG, "extracted '$folder': $wrote files ($totalBytes bytes) to Downloads")
         return wrote > 0
+    }
+
+    fun saveZipExtracted(ctx: Context, zipName: String, zipBytes: ByteArray): Boolean {
+        val temp = java.io.File.createTempFile("vortex_zip_bytes_", ".zip", ctx.cacheDir)
+        return try {
+            temp.writeBytes(zipBytes)
+            extractZipFileToDownloads(ctx, zipName, temp)
+        } finally {
+            temp.delete()
+        }
     }
 
     fun notifyReceived(ctx: Context, label: String, count: Int) {
@@ -129,7 +236,7 @@ object IncomingFile {
             val n = androidx.core.app.NotificationCompat.Builder(ctx, CHANNEL)
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
                 .setContentTitle(title)
-                .setContentText("$label — saved to Downloads")
+                .setContentText("$label: saved to Downloads")
                 .setAutoCancel(true)
                 .build()
             nm.notify(label.hashCode(), n)

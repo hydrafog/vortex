@@ -1,4 +1,3 @@
-
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 use tauri::{AppHandle, Manager};
@@ -45,9 +44,7 @@ fn panel_geometry(app: &AppHandle) -> (f64, f64, f64) {
     let logical_w = m.size().width as f64 / scale;
     let origin_x = m.position().x as f64 / scale;
     let origin_y = m.position().y as f64 / scale;
-    let height = (logical_h * H_FRACTION)
-        .clamp(H_MIN, H_MAX)
-        .min(logical_h - 80.0);
+    let height = (logical_h * H_FRACTION).clamp(H_MIN, H_MAX).min(logical_h - 80.0);
     let x = origin_x + (logical_w - LIST_W) / 2.0;
     let y = origin_y + (logical_h - height) * TOP_BIAS;
     (height, x, y)
@@ -65,9 +62,7 @@ fn force_x11_focus() {
                 conn.get_property(false, win, AtomEnum::WM_NAME, AtomEnum::STRING, 0, 1024)
             {
                 if let Ok(r) = r.reply() {
-                    if !r.value.is_empty()
-                        && String::from_utf8_lossy(&r.value).contains(target)
-                    {
+                    if !r.value.is_empty() && String::from_utf8_lossy(&r.value).contains(target) {
                         return Some(win);
                     }
                 }
@@ -86,11 +81,8 @@ fn force_x11_focus() {
                 if win == ancestor {
                     return true;
                 }
-                let Some(parent) = conn
-                    .query_tree(win)
-                    .ok()
-                    .and_then(|c| c.reply().ok())
-                    .map(|r| r.parent)
+                let Some(parent) =
+                    conn.query_tree(win).ok().and_then(|c| c.reply().ok()).map(|r| r.parent)
                 else {
                     return false;
                 };
@@ -136,8 +128,8 @@ fn force_x11_focus() {
             if !viewable {
                 continue;
             }
-            let _ = conn
-                .configure_window(win, &ConfigureWindowAux::new().stack_mode(StackMode::ABOVE));
+            let _ =
+                conn.configure_window(win, &ConfigureWindowAux::new().stack_mode(StackMode::ABOVE));
             let _ = conn.set_input_focus(InputFocus::PARENT, win, x11rb::CURRENT_TIME);
             let _ = conn.flush();
             let focused = conn

@@ -30,6 +30,7 @@ mod cmd_earbuds;
 mod cmd_pairing;
 mod contacts;
 mod desktop_apps;
+mod desktop_theme;
 mod earbuds;
 mod file_consent;
 mod handoff;
@@ -96,7 +97,6 @@ pub(crate) static PENDING_FILE_OFFERS: std::sync::OnceLock<
 
 #[derive(Default)]
 pub(crate) struct PairDecisionState(pub(crate) Mutex<Option<oneshot::Sender<LocalDecision>>>);
-
 
 pub fn run() {
     tracing_subscriber::fmt()
@@ -298,6 +298,7 @@ pub fn run() {
             universal_control::uc_get_placement,
             share::send_files,
             share::pick_and_send_files,
+            desktop_theme::get_system_accent_color,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vortex Tauri");

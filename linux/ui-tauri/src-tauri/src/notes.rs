@@ -1,4 +1,3 @@
-
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -120,7 +119,6 @@ pub(crate) fn delete_note(app: AppHandle, id: String) {
     mark_dirty();
 }
 
-
 const NOTES_FRAME: u8 = 0x4D;
 const CHUNK_DATA: usize = 400;
 
@@ -150,10 +148,8 @@ fn merge(local: &[Item], remote: &[Item]) -> Vec<Item> {
 }
 
 fn sig(items: &[Item]) -> String {
-    let mut v: Vec<String> = items
-        .iter()
-        .map(|i| format!("{}:{}:{}", i.id, i.updated_at, i.deleted))
-        .collect();
+    let mut v: Vec<String> =
+        items.iter().map(|i| format!("{}:{}:{}", i.id, i.updated_at, i.deleted)).collect();
     v.sort();
     v.join("|")
 }
@@ -177,11 +173,7 @@ fn parse_chunk(p: &[u8]) -> Option<(u16, u16, Vec<u8>)> {
     if p.len() < 4 {
         return None;
     }
-    Some((
-        u16::from_be_bytes([p[0], p[1]]),
-        u16::from_be_bytes([p[2], p[3]]),
-        p[4..].to_vec(),
-    ))
+    Some((u16::from_be_bytes([p[0], p[1]]), u16::from_be_bytes([p[2], p[3]]), p[4..].to_vec()))
 }
 
 #[derive(Default)]
@@ -266,7 +258,6 @@ pub(crate) fn spawn_sync(
     tx
 }
 
-
 pub(crate) fn spawn_reminders() {
     tokio::spawn(async move {
         let mut last_scan = now_ms();
@@ -291,11 +282,7 @@ pub(crate) fn spawn_reminders() {
 async fn fire_reminder(it: &Item) {
     let notif = vortex_l3_daemon::core::notif_mirror::NotificationMirror {
         app: "Reminder".to_string(),
-        title: if it.title.is_empty() {
-            "Todo".to_string()
-        } else {
-            it.title.clone()
-        },
+        title: if it.title.is_empty() { "Todo".to_string() } else { it.title.clone() },
         text: "Reminder".to_string(),
         ..Default::default()
     };

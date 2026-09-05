@@ -1,4 +1,3 @@
-
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -12,11 +11,10 @@ use vortex_l3_daemon::core::storage::peers::PeerStore;
 
 use crate::{app_state_to_dto, emit_peers};
 
-
 pub(crate) const LAN_DEFAULT_PORT: u16 = 51820;
 
-use crate::lan_wifi_direct::{restore_wifi, wd_active, WIFI_DIRECT_GO_IP};
 use crate::lan_state::{dispatch_appstate_call, dispatch_lock_command};
+use crate::lan_wifi_direct::{restore_wifi, wd_active, WIFI_DIRECT_GO_IP};
 
 pub(crate) static LAST_GOOD_PEER_IP: std::sync::Mutex<Option<std::net::IpAddr>> =
     std::sync::Mutex::new(None);
@@ -66,7 +64,8 @@ pub(crate) fn persist_last_peer_ip(ip: std::net::IpAddr) {
     };
     if changed {
         if let Some(p) = last_peer_ip_path() {
-            let _ = vortex_l3_daemon::core::fs_private::write_private(&p, ip.to_string().as_bytes());
+            let _ =
+                vortex_l3_daemon::core::fs_private::write_private(&p, ip.to_string().as_bytes());
         }
     }
 }
@@ -194,7 +193,9 @@ pub(crate) async fn try_lan_reconnect(
     app: &AppHandle,
     identity: &IdentityRecord,
     peer_store: Arc<dyn PeerStore>,
-    switch_orchestrator: Option<Arc<vortex_l3_daemon::core::audio_orchestrator::SwitchOrchestrator>>,
+    switch_orchestrator: Option<
+        Arc<vortex_l3_daemon::core::audio_orchestrator::SwitchOrchestrator>,
+    >,
     session_writers: Option<vortex_l3_daemon::core::audio_lan_session::SessionWriterMap>,
     media_store: Option<vortex_l3_daemon::core::media_runtime::MediaStateStore>,
     last_call_phase: Option<Arc<tokio::sync::Mutex<Option<String>>>>,
@@ -203,9 +204,7 @@ pub(crate) async fn try_lan_reconnect(
     media_watch: Option<Arc<vortex_l3_daemon::core::media_watch::MediaWatch>>,
     media_in_call: Option<Arc<std::sync::atomic::AtomicBool>>,
 ) -> Result<Option<AppState>, String> {
-    let mut peers = peer_store
-        .list()
-        .map_err(|e| format!("list: {e}"))?;
+    let mut peers = peer_store.list().map_err(|e| format!("list: {e}"))?;
     if peers.is_empty() {
         return Err("no trusted peers".to_string());
     }
@@ -247,52 +246,49 @@ pub(crate) async fn try_lan_reconnect(
     } else if let Some(sa) = fast_path {
         sa
     } else {
-        match discover_first(Duration::from_secs(6))
-        .await
-        .map_err(|e| format!("mdns: {e}"))?
-    {
-        Some(candidate) => {
-            let ip = candidate
-                .addresses
-                .iter()
-                .find(|a| matches!(a, std::net::IpAddr::V4(_)))
-                .copied()
-                .or_else(|| candidate.addresses.first().copied())
-                .ok_or_else(|| "no IP".to_string())?;
-            persist_last_peer_ip(ip);
-            std::net::SocketAddr::new(ip, candidate.port)
-        }
-        None => {
-            let cached = *LAST_GOOD_PEER_IP.lock().unwrap_or_else(|e| e.into_inner());
-            let gw = default_gateway_v4();
-            let cached_on_subnet = match (cached, gw) {
-                (Some(std::net::IpAddr::V4(ip)), Some(g)) => ip.octets()[..3] == g.octets()[..3],
-                (Some(_), None) => true,
-                _ => false,
-            };
-            if let (Some(ip), true) = (cached, cached_on_subnet) {
-                tracing::info!(%ip, "mDNS empty; retrying last-known peer IP");
-                std::net::SocketAddr::new(ip, LAN_DEFAULT_PORT)
-            } else if let Some(g) = gw {
-                if cached.is_some() {
-                    tracing::info!(%g, "mDNS empty; cached IP off-subnet (network changed) → gateway");
+        match discover_first(Duration::from_secs(6)).await.map_err(|e| format!("mdns: {e}"))? {
+            Some(candidate) => {
+                let ip = candidate
+                    .addresses
+                    .iter()
+                    .find(|a| matches!(a, std::net::IpAddr::V4(_)))
+                    .copied()
+                    .or_else(|| candidate.addresses.first().copied())
+                    .ok_or_else(|| "no IP".to_string())?;
+                persist_last_peer_ip(ip);
+                std::net::SocketAddr::new(ip, candidate.port)
+            }
+            None => {
+                let cached = *LAST_GOOD_PEER_IP.lock().unwrap_or_else(|e| e.into_inner());
+                let gw = default_gateway_v4();
+                let cached_on_subnet = match (cached, gw) {
+                    (Some(std::net::IpAddr::V4(ip)), Some(g)) => {
+                        ip.octets()[..3] == g.octets()[..3]
+                    }
+                    (Some(_), None) => true,
+                    _ => false,
+                };
+                if let (Some(ip), true) = (cached, cached_on_subnet) {
+                    tracing::info!(%ip, "mDNS empty; retrying last-known peer IP");
+                    std::net::SocketAddr::new(ip, LAN_DEFAULT_PORT)
+                } else if let Some(g) = gw {
+                    if cached.is_some() {
+                        tracing::info!(%g, "mDNS empty; cached IP off-subnet (network changed) → gateway");
+                    } else {
+                        tracing::info!(%g, "mDNS empty, no cache; falling back to gateway (phone-as-hotspot)");
+                    }
+                    std::net::SocketAddr::new(std::net::IpAddr::V4(g), LAN_DEFAULT_PORT)
                 } else {
-                    tracing::info!(%g, "mDNS empty, no cache; falling back to gateway (phone-as-hotspot)");
+                    return Err("no LAN candidate (mDNS empty, cached IP off-subnet, no gateway)"
+                        .to_string());
                 }
-                std::net::SocketAddr::new(std::net::IpAddr::V4(g), LAN_DEFAULT_PORT)
-            } else {
-                return Err(
-                    "no LAN candidate (mDNS empty, cached IP off-subnet, no gateway)".to_string(),
-                );
             }
         }
-    }
     };
 
     let mut local_state = vortex_l3_daemon::core::appstate::AppState::now_laptop();
     if let Some(adapter) = shared_adapter.as_ref() {
-        local_state.earbuds =
-            vortex_l3_daemon::core::earbuds::scan_local_earbuds(adapter).await;
+        local_state.earbuds = vortex_l3_daemon::core::earbuds::scan_local_earbuds(adapter).await;
     }
     if let Ok(mut g) = crate::PENDING_CALL_CONTROL.lock() {
         local_state.call_control = g.take();
@@ -330,11 +326,9 @@ pub(crate) async fn try_lan_reconnect(
         let local_counter = {
             let store = peer_store.clone();
             let peer_pub = peer.peer_static_pub;
-            tokio::task::spawn_blocking(move || {
-                store.load_counter(&peer_pub).unwrap_or(0)
-            })
-            .await
-            .unwrap_or(0)
+            tokio::task::spawn_blocking(move || store.load_counter(&peer_pub).unwrap_or(0))
+                .await
+                .unwrap_or(0)
         };
         let mut bulk_obj = serde_json::json!({
             "contacts": crate::contacts::cache_hash(),
@@ -344,9 +338,8 @@ pub(crate) async fn try_lan_reconnect(
             "call_log_history": crate::call_log::history_since().to_string(),
             "sms_ids": crate::sms::ids_hash(),
         });
-        let requested_img_token: Option<String> = crate::PENDING_IMAGE_TOKEN
-            .get()
-            .and_then(|m| m.lock().ok().and_then(|g| g.clone()));
+        let requested_img_token: Option<String> =
+            crate::PENDING_IMAGE_TOKEN.get().and_then(|m| m.lock().ok().and_then(|g| g.clone()));
         if let Some(token) = &requested_img_token {
             bulk_obj["clipboard_image"] = serde_json::Value::String(token.clone());
         }
@@ -448,16 +441,16 @@ pub(crate) async fn try_lan_reconnect(
                     }
                 }
                 if let Some(req) = &requested_file_token {
-                    if outcome
-                        .bulk_status
-                        .as_ref()
-                        .is_some_and(|s| s.unservable("clipboard_file"))
+                    if outcome.bulk_status.as_ref().is_some_and(|s| s.unservable("clipboard_file"))
                     {
                         let dead = crate::PENDING_FILE_OFFERS.get().and_then(|m| {
                             m.lock().ok().and_then(|mut g| {
-                                let front_matches =
-                                    g.front().is_some_and(|(t, _, _, _)| t == req);
-                                if front_matches { g.pop_front() } else { None }
+                                let front_matches = g.front().is_some_and(|(t, _, _, _)| t == req);
+                                if front_matches {
+                                    g.pop_front()
+                                } else {
+                                    None
+                                }
                             })
                         });
                         if let Some((_, name, _, id)) = dead {
@@ -518,21 +511,22 @@ pub(crate) async fn try_lan_reconnect(
                             *g = cur.clone();
                             prev
                         };
-                        tracing::info!(
-                            ?prev,
-                            ?cur,
-                            "call_phase read from AppState"
-                        );
+                        tracing::info!(?prev, ?cur, "call_phase read from AppState");
                         if prev != cur {
-                            let in_call = matches!(cur.as_deref(), Some("ringing") | Some("active"));
-                            let was_in_call = matches!(prev.as_deref(), Some("ringing") | Some("active"));
+                            let in_call =
+                                matches!(cur.as_deref(), Some("ringing") | Some("active"));
+                            let was_in_call =
+                                matches!(prev.as_deref(), Some("ringing") | Some("active"));
                             if let Some(ic) = media_in_call.as_ref() {
                                 ic.store(in_call, std::sync::atomic::Ordering::Relaxed);
                             }
                             if !was_in_call && in_call && ble_live {
                                 tracing::info!(?cur, "call_phase ringing but BLE live; deferring to BLE Request fast-path (no LAN release)");
                             } else if !was_in_call && in_call {
-                                tracing::info!(?cur, "phone entered a call; pausing media + releasing buds");
+                                tracing::info!(
+                                    ?cur,
+                                    "phone entered a call; pausing media + releasing buds"
+                                );
                                 let store_c = store.clone();
                                 tokio::spawn(async move {
                                     let paused = vortex_l3_daemon::core::media_runtime::pause_playing_for_call(&store_c).await;
@@ -570,11 +564,10 @@ pub(crate) async fn try_lan_reconnect(
                         } else {
                             0
                         };
-                        mw.peer_play_epoch_mono
-                            .store(peer_epoch_mono, Ordering::Relaxed);
+                        mw.peer_play_epoch_mono.store(peer_epoch_mono, Ordering::Relaxed);
                         let our_epoch = mw.play_epoch_mono.load(Ordering::Relaxed);
-                        let peer_played_last = our_epoch == 0
-                            || (peer_epoch_mono != 0 && peer_epoch_mono > our_epoch);
+                        let peer_played_last =
+                            our_epoch == 0 || (peer_epoch_mono != 0 && peer_epoch_mono > our_epoch);
                         if let Ok(mut g) = mw.peer_holds_buds_seen.lock() {
                             *g = if s.earbuds.as_ref().map(|e| e.connected).unwrap_or(false) {
                                 Some(std::time::Instant::now())
@@ -589,10 +582,8 @@ pub(crate) async fn try_lan_reconnect(
                             );
                             let _ = app.emit("vortex:smart_switch", s.smart_switch_enabled);
                         }
-                        let in_call_now = matches!(
-                            s.call_phase.as_deref(),
-                            Some("ringing") | Some("active")
-                        );
+                        let in_call_now =
+                            matches!(s.call_phase.as_deref(), Some("ringing") | Some("active"));
                         if peer_now
                             && peer_played_last
                             && mw.enabled.load(Ordering::Relaxed)
@@ -622,7 +613,10 @@ pub(crate) async fn try_lan_reconnect(
                     if s.audio_claim_request {
                         let already_busy = switch_orchestrator
                             .as_ref()
-                            .map(|o| *o.state().borrow() != vortex_l3_daemon::core::audio_orchestrator::SwitchState::Idle)
+                            .map(|o| {
+                                *o.state().borrow()
+                                    != vortex_l3_daemon::core::audio_orchestrator::SwitchState::Idle
+                            })
                             .unwrap_or(false);
                         if already_busy {
                             tracing::info!("peer set audio_claim_request but we're busy; ignoring");
@@ -638,7 +632,9 @@ pub(crate) async fn try_lan_reconnect(
                                 .map(|s| s.address)
                                 .unwrap_or_default();
                             if mac_addr.is_empty() {
-                                tracing::warn!("audio_claim_request: no saved earbuds MAC; skipping");
+                                tracing::warn!(
+                                    "audio_claim_request: no saved earbuds MAC; skipping"
+                                );
                             } else {
                                 tokio::spawn(async move {
                                     let local_counter = peer_store_c
@@ -669,7 +665,10 @@ pub(crate) async fn try_lan_reconnect(
                     );
                     dispatch_appstate_call(&state.call);
                     crate::handoff::dispatch_appstate_handoff(&state.handoff);
-                    crate::laptop_cast::dispatch_request(state.laptop_mirror_req, state.laptop_mirror_extend);
+                    crate::laptop_cast::dispatch_request(
+                        state.laptop_mirror_req,
+                        state.laptop_mirror_extend,
+                    );
                     crate::camera::dispatch_offer(
                         &state.camera_offer,
                         LAST_GOOD_PEER_IP.lock().ok().and_then(|g| *g),
@@ -695,8 +694,6 @@ pub(crate) async fn try_lan_reconnect(
     Err(last_err.unwrap_or_else(|| "no peer accepted reconnect".to_string()))
 }
 
-
-
 pub(crate) fn spawn_locked_watch(sync_nudge: std::sync::Arc<tokio::sync::Notify>) {
     tokio::spawn(async move {
         let res = vortex_l3_daemon::core::session_lock::watch_locked_hint(move |locked| {
@@ -712,37 +709,38 @@ pub(crate) fn spawn_locked_watch(sync_nudge: std::sync::Arc<tokio::sync::Notify>
 }
 
 pub(crate) fn spawn_power_watcher(sync_nudge: std::sync::Arc<tokio::sync::Notify>) {
-                let watch_nudge = sync_nudge.clone();
-                tokio::spawn(async move {
-                    use vortex_l3_daemon::core::status::{read_local_battery, read_local_charging};
-                    let mut last_charging = read_local_charging();
-                    let mut last_level = read_local_battery().0;
-                    loop {
-                        tokio::time::sleep(Duration::from_millis(500)).await;
-                        let charging = read_local_charging();
-                        let level = read_local_battery().0;
-                        let level_changed = match (last_level, level) {
-                            (Some(a), Some(b)) => (a as i16 - b as i16).abs() >= 2,
-                            (None, Some(_)) | (Some(_), None) => true,
-                            (None, None) => false,
-                        };
-                        if charging != last_charging || level_changed {
-                            last_charging = charging;
-                            last_level = level;
-                            tracing::info!(charging, ?level, "power change → nudging heartbeat");
-                            watch_nudge.notify_one();
-                        }
-                    }
-                });
+    let watch_nudge = sync_nudge.clone();
+    tokio::spawn(async move {
+        use vortex_l3_daemon::core::status::{read_local_battery, read_local_charging};
+        let mut last_charging = read_local_charging();
+        let mut last_level = read_local_battery().0;
+        loop {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            let charging = read_local_charging();
+            let level = read_local_battery().0;
+            let level_changed = match (last_level, level) {
+                (Some(a), Some(b)) => (a as i16 - b as i16).abs() >= 2,
+                (None, Some(_)) | (Some(_), None) => true,
+                (None, None) => false,
+            };
+            if charging != last_charging || level_changed {
+                last_charging = charging;
+                last_level = level;
+                tracing::info!(charging, ?level, "power change → nudging heartbeat");
+                watch_nudge.notify_one();
+            }
+        }
+    });
 }
-
 
 pub(crate) fn spawn_heartbeat(
     app: tauri::AppHandle,
     identity: IdentityRecord,
     peer_store: std::sync::Arc<dyn PeerStore>,
     auto_lock: std::sync::Arc<tokio::sync::Mutex<()>>,
-    switch_orchestrator: std::sync::Arc<vortex_l3_daemon::core::audio_orchestrator::SwitchOrchestrator>,
+    switch_orchestrator: std::sync::Arc<
+        vortex_l3_daemon::core::audio_orchestrator::SwitchOrchestrator,
+    >,
     session_writers: vortex_l3_daemon::core::audio_lan_session::SessionWriterMap,
     media_store: vortex_l3_daemon::core::media_runtime::MediaStateStore,
     last_call_phase: std::sync::Arc<tokio::sync::Mutex<Option<String>>>,
@@ -753,91 +751,90 @@ pub(crate) fn spawn_heartbeat(
     sync_nudge: std::sync::Arc<tokio::sync::Notify>,
     ble_audio_writers: vortex_l3_daemon::core::audio_lan_session::SessionWriterMap,
 ) {
-            let auto_app = app.clone();
-            let auto_identity = identity.clone();
-            let auto_peer_store = peer_store.clone();
-            let auto_lock_clone = auto_lock.clone();
-            let auto_orch = switch_orchestrator.clone();
-            let auto_writers = session_writers.clone();
-            let auto_media = media_store.clone();
-            let auto_last_phase = last_call_phase.clone();
-            let auto_media_watch = media_watch.clone();
-            let auto_media_in_call = media_in_call.clone();
-            let auto_adapter = adapter.clone();
-            let auto_last_reconnect = last_reconnect_at.clone();
-            let auto_nudge = sync_nudge.clone();
-            let auto_ble_writers = ble_audio_writers.clone();
-            tokio::spawn(async move {
-                let mut consec_lan_fail = 0u32;
-                let mut lan_ever_synced = false;
-                loop {
-                    let (had_trust, lan_synced) = {
-                        let _g = auto_lock_clone.lock().await;
-                        let have_trust = {
-                            let store = auto_peer_store.clone();
-                            tokio::task::spawn_blocking(move || {
-                                !store.list().unwrap_or_default().is_empty()
-                            })
-                            .await
-                            .unwrap_or(false)
-                        };
-                        let mut synced = false;
-                        if have_trust {
-                            let ble_live = !auto_ble_writers.lock().await.is_empty();
-                            synced = matches!(
-                                try_lan_reconnect(
-                                    &auto_app,
-                                    &auto_identity,
-                                    auto_peer_store.clone(),
-                                    Some(auto_orch.clone()),
-                                    Some(auto_writers.clone()),
-                                    Some(auto_media.clone()),
-                                    Some(auto_last_phase.clone()),
-                                    ble_live,
-                                    Some(auto_adapter.clone()),
-                                    Some(auto_media_watch.clone()),
-                                    Some(auto_media_in_call.clone()),
-                                )
-                                .await,
-                                Ok(Some(_))
-                            );
-                            *auto_last_reconnect.lock().await =
-                                Some(tokio::time::Instant::now());
-                        }
-                        (have_trust, synced)
-                    };
-                    if lan_synced {
-                        if consec_lan_fail > 0 || !lan_ever_synced {
-                            if let Some(n) = crate::BLE_RETRY_NUDGE.get() {
-                                n.notify_one();
-                            }
-                        }
-                        lan_ever_synced = true;
-                        consec_lan_fail = 0;
-                    } else if had_trust {
-                        consec_lan_fail = consec_lan_fail.saturating_add(1);
-                    }
-                    let next = if crate::call::call_pill_active() {
-                        Duration::from_secs(2)
-                    } else if had_trust && !lan_synced && consec_lan_fail <= 3 {
-                        Duration::from_secs(2)
-                    } else if file_pull_active() {
-                        if consec_lan_fail <= 15 {
-                            Duration::from_secs(2)
-                        } else {
-                            Duration::from_secs(12)
-                        }
-                    } else if auto_ble_writers.lock().await.is_empty() {
-                        Duration::from_secs(12)
-                    } else {
-                        Duration::from_secs(240)
-                    };
-                    tokio::select! {
-                        _ = tokio::time::sleep(next) => {}
-                        _ = auto_nudge.notified() => {
-                            tracing::info!("heartbeat woken early by local state-change nudge");
-                        }
+    let auto_app = app.clone();
+    let auto_identity = identity.clone();
+    let auto_peer_store = peer_store.clone();
+    let auto_lock_clone = auto_lock.clone();
+    let auto_orch = switch_orchestrator.clone();
+    let auto_writers = session_writers.clone();
+    let auto_media = media_store.clone();
+    let auto_last_phase = last_call_phase.clone();
+    let auto_media_watch = media_watch.clone();
+    let auto_media_in_call = media_in_call.clone();
+    let auto_adapter = adapter.clone();
+    let auto_last_reconnect = last_reconnect_at.clone();
+    let auto_nudge = sync_nudge.clone();
+    let auto_ble_writers = ble_audio_writers.clone();
+    tokio::spawn(async move {
+        let mut consec_lan_fail = 0u32;
+        let mut lan_ever_synced = false;
+        loop {
+            let (had_trust, lan_synced) = {
+                let _g = auto_lock_clone.lock().await;
+                let have_trust = {
+                    let store = auto_peer_store.clone();
+                    tokio::task::spawn_blocking(move || {
+                        !store.list().unwrap_or_default().is_empty()
+                    })
+                    .await
+                    .unwrap_or(false)
+                };
+                let mut synced = false;
+                if have_trust {
+                    let ble_live = !auto_ble_writers.lock().await.is_empty();
+                    synced = matches!(
+                        try_lan_reconnect(
+                            &auto_app,
+                            &auto_identity,
+                            auto_peer_store.clone(),
+                            Some(auto_orch.clone()),
+                            Some(auto_writers.clone()),
+                            Some(auto_media.clone()),
+                            Some(auto_last_phase.clone()),
+                            ble_live,
+                            Some(auto_adapter.clone()),
+                            Some(auto_media_watch.clone()),
+                            Some(auto_media_in_call.clone()),
+                        )
+                        .await,
+                        Ok(Some(_))
+                    );
+                    *auto_last_reconnect.lock().await = Some(tokio::time::Instant::now());
+                }
+                (have_trust, synced)
+            };
+            if lan_synced {
+                if consec_lan_fail > 0 || !lan_ever_synced {
+                    if let Some(n) = crate::BLE_RETRY_NUDGE.get() {
+                        n.notify_one();
                     }
                 }
-            });
+                lan_ever_synced = true;
+                consec_lan_fail = 0;
+            } else if had_trust {
+                consec_lan_fail = consec_lan_fail.saturating_add(1);
+            }
+            let next = if crate::call::call_pill_active() {
+                Duration::from_secs(2)
+            } else if had_trust && !lan_synced && consec_lan_fail <= 3 {
+                Duration::from_secs(2)
+            } else if file_pull_active() {
+                if consec_lan_fail <= 15 {
+                    Duration::from_secs(2)
+                } else {
+                    Duration::from_secs(12)
+                }
+            } else if auto_ble_writers.lock().await.is_empty() {
+                Duration::from_secs(12)
+            } else {
+                Duration::from_secs(240)
+            };
+            tokio::select! {
+                _ = tokio::time::sleep(next) => {}
+                _ = auto_nudge.notified() => {
+                    tracing::info!("heartbeat woken early by local state-change nudge");
+                }
+            }
+        }
+    });
 }

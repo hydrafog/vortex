@@ -273,15 +273,19 @@ async fn push_outgoing_batch(
     transport: &mut snow::TransportState,
     files: &[crate::core::outgoing_share::OutgoingFile],
 ) -> Result<(), LanError> {
-    use crate::core::outgoing_share::{report_progress, OutProgress};
+    use crate::core::outgoing_share::{
+        encode_chunk_header, report_progress, OutProgress, PUSH_CHUNK_BYTES,
+    };
+    use tokio::io::AsyncReadExt;
+
     let count = files.len() as u32;
-    let total_bytes: u64 = files.iter().map(|f| f.bytes.len() as u64).sum();
+    let total_bytes: u64 = files.iter().map(|f| f.size).sum();
     let label = if files.len() == 1 { files[0].name.clone() } else { format!("{count} files") };
     report_progress(OutProgress::Start { label, count, total: total_bytes });
 
     let manifest: Vec<serde_json::Value> = files
         .iter()
-        .map(|f| serde_json::json!({"name": f.name, "mime": f.mime, "bytes": f.bytes.len(), "extract": f.extract}))
+        .map(|f| serde_json::json!({"name": f.name, "mime": f.mime, "bytes": f.size, "extract": f.extract}))
         .collect();
     let offer = serde_json::json!({
         "files": manifest, "count": count, "total": total_bytes,
@@ -310,16 +314,58 @@ async fn push_outgoing_batch(
 
     let mut sent: u64 = 0;
     for (fi, f) in files.iter().enumerate() {
-        for payload in crate::core::outgoing_share::build_chunks(&f.bytes) {
-            let data_len = payload.len().saturating_sub(4) as u64;
-            if let Err(e) = send_sealed(stream, transport, ty::FILE_PUSH, &payload).await {
+        let total_chunks = f.size.div_ceil(PUSH_CHUNK_BYTES as u64).max(1);
+        if let Some(ref path) = f.path {
+            let mut file = tokio::fs::File::open(path).await.map_err(|e| {
                 report_progress(OutProgress::Fail);
-                return Err(e);
+                LanError::Io(e)
+            })?;
+            let mut buf = vec![0u8; PUSH_CHUNK_BYTES];
+            for chunk_idx in 0..total_chunks {
+                let n = if f.size == 0 {
+                    0
+                } else {
+                    file.read(&mut buf).await.map_err(|e| {
+                        report_progress(OutProgress::Fail);
+                        LanError::Io(e)
+                    })?
+                };
+                let header = encode_chunk_header(total_chunks, chunk_idx);
+                let mut payload = Vec::with_capacity(header.len() + n);
+                payload.extend_from_slice(&header);
+                payload.extend_from_slice(&buf[..n]);
+
+                if let Err(e) = send_sealed(stream, transport, ty::FILE_PUSH, &payload).await {
+                    report_progress(OutProgress::Fail);
+                    return Err(e);
+                }
+                sent += n as u64;
+                report_progress(OutProgress::Progress { sent, total: total_bytes });
             }
-            sent += data_len;
-            report_progress(OutProgress::Progress { sent, total: total_bytes });
+        } else {
+            for (chunk_idx, chunk) in f.bytes.chunks(PUSH_CHUNK_BYTES).enumerate() {
+                let header = encode_chunk_header(total_chunks, chunk_idx as u64);
+                let mut payload = Vec::with_capacity(header.len() + chunk.len());
+                payload.extend_from_slice(&header);
+                payload.extend_from_slice(chunk);
+
+                if let Err(e) = send_sealed(stream, transport, ty::FILE_PUSH, &payload).await {
+                    report_progress(OutProgress::Fail);
+                    return Err(e);
+                }
+                sent += chunk.len() as u64;
+                report_progress(OutProgress::Progress { sent, total: total_bytes });
+            }
+            if f.bytes.is_empty() {
+                let header = encode_chunk_header(1, 0);
+                if let Err(e) = send_sealed(stream, transport, ty::FILE_PUSH, &header).await {
+                    report_progress(OutProgress::Fail);
+                    return Err(e);
+                }
+                report_progress(OutProgress::Progress { sent, total: total_bytes });
+            }
         }
-        info!("→ file push [{}/{count}] '{}' ({} bytes)", fi + 1, f.name, f.bytes.len());
+        info!("→ file push [{}/{count}] '{}' ({} bytes)", fi + 1, f.name, f.size);
     }
     report_progress(OutProgress::Done);
     info!("→ file push batch done ({count} files, {total_bytes} bytes)");

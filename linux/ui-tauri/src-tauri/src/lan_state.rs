@@ -1,11 +1,8 @@
-
 use tauri::AppHandle;
 
 use crate::{app_state_to_dto, MEDIA_WATCH};
 
-
-static LAST_APPSTATE_CALL_ID: std::sync::Mutex<Option<String>> =
-    std::sync::Mutex::new(None);
+static LAST_APPSTATE_CALL_ID: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
 static LAST_APPSTATE_CALL_SOME_AT: std::sync::Mutex<Option<std::time::Instant>> =
     std::sync::Mutex::new(None);
@@ -37,9 +34,7 @@ pub(crate) fn dispatch_lock_command(state: &vortex_l3_daemon::core::appstate::Ap
     });
 }
 
-pub(crate) fn dispatch_appstate_call(
-    call: &Option<vortex_l3_daemon::core::call_event::CallEvent>,
-) {
+pub(crate) fn dispatch_appstate_call(call: &Option<vortex_l3_daemon::core::call_event::CallEvent>) {
     let Some(tx) = crate::CALL_MIRROR_TX.get() else { return };
     let mut last = match LAST_APPSTATE_CALL_ID.lock() {
         Ok(g) => g,
@@ -87,63 +82,60 @@ pub(crate) fn spawn_state_consumer(
     app: AppHandle,
     peer_store: std::sync::Arc<dyn vortex_l3_daemon::core::storage::peers::PeerStore>,
 ) -> tokio::sync::mpsc::UnboundedSender<([u8; 32], vortex_l3_daemon::core::appstate::AppState)> {
-            let (ble_state_tx, mut ble_state_rx) = tokio::sync::mpsc::unbounded_channel::<(
-                [u8; 32],
-                vortex_l3_daemon::core::appstate::AppState,
-            )>();
-            {
-                let app_state = app.clone();
-                let peer_store = peer_store.clone();
-                tokio::spawn(async move {
-                    use tauri::Emitter;
-                    let adapter = match bluer::Session::new().await {
-                        Ok(s) => s.default_adapter().await.ok(),
-                        Err(_) => None,
-                    };
-                    while let Some((peer_pub, state)) = ble_state_rx.recv().await {
-                        crate::ble::touch_presence();
-                        crate::ble::touch_peer_contact();
-                        crate::lan::note_peer_reported_ip(&state);
-                        if state.revoked {
-                            tracing::info!(
-                                "peer revoked us (via BLE); forgetting {}",
-                                hex::encode(&peer_pub[..8])
-                            );
-                            let _ = peer_store.forget(&peer_pub);
-                            crate::emit_peers(&app_state, peer_store.clone()).await;
-                            continue;
-                        }
-                        dispatch_appstate_call(&state.call);
-                        crate::handoff::dispatch_appstate_handoff(&state.handoff);
-                        crate::laptop_cast::dispatch_request(state.laptop_mirror_req, state.laptop_mirror_extend);
-                        dispatch_lock_command(&state);
-                        crate::media_remote::dispatch_media_command(&state);
-                        crate::proximity::note_phone_unlocked(state.unlocked);
-                        let dto = app_state_to_dto(hex::encode(peer_pub), state.clone());
-                        let _ = app_state.emit("vortex:peer_state", dto);
-                        crate::earbuds::persist_peer_earbuds(&state);
-                        if let Some(mw) = MEDIA_WATCH.get() {
-                            if mw.apply_setting(state.smart_switch_enabled, state.smart_switch_changed_at) {
-                                tracing::info!(
-                                    enabled = state.smart_switch_enabled,
-                                    "smart-switch: adopted peer setting (LWW, via BLE)"
-                                );
-                                let _ = app_state.emit("vortex:smart_switch", state.smart_switch_enabled);
-                            }
-                        }
-                        let local_earbuds = match &adapter {
-                            Some(a) => {
-                                vortex_l3_daemon::core::earbuds::scan_local_earbuds(a).await
-                            }
-                            None => None,
-                        };
-                        crate::tray::update_battery_rows(
-                            &app_state,
-                            local_earbuds.as_ref(),
-                            Some(&state),
+    let (ble_state_tx, mut ble_state_rx) = tokio::sync::mpsc::unbounded_channel::<(
+        [u8; 32],
+        vortex_l3_daemon::core::appstate::AppState,
+    )>();
+    {
+        let app_state = app.clone();
+        let peer_store = peer_store.clone();
+        tokio::spawn(async move {
+            use tauri::Emitter;
+            let adapter = match bluer::Session::new().await {
+                Ok(s) => s.default_adapter().await.ok(),
+                Err(_) => None,
+            };
+            while let Some((peer_pub, state)) = ble_state_rx.recv().await {
+                crate::ble::touch_presence();
+                crate::ble::touch_peer_contact();
+                crate::lan::note_peer_reported_ip(&state);
+                if state.revoked {
+                    tracing::info!(
+                        "peer revoked us (via BLE); forgetting {}",
+                        hex::encode(&peer_pub[..8])
+                    );
+                    let _ = peer_store.forget(&peer_pub);
+                    crate::emit_peers(&app_state, peer_store.clone()).await;
+                    continue;
+                }
+                dispatch_appstate_call(&state.call);
+                crate::handoff::dispatch_appstate_handoff(&state.handoff);
+                crate::laptop_cast::dispatch_request(
+                    state.laptop_mirror_req,
+                    state.laptop_mirror_extend,
+                );
+                dispatch_lock_command(&state);
+                crate::media_remote::dispatch_media_command(&state);
+                crate::proximity::note_phone_unlocked(state.unlocked);
+                let dto = app_state_to_dto(hex::encode(peer_pub), state.clone());
+                let _ = app_state.emit("vortex:peer_state", dto);
+                crate::earbuds::persist_peer_earbuds(&state);
+                if let Some(mw) = MEDIA_WATCH.get() {
+                    if mw.apply_setting(state.smart_switch_enabled, state.smart_switch_changed_at) {
+                        tracing::info!(
+                            enabled = state.smart_switch_enabled,
+                            "smart-switch: adopted peer setting (LWW, via BLE)"
                         );
+                        let _ = app_state.emit("vortex:smart_switch", state.smart_switch_enabled);
                     }
-                });
+                }
+                let local_earbuds = match &adapter {
+                    Some(a) => vortex_l3_daemon::core::earbuds::scan_local_earbuds(a).await,
+                    None => None,
+                };
+                crate::tray::update_battery_rows(&app_state, local_earbuds.as_ref(), Some(&state));
             }
+        });
+    }
     ble_state_tx
 }

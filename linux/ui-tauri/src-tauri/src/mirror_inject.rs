@@ -1,4 +1,3 @@
-
 use std::io::Write;
 use std::net::TcpStream;
 use std::process::{Child, Command, Stdio};
@@ -51,25 +50,19 @@ fn remember_adb_port(port: u16) {
     };
     if changed {
         if let Some(p) = adb_port_path() {
-            let _ = vortex_l3_daemon::core::fs_private::write_private(
-                &p,
-                port.to_string().as_bytes(),
-            );
+            let _ =
+                vortex_l3_daemon::core::fs_private::write_private(&p, port.to_string().as_bytes());
         }
         tracing::debug!(port, "mirror inject: remembered wireless adb port");
     }
 }
 
 fn redial_ports() -> Vec<u16> {
-    let remembered = LAST_ADB_PORT
-        .lock()
-        .ok()
-        .and_then(|g| *g)
-        .or_else(|| {
-            adb_port_path()
-                .and_then(|p| std::fs::read_to_string(p).ok())
-                .and_then(|s| s.trim().parse::<u16>().ok())
-        });
+    let remembered = LAST_ADB_PORT.lock().ok().and_then(|g| *g).or_else(|| {
+        adb_port_path()
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .and_then(|s| s.trim().parse::<u16>().ok())
+    });
     redial_port_order(remembered)
 }
 
@@ -97,10 +90,8 @@ fn scan_transports() -> Option<String> {
         let slot = if serial.contains(':') { &mut net } else { &mut usb };
         slot.get_or_insert_with(|| serial.to_string());
     }
-    if let Some(port) = net
-        .as_deref()
-        .and_then(|n| n.rsplit(':').next())
-        .and_then(|p| p.parse::<u16>().ok())
+    if let Some(port) =
+        net.as_deref().and_then(|n| n.rsplit(':').next()).and_then(|p| p.parse::<u16>().ok())
     {
         remember_adb_port(port);
     }
@@ -115,10 +106,7 @@ fn redial() -> bool {
         }
         *last = Some(std::time::Instant::now());
     }
-    let Some(ip) = *crate::lan::LAST_GOOD_PEER_IP
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-    else {
+    let Some(ip) = *crate::lan::LAST_GOOD_PEER_IP.lock().unwrap_or_else(|e| e.into_inner()) else {
         return false;
     };
     for port in redial_ports() {
@@ -198,7 +186,11 @@ pub(crate) fn display_size() -> Option<(i32, i32)> {
         .or_else(|| out.lines().find(|l| l.contains("Physical size:")))?;
     let (w, h) = pick.rsplit_once(':')?.1.trim().split_once('x')?;
     let (w, h) = (w.trim().parse().ok()?, h.trim().parse().ok()?);
-    if w > 0 && h > 0 { Some((w, h)) } else { None }
+    if w > 0 && h > 0 {
+        Some((w, h))
+    } else {
+        None
+    }
 }
 
 static ROTATION: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
@@ -240,11 +232,8 @@ impl PointerCurve {
             return want;
         }
         let q = want / dt;
-        let k = if self.high > self.low {
-            (self.accel - 1.0) / (self.high - self.low)
-        } else {
-            0.0
-        };
+        let k =
+            if self.high > self.low { (self.accel - 1.0) / (self.high - self.low) } else { 0.0 };
         let w = if q <= self.low || k <= 0.0 {
             q
         } else if q >= self.high * self.accel {
@@ -320,7 +309,11 @@ pub(crate) fn rotation() -> Option<u32> {
 fn adb_capture(args: &[&str]) -> Option<String> {
     let out = adb_command(args).output().ok()?;
     if !out.status.success() {
-        tracing::debug!(?args, "adb (capture) failed: {}", String::from_utf8_lossy(&out.stderr).trim());
+        tracing::debug!(
+            ?args,
+            "adb (capture) failed: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        );
         forget_adb_serial();
         return None;
     }
@@ -353,9 +346,7 @@ pub fn touch_available() -> bool {
 fn soft_keyboard_survives_hardware() -> bool {
     let on = adb_capture(&["shell", "settings", "get", "secure", "show_ime_with_hard_keyboard"])
         .is_some_and(|v| v.trim() == "1");
-    tracing::info!(
-        "mirror inject: phone keeps its on-screen keyboard with a hardware one: {on}"
-    );
+    tracing::info!("mirror inject: phone keeps its on-screen keyboard with a hardware one: {on}");
     on
 }
 
@@ -367,15 +358,14 @@ pub fn start() -> bool {
         return false;
     }
     let _ = adb(&["forward", "--remove", &format!("tcp:{}", ACTIVE_PORT.load(Ordering::SeqCst))]);
-    let port = match adb_capture(&["forward", "tcp:0", SOCKET_NAME])
-        .and_then(|s| s.parse::<u16>().ok())
-    {
-        Some(p) => p,
-        None => {
-            tracing::warn!("mirror inject: adb forward failed — accessibility fallback");
-            return false;
-        }
-    };
+    let port =
+        match adb_capture(&["forward", "tcp:0", SOCKET_NAME]).and_then(|s| s.parse::<u16>().ok()) {
+            Some(p) => p,
+            None => {
+                tracing::warn!("mirror inject: adb forward failed — accessibility fallback");
+                return false;
+            }
+        };
     ACTIVE_PORT.store(port, Ordering::SeqCst);
     let touch = adb_capture(&["shell", "test -w /dev/uinput && echo yes || echo no"])
         .is_some_and(|v| v.trim() == "yes");
@@ -390,11 +380,8 @@ pub fn start() -> bool {
     if soft_keyboard_survives_hardware() {
         argv.push("--keep-keys");
     }
-    let spawn = adb_command(&argv)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn();
+    let spawn =
+        adb_command(&argv).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
     let child = match spawn {
         Ok(c) => c,
         Err(e) => {
@@ -430,10 +417,7 @@ fn connect_socket() -> Option<TcpStream> {
 }
 
 fn write_line(stream: &mut TcpStream, line: &str) -> bool {
-    stream
-        .write_all(line.as_bytes())
-        .and_then(|_| stream.write_all(b"\n"))
-        .is_ok()
+    stream.write_all(line.as_bytes()).and_then(|_| stream.write_all(b"\n")).is_ok()
 }
 
 fn writer_loop(mut stream: TcpStream, rx: Receiver<Cmd>) {
@@ -465,7 +449,9 @@ fn writer_loop(mut stream: TcpStream, rx: Receiver<Cmd>) {
             tracing::info!("mirror inject: control socket reconnected");
             continue;
         }
-        tracing::warn!("mirror inject: control socket lost — accessibility fallback + re-establish");
+        tracing::warn!(
+            "mirror inject: control socket lost — accessibility fallback + re-establish"
+        );
         on_injector_lost();
         return;
     }

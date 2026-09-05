@@ -1,28 +1,53 @@
 use std::collections::VecDeque;
 use std::sync::{Mutex, OnceLock};
 
-pub const MAX_PUSH_BYTES: usize = 2 * 1024 * 1024 * 1024;
+pub const MAX_PUSH_BYTES: u64 = u64::MAX;
 
-pub const MAX_BATCH_BYTES: usize = 4 * 1024 * 1024 * 1024;
+pub const MAX_BATCH_BYTES: u64 = u64::MAX;
 
 pub const PUSH_CHUNK_BYTES: usize = 60 * 1024;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct OutgoingFile {
     pub name: String,
     pub mime: String,
+    pub size: u64,
+    pub path: Option<std::path::PathBuf>,
     pub bytes: Vec<u8>,
     pub extract: bool,
+}
+
+impl OutgoingFile {
+    pub fn from_path(path: impl AsRef<std::path::Path>) -> Option<Self> {
+        let p = path.as_ref();
+        let meta = std::fs::metadata(p).ok()?;
+        if !meta.is_file() {
+            return None;
+        }
+        let name = p
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "vortex-file".to_string());
+        Some(Self {
+            name,
+            mime: "application/octet-stream".to_string(),
+            size: meta.len(),
+            path: Some(p.to_path_buf()),
+            bytes: Vec::new(),
+            extract: false,
+        })
+    }
+
+    pub fn from_bytes(name: String, mime: String, bytes: Vec<u8>, extract: bool) -> Self {
+        let size = bytes.len() as u64;
+        Self { name, mime, size, path: None, bytes, extract }
+    }
 }
 
 static QUEUE: Mutex<VecDeque<Vec<OutgoingFile>>> = Mutex::new(VecDeque::new());
 
 pub fn enqueue_batch(files: Vec<OutgoingFile>) -> bool {
     if files.is_empty() {
-        return false;
-    }
-    let total: usize = files.iter().map(|f| f.bytes.len()).sum();
-    if total > MAX_BATCH_BYTES {
         return false;
     }
     if let Ok(mut q) = QUEUE.lock() {
@@ -63,23 +88,32 @@ pub fn report_progress(ev: OutProgress) {
     }
 }
 
+pub fn encode_chunk_header(total_chunks: u64, chunk_idx: u64) -> Vec<u8> {
+    if total_chunks <= 0xFFFE {
+        let mut out = Vec::with_capacity(4);
+        out.extend_from_slice(&(total_chunks as u16).to_be_bytes());
+        out.extend_from_slice(&(chunk_idx as u16).to_be_bytes());
+        out
+    } else {
+        let mut out = Vec::with_capacity(10);
+        out.extend_from_slice(&0xFFFFu16.to_be_bytes());
+        out.extend_from_slice(&(total_chunks as u32).to_be_bytes());
+        out.extend_from_slice(&(chunk_idx as u32).to_be_bytes());
+        out
+    }
+}
+
 pub fn build_chunks(bytes: &[u8]) -> Vec<Vec<u8>> {
-    let total = bytes.len().div_ceil(PUSH_CHUNK_BYTES).max(1) as u16;
+    let total = bytes.len().div_ceil(PUSH_CHUNK_BYTES).max(1) as u64;
     if bytes.is_empty() {
-        return vec![{
-            let mut out = Vec::with_capacity(4);
-            out.extend_from_slice(&1u16.to_be_bytes());
-            out.extend_from_slice(&0u16.to_be_bytes());
-            out
-        }];
+        let out = encode_chunk_header(1, 0);
+        return vec![out];
     }
     bytes
         .chunks(PUSH_CHUNK_BYTES)
         .enumerate()
         .map(|(idx, chunk)| {
-            let mut out = Vec::with_capacity(4 + chunk.len());
-            out.extend_from_slice(&total.to_be_bytes());
-            out.extend_from_slice(&(idx as u16).to_be_bytes());
+            let mut out = encode_chunk_header(total, idx as u64);
             out.extend_from_slice(chunk);
             out
         })
@@ -132,11 +166,13 @@ mod tests {
     fn queue_is_fifo_and_bounded() {
         while take_batch().is_some() {}
 
-        let f = |n: &str| OutgoingFile {
-            name: n.into(),
-            mime: "application/octet-stream".into(),
-            bytes: vec![0u8; 8],
-            extract: false,
+        let f = |n: &str| {
+            OutgoingFile::from_bytes(
+                n.into(),
+                "application/octet-stream".into(),
+                vec![0u8; 8],
+                false,
+            )
         };
 
         assert!(!enqueue_batch(vec![]));
@@ -157,13 +193,13 @@ mod tests {
     }
 
     #[test]
-    fn enqueue_rejects_over_batch_cap() {
-        let big = OutgoingFile {
-            name: "huge".into(),
-            mime: "application/octet-stream".into(),
-            bytes: vec![0u8; MAX_BATCH_BYTES + 1],
-            extract: false,
-        };
-        assert!(!enqueue_batch(vec![big]), "over MAX_BATCH_BYTES rejected");
+    fn encode_chunk_header_large() {
+        let header = encode_chunk_header(100_000, 50_000);
+        assert_eq!(header.len(), 10);
+        assert_eq!(&header[0..2], &[0xFF, 0xFF]);
+        let total = u32::from_be_bytes([header[2], header[3], header[4], header[5]]);
+        let idx = u32::from_be_bytes([header[6], header[7], header[8], header[9]]);
+        assert_eq!(total, 100_000);
+        assert_eq!(idx, 50_000);
     }
 }

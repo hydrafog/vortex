@@ -1,4 +1,3 @@
-
 use std::sync::Arc;
 
 use tauri::{Emitter, State};
@@ -19,17 +18,16 @@ pub(crate) fn persist_peer_earbuds(state: &vortex_l3_daemon::core::appstate::App
         name: buds.name.clone(),
     };
     match vortex_l3_daemon::core::earbuds_store::save(&saved) {
-        Ok(()) => tracing::info!(name = %buds.name, "auto-saved peer earbuds (card pinned locally)"),
+        Ok(()) => {
+            tracing::info!(name = %buds.name, "auto-saved peer earbuds (card pinned locally)")
+        }
         Err(e) => tracing::warn!("auto-save peer earbuds failed: {e}"),
     }
 }
 
 #[tauri::command]
 pub fn refresh_local_earbuds(state: State<'_, CmdChannel>) -> Result<(), String> {
-    state
-        .0
-        .send(UiCmd::RefreshLocalEarbuds)
-        .map_err(|e| e.to_string())
+    state.0.send(UiCmd::RefreshLocalEarbuds).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -38,10 +36,7 @@ pub fn request_earbuds_switch(
     mac: String,
     state: State<'_, CmdChannel>,
 ) -> Result<(), String> {
-    state
-        .0
-        .send(UiCmd::RequestEarbudsSwitch { peer_static_pub, mac })
-        .map_err(|e| e.to_string())
+    state.0.send(UiCmd::RequestEarbudsSwitch { peer_static_pub, mac }).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -50,21 +45,14 @@ pub fn send_earbuds_claim(
     mac: String,
     state: State<'_, CmdChannel>,
 ) -> Result<(), String> {
-    state
-        .0
-        .send(UiCmd::SendEarbudsClaim { peer_static_pub, mac })
-        .map_err(|e| e.to_string())
+    state.0.send(UiCmd::SendEarbudsClaim { peer_static_pub, mac }).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn scan_bluetooth_devices() -> Result<Vec<vortex_l3_daemon::core::earbuds::BluetoothDevice>, String> {
-    let session = bluer::Session::new()
-        .await
-        .map_err(|e| format!("bluer session: {e}"))?;
-    let adapter = session
-        .default_adapter()
-        .await
-        .map_err(|e| format!("bluer adapter: {e}"))?;
+pub async fn scan_bluetooth_devices(
+) -> Result<Vec<vortex_l3_daemon::core::earbuds::BluetoothDevice>, String> {
+    let session = bluer::Session::new().await.map_err(|e| format!("bluer session: {e}"))?;
+    let adapter = session.default_adapter().await.map_err(|e| format!("bluer adapter: {e}"))?;
     let _ = adapter.set_powered(true).await;
     vortex_l3_daemon::core::earbuds::start_brief_discovery(
         &adapter,
@@ -77,20 +65,16 @@ pub async fn scan_bluetooth_devices() -> Result<Vec<vortex_l3_daemon::core::earb
 #[tauri::command]
 pub async fn save_earbuds(address: String, name: String) -> Result<(), String> {
     vortex_l3_daemon::core::earbuds_store::save(
-        &vortex_l3_daemon::core::earbuds_store::SavedEarbuds {
-            address: address.clone(),
-            name,
-        },
+        &vortex_l3_daemon::core::earbuds_store::SavedEarbuds { address: address.clone(), name },
     )
     .map_err(|e| format!("save earbuds: {e}"))?;
     tokio::spawn(async move {
         match bluer::Session::new().await {
             Ok(session) => match session.default_adapter().await {
                 Ok(adapter) => {
-                    if let Err(e) = vortex_l3_daemon::core::audio_switch::connect_audio(
-                        &adapter, &address,
-                    )
-                    .await
+                    if let Err(e) =
+                        vortex_l3_daemon::core::audio_switch::connect_audio(&adapter, &address)
+                            .await
                     {
                         tracing::warn!(%address, "save_earbuds: auto-connect failed: {e}");
                     } else {
@@ -107,8 +91,7 @@ pub async fn save_earbuds(address: String, name: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn clear_earbuds() -> Result<(), String> {
-    vortex_l3_daemon::core::earbuds_store::clear()
-        .map_err(|e| format!("clear earbuds: {e}"))
+    vortex_l3_daemon::core::earbuds_store::clear().map_err(|e| format!("clear earbuds: {e}"))
 }
 
 #[tauri::command]
@@ -180,18 +163,14 @@ pub(crate) async fn setup_audio(
     adapter: &bluer::Adapter,
     peer_store: Arc<dyn vortex_l3_daemon::core::storage::peers::PeerStore>,
 ) -> AudioSetup {
-    let session_writers =
-        vortex_l3_daemon::core::audio_lan_session::new_session_writer_map();
-    let ble_audio_writers =
-        vortex_l3_daemon::core::audio_lan_session::new_session_writer_map();
+    let session_writers = vortex_l3_daemon::core::audio_lan_session::new_session_writer_map();
+    let ble_audio_writers = vortex_l3_daemon::core::audio_lan_session::new_session_writer_map();
     let switch_orchestrator: Arc<vortex_l3_daemon::core::audio_orchestrator::SwitchOrchestrator> =
         Arc::new({
             let lan_writers = session_writers.clone();
             let ble_writers = ble_audio_writers.clone();
             vortex_l3_daemon::core::audio_orchestrator::SwitchOrchestrator::new(
-                Arc::new(vortex_l3_daemon::core::audio_orchestrator::BluerBt::new(
-                    adapter.clone(),
-                )),
+                Arc::new(vortex_l3_daemon::core::audio_orchestrator::BluerBt::new(adapter.clone())),
                 peer_store.clone(),
                 Arc::new(move |peer_pub, frame| {
                     let lan_writers = lan_writers.clone();
@@ -271,8 +250,7 @@ pub(crate) async fn setup_audio(
 
     let media_watch = vortex_l3_daemon::core::media_watch::MediaWatch::new();
     let _ = MEDIA_WATCH.set(media_watch.clone());
-    let media_in_call =
-        std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let media_in_call = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     let media_store = vortex_l3_daemon::core::media_runtime::new_media_state_store();
     vortex_l3_daemon::core::media_watch::spawn(
@@ -313,7 +291,8 @@ pub(crate) async fn setup_audio(
                             return;
                         }
                         if let Some(mac) = mac {
-                            let outcome = vortex_l3_daemon::core::audio_route::wait_for_route(&mac).await;
+                            let outcome =
+                                vortex_l3_daemon::core::audio_route::wait_for_route(&mac).await;
                             tracing::info!(
                                 sink = ?outcome.sink,
                                 ready = outcome.ready,
@@ -322,7 +301,9 @@ pub(crate) async fn setup_audio(
                                 "audio-route wait result"
                             );
                         }
-                        let resumed = vortex_l3_daemon::core::media_runtime::resume_paused_for_call(&store).await;
+                        let resumed =
+                            vortex_l3_daemon::core::media_runtime::resume_paused_for_call(&store)
+                                .await;
                         if !resumed.is_empty() {
                             tracing::info!(?resumed, "media resumed after call");
                         }

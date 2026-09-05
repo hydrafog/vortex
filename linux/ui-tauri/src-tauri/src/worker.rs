@@ -1,4 +1,3 @@
-
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::time::Duration;
@@ -41,17 +40,13 @@ pub fn start_screen_mirror(
     fps: u32,
     bitrate: u32,
 ) -> Result<(), String> {
-    state
-        .0
-        .send(UiCmd::StartMirror { width, height, fps, bitrate })
-        .map_err(|e| e.to_string())
+    state.0.send(UiCmd::StartMirror { width, height, fps, bitrate }).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn stop_screen_mirror(state: State<'_, CmdChannel>) -> Result<(), String> {
     state.0.send(UiCmd::StopMirror).map_err(|e| e.to_string())
 }
-
 
 pub(crate) fn run_worker(app: AppHandle, cmd_rx: Receiver<UiCmd>) {
     load_last_peer_ip();

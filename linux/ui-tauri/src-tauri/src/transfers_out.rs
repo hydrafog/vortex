@@ -1,4 +1,3 @@
-
 use std::sync::Mutex;
 use std::sync::OnceLock;
 
@@ -33,12 +32,7 @@ pub(crate) fn init(live_tx: UnboundedSender<LiveActivity>) {
 
 pub(crate) fn start(label: &str, total: u64) {
     if let Ok(mut g) = BATCH.lock() {
-        *g = Some(Batch {
-            label: label.to_string(),
-            total,
-            sent: 0,
-            phase: Phase::Waiting,
-        });
+        *g = Some(Batch { label: label.to_string(), total, sent: 0, phase: Phase::Waiting });
     }
     emit();
 }
@@ -135,42 +129,24 @@ fn emit() {
             Some(b) => b,
             None => return,
         };
-        let pct = if b.total > 0 {
-            (b.sent.saturating_mul(100) / b.total) as i32
-        } else {
-            0
-        };
+        let pct = if b.total > 0 { (b.sent.saturating_mul(100) / b.total) as i32 } else { 0 };
         match b.phase {
-            Phase::Waiting => (
-                format!("Sharing {}", b.label),
-                "Waiting for phone…".to_string(),
-                -1,
-                false,
-            ),
+            Phase::Waiting => {
+                (format!("Sharing {}", b.label), "Waiting for phone…".to_string(), -1, false)
+            }
             Phase::Sending => (
                 format!("Sending {}", b.label),
                 format!("{} / {}", fmt_bytes(b.sent), fmt_bytes(b.total)),
                 pct,
                 false,
             ),
-            Phase::Done => (
-                format!("Sent {}", b.label),
-                "Delivered to phone".to_string(),
-                100,
-                true,
-            ),
-            Phase::Declined => (
-                format!("Declined: {}", b.label),
-                "Phone declined".to_string(),
-                0,
-                true,
-            ),
-            Phase::Failed => (
-                format!("Send failed: {}", b.label),
-                String::new(),
-                0,
-                true,
-            ),
+            Phase::Done => {
+                (format!("Sent {}", b.label), "Delivered to phone".to_string(), 100, true)
+            }
+            Phase::Declined => {
+                (format!("Declined: {}", b.label), "Phone declined".to_string(), 0, true)
+            }
+            Phase::Failed => (format!("Send failed: {}", b.label), String::new(), 0, true),
         }
     };
 

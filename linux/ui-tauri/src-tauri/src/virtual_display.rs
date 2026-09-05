@@ -1,4 +1,3 @@
-
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -49,9 +48,8 @@ pub(crate) fn spawn_cursor_overlay(
         let mut shown = false;
         while alive.load(Ordering::Relaxed) {
             tick.tick().await;
-            let Ok((x, y, on)) = shell
-                .call::<_, _, (i32, i32, bool)>("GetVirtualPointer", &())
-                .await
+            let Ok((x, y, on)) =
+                shell.call::<_, _, (i32, i32, bool)>("GetVirtualPointer", &()).await
             else {
                 continue;
             };
@@ -75,9 +73,7 @@ pub(crate) struct VirtualMonitor {
 }
 
 pub(crate) async fn create() -> Result<VirtualMonitor, String> {
-    let conn = zbus::Connection::session()
-        .await
-        .map_err(|e| format!("session bus: {e}"))?;
+    let conn = zbus::Connection::session().await.map_err(|e| format!("session bus: {e}"))?;
 
     let screencast = zbus::Proxy::new(&conn, BUS, PATH, BUS)
         .await
@@ -107,19 +103,13 @@ pub(crate) async fn create() -> Result<VirtualMonitor, String> {
         .await
         .map_err(|e| format!("subscribe: {e}"))?;
 
-    session_proxy
-        .call::<_, _, ()>("Start", &())
-        .await
-        .map_err(|e| format!("Start: {e}"))?;
+    session_proxy.call::<_, _, ()>("Start", &()).await.map_err(|e| format!("Start: {e}"))?;
 
     let msg = tokio::time::timeout(Duration::from_secs(5), added.next())
         .await
         .map_err(|_| "timed out waiting for the PipeWire node".to_string())?
         .ok_or_else(|| "stream closed before announcing a node".to_string())?;
-    let node_id: u32 = msg
-        .body()
-        .deserialize()
-        .map_err(|e| format!("node id: {e}"))?;
+    let node_id: u32 = msg.body().deserialize().map_err(|e| format!("node id: {e}"))?;
 
     if let Ok(mut closed) = session_proxy.receive_signal("Closed").await {
         tokio::spawn(async move {
@@ -130,22 +120,13 @@ pub(crate) async fn create() -> Result<VirtualMonitor, String> {
     }
 
     tracing::info!(node_id, "virtual-display: monitor session up");
-    Ok(VirtualMonitor {
-        conn,
-        session,
-        node_id,
-    })
+    Ok(VirtualMonitor { conn, session, node_id })
 }
 
 impl VirtualMonitor {
     pub(crate) async fn stop(&self) {
-        let Ok(proxy) = zbus::Proxy::new(
-            &self.conn,
-            BUS,
-            self.session.clone(),
-            format!("{BUS}.Session"),
-        )
-        .await
+        let Ok(proxy) =
+            zbus::Proxy::new(&self.conn, BUS, self.session.clone(), format!("{BUS}.Session")).await
         else {
             return;
         };

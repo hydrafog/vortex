@@ -223,3 +223,7 @@ export async function requestEarbudsSwitch(peerStaticPub: string, mac: string): 
 export async function sendEarbudsClaim(peerStaticPub: string, mac: string): Promise<void> {
   await invoke("send_earbuds_claim", { peerStaticPub, mac });
 }
+
+export async function getSystemAccentColor(): Promise<string | null> {
+  return await invoke<string | null>("get_system_accent_color");
+}

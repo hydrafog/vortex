@@ -21,7 +21,7 @@ object ClipboardFileReader {
             bytes == null -> null
             bytes.isEmpty() -> null
             bytes.size > MAX_FILE_BYTES -> {
-                Log.i(TAG, "file too large (${bytes.size} bytes) — not sent")
+                Log.i(TAG, "file too large (${bytes.size} bytes): not sent")
                 null
             }
             else -> ClipboardOutgoingFile(bytes, name, mime)

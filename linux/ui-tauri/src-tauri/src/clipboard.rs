@@ -1,4 +1,3 @@
-
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -7,8 +6,7 @@ use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter};
 
 use crate::clipboard_sync::{
-    img_sig, queue_clipboard_for_sync, queue_clipboard_image_for_sync, tidy_text,
-    with_clip_setter,
+    img_sig, queue_clipboard_for_sync, queue_clipboard_image_for_sync, tidy_text, with_clip_setter,
 };
 
 const POLL_MS: u64 = 700;
@@ -16,7 +14,6 @@ const MAX_ENTRIES: usize = 1000;
 const MAX_TOTAL_BYTES: u64 = 100 * 1024 * 1024;
 const MAX_TEXT_CHARS: usize = 65_536;
 const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024;
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ClipEntry {
@@ -146,7 +143,6 @@ fn evict(entries: &mut Vec<ClipEntry>) {
     }
 }
 
-
 fn rgba_to_png(img: &arboard::ImageData) -> Option<Vec<u8>> {
     let buf: image::RgbaImage = image::RgbaImage::from_raw(
         img.width as u32,
@@ -179,8 +175,8 @@ fn poll_once(cb: &mut arboard::Clipboard, last_sig: &mut String, last_state: &mu
             queue_clipboard_for_sync(&clean);
             return store_capture("text", Some(clean), None);
         }
-        Ok(_) => {  }
-        Err(arboard::Error::ContentNotAvailable) => {  }
+        Ok(_) => {}
+        Err(arboard::Error::ContentNotAvailable) => {}
         Err(e) => {
             log_clip_state(last_state, 3, &format!("text read error: {e}"));
         }
@@ -211,7 +207,6 @@ fn poll_once(cb: &mut arboard::Clipboard, last_sig: &mut String, last_state: &mu
     false
 }
 
-
 fn wayland_clipboard_is_secret() -> Option<bool> {
     use wl_clipboard_rs::paste::{get_mime_types, ClipboardType, Seat};
 
@@ -230,9 +225,7 @@ fn clipboard_is_secret() -> bool {
         return secret;
     }
     use x11rb::connection::Connection;
-    use x11rb::protocol::xproto::{
-        AtomEnum, ConnectionExt, CreateWindowAux, WindowClass,
-    };
+    use x11rb::protocol::xproto::{AtomEnum, ConnectionExt, CreateWindowAux, WindowClass};
     use x11rb::protocol::Event;
 
     struct Probe {
@@ -248,32 +241,29 @@ fn clipboard_is_secret() -> bool {
         let root = conn.setup().roots.get(screen_num)?.root;
         let win = conn.generate_id().ok()?;
         conn.create_window(
-            0, win, root, 0, 0, 1, 1, 0,
-            WindowClass::INPUT_ONLY, 0, &CreateWindowAux::new(),
+            0,
+            win,
+            root,
+            0,
+            0,
+            1,
+            1,
+            0,
+            WindowClass::INPUT_ONLY,
+            0,
+            &CreateWindowAux::new(),
         )
         .ok()?
         .check()
         .ok()?;
         let clipboard = conn.intern_atom(false, b"CLIPBOARD").ok()?.reply().ok()?.atom;
-        let hint = conn
-            .intern_atom(false, b"x-kde-passwordManagerHint")
-            .ok()?
-            .reply()
-            .ok()?
-            .atom;
-        let prop = conn
-            .intern_atom(false, b"VORTEX_CLIP_SECRET")
-            .ok()?
-            .reply()
-            .ok()?
-            .atom;
+        let hint = conn.intern_atom(false, b"x-kde-passwordManagerHint").ok()?.reply().ok()?.atom;
+        let prop = conn.intern_atom(false, b"VORTEX_CLIP_SECRET").ok()?.reply().ok()?.atom;
         Some(Probe { conn, win, clipboard, hint, prop })
     }
 
     fn query(p: &Probe) -> Option<bool> {
-        p.conn
-            .convert_selection(p.win, p.clipboard, p.hint, p.prop, 0u32)
-            .ok()?;
+        p.conn.convert_selection(p.win, p.clipboard, p.hint, p.prop, 0u32).ok()?;
         p.conn.flush().ok()?;
         let deadline = std::time::Instant::now() + std::time::Duration::from_millis(60);
         loop {
@@ -370,7 +360,6 @@ pub(crate) fn spawn_clipboard_watcher(app: AppHandle) {
         }
     });
 }
-
 
 #[derive(Serialize)]
 pub(crate) struct ClipEntryDto {
@@ -532,18 +521,14 @@ mod tests {
         let mut v: Vec<ClipEntry> =
             (0..n).map(|i| text_entry(&format!("e{i}"), 1, i == n - 1)).collect();
         evict(&mut v);
-        assert!(
-            v.iter().any(|e| e.id == format!("e{}", n - 1)),
-            "pinned tail entry must survive"
-        );
+        assert!(v.iter().any(|e| e.id == format!("e{}", n - 1)), "pinned tail entry must survive");
         assert_eq!(v.len(), MAX_ENTRIES);
     }
 
     #[test]
     fn evict_respects_byte_budget() {
-        let mut v: Vec<ClipEntry> = (0..10)
-            .map(|i| text_entry(&format!("e{i}"), MAX_TOTAL_BYTES / 4, false))
-            .collect();
+        let mut v: Vec<ClipEntry> =
+            (0..10).map(|i| text_entry(&format!("e{i}"), MAX_TOTAL_BYTES / 4, false)).collect();
         evict(&mut v);
         let total: u64 = v.iter().map(|e| e.bytes).sum();
         assert!(total <= MAX_TOTAL_BYTES);

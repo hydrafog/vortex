@@ -1,4 +1,3 @@
-
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
@@ -7,7 +6,6 @@ use tauri::{AppHandle, Emitter};
 
 use vortex_l3_daemon::core::appstate::AppState;
 use vortex_l3_daemon::core::storage::peers::PeerStore;
-
 
 pub(crate) enum UiCmd {
     Scan,
@@ -65,11 +63,7 @@ pub(crate) struct EarbudsDto {
 
 impl From<vortex_l3_daemon::core::appstate::EarbudsInfo> for EarbudsDto {
     fn from(e: vortex_l3_daemon::core::appstate::EarbudsInfo) -> Self {
-        EarbudsDto {
-            name: e.name,
-            battery: e.battery,
-            connected: e.connected,
-        }
+        EarbudsDto { name: e.name, battery: e.battery, connected: e.connected }
     }
 }
 
@@ -106,7 +100,8 @@ pub(crate) fn app_state_to_dto(peer_pub_hex: String, s: AppState) -> PeerStateDt
     dto
 }
 
-fn peer_state_cache() -> &'static std::sync::Mutex<std::collections::HashMap<String, PeerStateDto>> {
+fn peer_state_cache() -> &'static std::sync::Mutex<std::collections::HashMap<String, PeerStateDto>>
+{
     static CACHE: std::sync::OnceLock<
         std::sync::Mutex<std::collections::HashMap<String, PeerStateDto>>,
     > = std::sync::OnceLock::new();

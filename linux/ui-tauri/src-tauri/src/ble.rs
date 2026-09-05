@@ -1,4 +1,3 @@
-
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -53,10 +52,7 @@ pub(crate) fn expected_presence_tokens(
 ) -> std::collections::HashSet<[u8; 8]> {
     use std::time::{SystemTime, UNIX_EPOCH};
     use vortex_l3_daemon::core::crypto::presence::{current_bucket, derive_presence_token};
-    let now_sec = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+    let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
     let bucket_now = current_bucket(now_sec, PRESENCE_ROTATION_SEC);
     peers
         .iter()
@@ -113,7 +109,9 @@ pub(crate) async fn find_trusted_presence_peer(
                 break;
             }
             if tokio::time::Instant::now() >= deadline {
-                tracing::debug!("presence scan: adapter still discovering after 2s; connecting anyway");
+                tracing::debug!(
+                    "presence scan: adapter still discovering after 2s; connecting anyway"
+                );
                 break;
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -155,12 +153,8 @@ async fn monitor_presence_wait(
     use futures::StreamExt;
 
     const AD_SERVICE_DATA_128: u8 = 0x21;
-    let uuid_le: Vec<u8> = vortex_l3_daemon::core::ble::VORTEX_SERVICE_UUID
-        .as_bytes()
-        .iter()
-        .rev()
-        .copied()
-        .collect();
+    let uuid_le: Vec<u8> =
+        vortex_l3_daemon::core::ble::VORTEX_SERVICE_UUID.as_bytes().iter().rev().copied().collect();
 
     let manager = match adapter.monitor().await {
         Ok(m) => m,
@@ -261,8 +255,7 @@ pub(crate) async fn wait_for_presence(
         tokio::time::sleep(Duration::from_secs(10)).await;
         return None;
     }
-    if let Some(a) =
-        find_trusted_presence_peer(adapter, peer_store, Duration::from_secs(15)).await
+    if let Some(a) = find_trusted_presence_peer(adapter, peer_store, Duration::from_secs(15)).await
     {
         return Some(a);
     }
@@ -289,11 +282,8 @@ pub(crate) async fn connect_bonded_or_scan(
     consec_connect_fail: &mut u32,
 ) -> Option<VortexClient> {
     if let Some(addr) = *last_rpa {
-        match tokio::time::timeout(
-            Duration::from_secs(3),
-            VortexClient::connect(adapter, addr),
-        )
-        .await
+        match tokio::time::timeout(Duration::from_secs(3), VortexClient::connect(adapter, addr))
+            .await
         {
             Ok(Ok(client)) => {
                 tracing::info!(addr = %addr, "BLE persistent: last-RPA direct-connect succeeded");
@@ -319,13 +309,13 @@ pub(crate) async fn connect_bonded_or_scan(
         }
     };
     const CONNECT_CAP: Duration = Duration::from_secs(8);
-    let connect = match tokio::time::timeout(CONNECT_CAP, VortexClient::connect(adapter, addr)).await
-    {
-        Ok(r) => r,
-        Err(_) => Err(vortex_l3_daemon::core::ble::client::ClientError::Timeout(
-            "connect (capped)",
-        )),
-    };
+    let connect =
+        match tokio::time::timeout(CONNECT_CAP, VortexClient::connect(adapter, addr)).await {
+            Ok(r) => r,
+            Err(_) => {
+                Err(vortex_l3_daemon::core::ble::client::ClientError::Timeout("connect (capped)"))
+            }
+        };
     match connect {
         Ok(client) => {
             *last_rpa = Some(addr);
@@ -390,9 +380,7 @@ pub(crate) async fn run_ble_persistent_loop(
         vortex_l3_daemon::core::live_activity::LiveActivity,
     >,
     icon_tx: tokio::sync::mpsc::UnboundedSender<(String, u16, u16, Vec<u8>)>,
-    call_tx: tokio::sync::mpsc::UnboundedSender<
-        vortex_l3_daemon::core::call_event::CallEvent,
-    >,
+    call_tx: tokio::sync::mpsc::UnboundedSender<vortex_l3_daemon::core::call_event::CallEvent>,
     contacts_tx: tokio::sync::mpsc::UnboundedSender<(u16, u16, Vec<u8>)>,
     call_log_tx: tokio::sync::mpsc::UnboundedSender<(u16, u16, Vec<u8>)>,
     sms_tx: tokio::sync::mpsc::UnboundedSender<(u16, u16, Vec<u8>)>,
@@ -404,9 +392,7 @@ pub(crate) async fn run_ble_persistent_loop(
     clipboard_offer_tx: tokio::sync::mpsc::UnboundedSender<
         vortex_l3_daemon::core::clipboard_mirror::ClipboardImageOffer,
     >,
-    handoff_tx: tokio::sync::mpsc::UnboundedSender<
-        vortex_l3_daemon::core::handoff::HandoffEvent,
-    >,
+    handoff_tx: tokio::sync::mpsc::UnboundedSender<vortex_l3_daemon::core::handoff::HandoffEvent>,
     raw_frame_tx: tokio::sync::mpsc::UnboundedSender<(u8, Vec<u8>)>,
     notif_writer: Arc<tokio::sync::Mutex<Option<NotifWriter>>>,
     clipboard_writer: Arc<tokio::sync::Mutex<Option<crate::ClipboardWriter>>>,
@@ -415,9 +401,9 @@ pub(crate) async fn run_ble_persistent_loop(
     sealed_writer: Arc<tokio::sync::Mutex<Option<crate::SealedWriter>>>,
     retry_nudge: Arc<tokio::sync::Notify>,
 ) {
-    use vortex_l3_daemon::core::ble::audio_signal;
     use vortex_l3_daemon::core::audio_lan_session::SessionWriter;
     use vortex_l3_daemon::core::audio_op::AudioOpFrame;
+    use vortex_l3_daemon::core::ble::audio_signal;
     let mut last_rpa: Option<bluer::Address> = None;
     let mut consec_ik_fail: u32 = 0;
     let mut consec_connect_fail: u32 = 0;
@@ -455,9 +441,7 @@ pub(crate) async fn run_ble_persistent_loop(
         {
             use vortex_l3_daemon::core::audio_orchestrator::SwitchState;
             let mut waited_ms = 0u64;
-            while *switch_orchestrator.state().borrow() != SwitchState::Idle
-                && waited_ms < 20_000
-            {
+            while *switch_orchestrator.state().borrow() != SwitchState::Idle && waited_ms < 20_000 {
                 tokio::time::sleep(Duration::from_millis(400)).await;
                 waited_ms += 400;
             }
@@ -485,9 +469,7 @@ pub(crate) async fn run_ble_persistent_loop(
             }
         };
         if client.audio_signal.is_none() {
-            tracing::warn!(
-                "P2.13: peer has no AUDIO_SIGNAL characteristic — older phone build?"
-            );
+            tracing::warn!("P2.13: peer has no AUDIO_SIGNAL characteristic — older phone build?");
             tokio::time::sleep(Duration::from_secs(30)).await;
             continue;
         }
@@ -495,11 +477,9 @@ pub(crate) async fn run_ble_persistent_loop(
         let local_counter = {
             let store = peer_store.clone();
             let peer_pub = peer.peer_static_pub;
-            tokio::task::spawn_blocking(move || {
-                store.load_counter(&peer_pub).unwrap_or(0)
-            })
-            .await
-            .unwrap_or(0)
+            tokio::task::spawn_blocking(move || store.load_counter(&peer_pub).unwrap_or(0))
+                .await
+                .unwrap_or(0)
         };
         tracing::info!("P2.13: BLE IK starting");
         let outcome = match run_ik_initiator(
@@ -554,9 +534,7 @@ pub(crate) async fn run_ble_persistent_loop(
         let writer_fn: SessionWriter = Arc::new(move |frame: AudioOpFrame| {
             let transport = writer_transport.clone();
             let client = writer_client.clone();
-            Box::pin(async move {
-                audio_signal::write_audio_op(&client, transport, frame).await
-            })
+            Box::pin(async move { audio_signal::write_audio_op(&client, transport, frame).await })
         });
         {
             let mut m = ble_audio_writers.lock().await;
@@ -583,9 +561,9 @@ pub(crate) async fn run_ble_persistent_loop(
             let writer: crate::ClipboardWriter = Arc::new(move |clip| {
                 let transport = cw_transport.clone();
                 let client = cw_client.clone();
-                Box::pin(async move {
-                    audio_signal::write_clipboard(&client, transport, &clip).await
-                })
+                Box::pin(
+                    async move { audio_signal::write_clipboard(&client, transport, &clip).await },
+                )
             });
             *clipboard_writer.lock().await = Some(writer);
         }
@@ -642,8 +620,7 @@ pub(crate) async fn run_ble_persistent_loop(
                     let mut state = vortex_l3_daemon::core::appstate::AppState::now_laptop();
                     state.earbuds =
                         vortex_l3_daemon::core::earbuds::scan_local_earbuds(&st_adapter).await;
-                    state.locked =
-                        vortex_l3_daemon::core::session_lock::locked_hint().await;
+                    state.locked = vortex_l3_daemon::core::session_lock::locked_hint().await;
                     state.laptop_cast = crate::laptop_cast::current_offer();
                     state.laptop_cast_error = crate::laptop_cast::current_error();
                     state.camera_req = crate::camera::camera_wanted();
@@ -673,7 +650,9 @@ pub(crate) async fn run_ble_persistent_loop(
                                 let _ = st_adapter.remove_device(st_client.address).await;
                                 break;
                             }
-                            tracing::debug!("BLE state write failed (#{consecutive_fail}); retrying: {e}");
+                            tracing::debug!(
+                                "BLE state write failed (#{consecutive_fail}); retrying: {e}"
+                            );
                             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                             continue;
                         }
@@ -700,9 +679,9 @@ pub(crate) async fn run_ble_persistent_loop(
                     Err(_) => return,
                 };
                 while let Some(ev) = events.next().await {
-                    if let bluer::DeviceEvent::PropertyChanged(
-                        bluer::DeviceProperty::Connected(false),
-                    ) = ev
+                    if let bluer::DeviceEvent::PropertyChanged(bluer::DeviceProperty::Connected(
+                        false,
+                    )) = ev
                     {
                         tracing::info!(
                             addr = %cw_addr,

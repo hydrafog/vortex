@@ -1,4 +1,3 @@
-
 use std::path::PathBuf;
 
 use tauri::{AppHandle, Emitter};
@@ -69,10 +68,7 @@ fn offer_login_code(known: &[SmsMessage], incoming: &[SmsMessage]) {
 }
 
 pub(crate) fn clear(app: &AppHandle) {
-    for p in [cache_path(), history_path(), history_since_path()]
-        .into_iter()
-        .flatten()
-    {
+    for p in [cache_path(), history_path(), history_since_path()].into_iter().flatten() {
         let _ = std::fs::remove_file(&p);
     }
     let _ = app.emit("vortex:sms", Vec::<SmsMessage>::new());
@@ -132,7 +128,6 @@ pub(crate) fn get_sms() -> Vec<SmsMessage> {
         .and_then(|b| serde_json::from_slice::<Vec<SmsMessage>>(&b).ok())
         .unwrap_or_default()
 }
-
 
 fn history_path() -> Option<PathBuf> {
     let mut p = PathBuf::from(std::env::var_os("HOME")?);
@@ -195,10 +190,8 @@ pub(crate) fn merge_history(app: &AppHandle, json: &[u8]) {
 }
 
 fn ids_json() -> Vec<u8> {
-    let mut ids: Vec<i64> = get_sms_history()
-        .iter()
-        .filter_map(|m| m.id.parse::<i64>().ok())
-        .collect();
+    let mut ids: Vec<i64> =
+        get_sms_history().iter().filter_map(|m| m.id.parse::<i64>().ok()).collect();
     ids.sort_unstable();
     let strs: Vec<String> = ids.iter().map(|i| i.to_string()).collect();
     serde_json::to_vec(&strs).unwrap_or_else(|_| b"[]".to_vec())
@@ -219,11 +212,8 @@ pub(crate) fn reconcile_ids(app: &AppHandle, json: &[u8]) {
     };
     let keep: std::collections::HashSet<&str> = ids.iter().map(|s| s.as_str()).collect();
     let before = get_sms_history();
-    let after: Vec<SmsMessage> = before
-        .iter()
-        .filter(|m| keep.contains(m.id.as_str()))
-        .cloned()
-        .collect();
+    let after: Vec<SmsMessage> =
+        before.iter().filter(|m| keep.contains(m.id.as_str())).cloned().collect();
     let pruned = before.len() - after.len();
     if pruned == 0 {
         return;

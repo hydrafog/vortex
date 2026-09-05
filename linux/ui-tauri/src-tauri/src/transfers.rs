@@ -1,4 +1,3 @@
-
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
@@ -28,14 +27,7 @@ pub(crate) fn init(live_tx: UnboundedSender<LiveActivity>) {
 pub(crate) fn start(name: &str, size: u64) -> u64 {
     let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
     if let Ok(mut g) = ITEMS.lock() {
-        g.push(Item {
-            id,
-            name: name.to_string(),
-            size,
-            received: 0,
-            done: false,
-            failed: false,
-        });
+        g.push(Item { id, name: name.to_string(), size, received: 0, done: false, failed: false });
     }
     emit();
     id
@@ -123,21 +115,10 @@ fn emit() {
         let count = g.len();
         let done_n = g.iter().filter(|i| i.done || i.failed).count();
         let total: u64 = g.iter().map(|i| i.size).sum();
-        let received: u64 = g
-            .iter()
-            .map(|i| if i.done { i.size } else { i.received })
-            .sum();
+        let received: u64 = g.iter().map(|i| if i.done { i.size } else { i.received }).sum();
         let all_done = g.iter().all(|i| i.done || i.failed);
-        let pct = if total > 0 {
-            (received.saturating_mul(100) / total) as i32
-        } else {
-            0
-        };
-        let label = if count == 1 {
-            g[0].name.clone()
-        } else {
-            format!("{count} files")
-        };
+        let pct = if total > 0 { (received.saturating_mul(100) / total) as i32 } else { 0 };
+        let label = if count == 1 { g[0].name.clone() } else { format!("{count} files") };
         if all_done {
             (
                 format!("Received {label}"),
@@ -155,11 +136,7 @@ fn emit() {
         } else {
             (
                 format!("Receiving {count} files"),
-                format!(
-                    "{done_n}/{count} · {} / {}",
-                    fmt_bytes(received),
-                    fmt_bytes(total)
-                ),
+                format!("{done_n}/{count} · {} / {}", fmt_bytes(received), fmt_bytes(total)),
                 pct,
                 false,
             )

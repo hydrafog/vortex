@@ -1,4 +1,3 @@
-
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -41,11 +40,12 @@ pub(crate) async fn do_pair(
     }
     let hygiene_ms = t_pair.elapsed().as_millis();
 
-    let client = VortexClient::connect(adapter, addr)
-        .await
-        .map_err(|e| format!("connect: {e}"))?;
-    info!(hygiene_ms, connect_total_ms = t_pair.elapsed().as_millis(),
-        "pair: connected to {addr_str}; running Noise XX");
+    let client = VortexClient::connect(adapter, addr).await.map_err(|e| format!("connect: {e}"))?;
+    info!(
+        hygiene_ms,
+        connect_total_ms = t_pair.elapsed().as_millis(),
+        "pair: connected to {addr_str}; running Noise XX"
+    );
 
     let local_name = std::fs::read_to_string("/proc/sys/kernel/hostname")
         .ok()
@@ -111,9 +111,7 @@ pub(crate) async fn do_pair(
         paired_at,
         peer_name: outcome.peer_name.clone(),
     };
-    peer_store
-        .save(&trusted)
-        .map_err(|e| format!("save trust: {e}"))?;
+    peer_store.save(&trusted).map_err(|e| format!("save trust: {e}"))?;
 
     emit_peers(app, peer_store.clone()).await;
 
@@ -127,12 +125,10 @@ pub(crate) async fn send_revoke_to_peer(
     peer_pub: &[u8; 32],
     local_counter: u64,
 ) -> Result<(), String> {
-    let candidate = vortex_l3_daemon::core::lan::discovery::discover_first(
-        Duration::from_secs(3),
-    )
-    .await
-    .map_err(|e| format!("mdns: {e}"))?
-    .ok_or_else(|| "no LAN candidate".to_string())?;
+    let candidate = vortex_l3_daemon::core::lan::discovery::discover_first(Duration::from_secs(3))
+        .await
+        .map_err(|e| format!("mdns: {e}"))?
+        .ok_or_else(|| "no LAN candidate".to_string())?;
     let ip = candidate
         .addresses
         .iter()
@@ -159,7 +155,6 @@ pub(crate) async fn send_revoke_to_peer(
     Ok(())
 }
 
-
 #[tauri::command]
 pub fn start_pair(addr: String, state: State<'_, CmdChannel>) -> Result<(), String> {
     state.0.send(UiCmd::Pair(addr)).map_err(|e| e.to_string())
@@ -178,10 +173,7 @@ pub fn pair_decision(approve: bool, state: State<'_, PairDecisionState>) -> Resu
 
 #[tauri::command]
 pub fn forget_peer(peer_static_pub: String, state: State<'_, CmdChannel>) -> Result<(), String> {
-    state
-        .0
-        .send(UiCmd::ForgetPeer(peer_static_pub))
-        .map_err(|e| e.to_string())
+    state.0.send(UiCmd::ForgetPeer(peer_static_pub)).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

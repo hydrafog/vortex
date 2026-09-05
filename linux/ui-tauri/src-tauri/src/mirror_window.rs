@@ -1,4 +1,3 @@
-
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -268,10 +267,7 @@ pub(crate) fn attach_video(pipeline: gst::Pipeline) {
         attach_now(&pipeline);
         let _ = done_tx.send(());
     });
-    if done_rx
-        .recv_timeout(std::time::Duration::from_secs(3))
-        .is_err()
-    {
+    if done_rx.recv_timeout(std::time::Duration::from_secs(3)).is_err() {
         tracing::warn!("mirror-window: widget attach timed out - video may open detached");
     }
 }

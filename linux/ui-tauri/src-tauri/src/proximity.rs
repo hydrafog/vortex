@@ -1,4 +1,3 @@
-
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -11,7 +10,6 @@ pub(crate) const IDLE_GATE_MS: u64 = 30_000;
 pub(crate) const WAKE_WINDOW_MS: u64 = 20_000;
 pub(crate) const UNLOCK_COOLDOWN_MS: u64 = 30_000;
 pub(crate) const RELOCK_IDLE_MS: u64 = 90_000;
-
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub(crate) struct ProximitySettings {
@@ -61,10 +59,8 @@ pub fn set_proximity_settings(auto_lock: bool, auto_unlock: bool) -> Result<(), 
     let s = ProximitySettings { auto_lock, auto_unlock };
     let path = settings_path().ok_or("no config dir")?;
     let bytes = serde_json::to_vec_pretty(&s).map_err(|e| e.to_string())?;
-    vortex_l3_daemon::core::fs_private::write_private(&path, &bytes)
-        .map_err(|e| e.to_string())
+    vortex_l3_daemon::core::fs_private::write_private(&path, &bytes).map_err(|e| e.to_string())
 }
-
 
 #[derive(Debug, Default, Clone, Copy)]
 pub(crate) struct ProxState {
@@ -111,8 +107,7 @@ pub(crate) fn step(s: &mut ProxState, i: &Inputs) -> Action {
     s.last_link_live = i.link_live;
 
     let present = i.link_live
-        || (i.last_presence_ms != 0
-            && i.now_ms.saturating_sub(i.last_presence_ms) < AWAY_GRACE_MS);
+        || (i.last_presence_ms != 0 && i.now_ms.saturating_sub(i.last_presence_ms) < AWAY_GRACE_MS);
 
     if i.user_active {
         s.eager_at_ms = 0;
@@ -180,8 +175,7 @@ pub(crate) fn step(s: &mut ProxState, i: &Inputs) -> Action {
     }
 
     if i.auto_unlock_on && i.locked == Some(true) && s.unlock_armed && i.phone_unlocked {
-        let cooled =
-            i.now_ms.saturating_sub(s.last_auto_unlock_ms) >= UNLOCK_COOLDOWN_MS;
+        let cooled = i.now_ms.saturating_sub(s.last_auto_unlock_ms) >= UNLOCK_COOLDOWN_MS;
         if i.link_live && cooled && (!s.require_wake || i.user_active) {
             s.last_auto_unlock_ms = i.now_ms;
             s.unlock_armed = false;
@@ -194,11 +188,7 @@ pub(crate) fn step(s: &mut ProxState, i: &Inputs) -> Action {
         if s.require_wake {
             if i.user_active && !i.link_live {
                 s.wake_until_ms = i.now_ms + WAKE_WINDOW_MS;
-            } else if s.wake_until_ms != 0
-                && i.now_ms <= s.wake_until_ms
-                && i.link_live
-                && cooled
-            {
+            } else if s.wake_until_ms != 0 && i.now_ms <= s.wake_until_ms && i.link_live && cooled {
                 s.last_auto_unlock_ms = i.now_ms;
                 s.unlock_armed = false;
                 s.wake_until_ms = 0;
@@ -210,16 +200,15 @@ pub(crate) fn step(s: &mut ProxState, i: &Inputs) -> Action {
     Action::None
 }
 
-
 pub(crate) fn nudge() -> &'static tokio::sync::Notify {
     static NUDGE: std::sync::OnceLock<tokio::sync::Notify> = std::sync::OnceLock::new();
     NUDGE.get_or_init(tokio::sync::Notify::new)
 }
 
 async fn desktop_notify(title: &str, text: &str) {
-    let Ok(n) = serde_json::from_value::<
-        vortex_l3_daemon::core::notif_mirror::NotificationMirror,
-    >(serde_json::json!({ "app": "Vortex", "title": title, "text": text })) else {
+    let Ok(n) = serde_json::from_value::<vortex_l3_daemon::core::notif_mirror::NotificationMirror>(
+        serde_json::json!({ "app": "Vortex", "title": title, "text": text }),
+    ) else {
         return;
     };
     let _ = vortex_l3_daemon::core::notification_display::show(&n, 0).await;
@@ -243,7 +232,9 @@ pub(crate) fn spawn_proximity_watch(
             })
             .await
             {
-                tracing::warn!("proximity: user-active watch unavailable: {e} (auto-unlock degraded)");
+                tracing::warn!(
+                    "proximity: user-active watch unavailable: {e} (auto-unlock degraded)"
+                );
             }
         }
 
@@ -258,15 +249,10 @@ pub(crate) fn spawn_proximity_watch(
                     .map(|d| d.as_millis() as u64)
                     .unwrap_or(0);
                 let link_live = !ble_writers.lock().await.is_empty();
-                let last_presence_ms =
-                    crate::ble::LAST_PRESENCE_MS.load(Ordering::Relaxed);
+                let last_presence_ms = crate::ble::LAST_PRESENCE_MS.load(Ordering::Relaxed);
                 let adapter_on = adapter.is_powered().await.unwrap_or(false);
                 let locked = session_lock::locked_hint().await;
-                let idle_ms = if auto_lock_on {
-                    session_lock::idle_ms().await
-                } else {
-                    None
-                };
+                let idle_ms = if auto_lock_on { session_lock::idle_ms().await } else { None };
                 let action = step(
                     &mut st,
                     &Inputs {
@@ -284,8 +270,7 @@ pub(crate) fn spawn_proximity_watch(
                 );
                 match action {
                     Action::Lock => {
-                        let presence_before =
-                            crate::ble::LAST_PRESENCE_MS.load(Ordering::Relaxed);
+                        let presence_before = crate::ble::LAST_PRESENCE_MS.load(Ordering::Relaxed);
                         let found = crate::ble::find_trusted_presence_peer(
                             &adapter,
                             &peer_store,
@@ -347,7 +332,6 @@ pub(crate) fn spawn_proximity_watch(
         }
     });
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -1,4 +1,3 @@
-
 const KEYS_SCHEMA: &str = "org.gnome.settings-daemon.plugins.media-keys";
 const CUSTOM_PATH: &str =
     "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/vortex-clipboard/";

@@ -1,4 +1,3 @@
-
 use std::time::Duration;
 
 use tauri::Emitter;
@@ -60,10 +59,7 @@ pub(crate) async fn pair(
     active_scan: &mut Option<tokio::task::JoinHandle<()>>,
 ) {
     let app = &ctx.app;
-    let _ = app.emit(
-        "vortex:pairing_started",
-        PairingStartedDto { peer_addr: addr_str.clone() },
-    );
+    let _ = app.emit("vortex:pairing_started", PairingStartedDto { peer_addr: addr_str.clone() });
     if let Some(h) = active_scan.take() {
         h.abort();
         let _ = h.await;
@@ -91,10 +87,8 @@ pub(crate) async fn pair(
         }
         Err(err) => {
             tracing::warn!(peer = %addr_str, "pairing failed: {err}");
-            let _ = app.emit(
-                "vortex:pairing_result",
-                PairingResultDto::Err { ok: false, error: err },
-            );
+            let _ =
+                app.emit("vortex:pairing_result", PairingResultDto::Err { ok: false, error: err });
         }
     }
 }
@@ -108,9 +102,8 @@ pub(crate) async fn forget_peer(ctx: &WorkerCtx, hex_str: String) {
     arr.copy_from_slice(&bytes);
     let ps = ctx.peer_store.clone();
     let arr_load = arr;
-    let peer_for_revoke = tokio::task::spawn_blocking(move || ps.load(&arr_load).ok())
-        .await
-        .unwrap_or(None);
+    let peer_for_revoke =
+        tokio::task::spawn_blocking(move || ps.load(&arr_load).ok()).await.unwrap_or(None);
     let ps = ctx.peer_store.clone();
     let arr_load = arr;
     let counter_for_revoke =

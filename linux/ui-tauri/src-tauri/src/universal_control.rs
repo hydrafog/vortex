@@ -1,4 +1,3 @@
-
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
@@ -47,9 +46,7 @@ fn placement() -> (Edge, Segment) {
     let p = std::env::var_os("HOME").map(|h| {
         std::path::PathBuf::from(h).join(".local/share/vortex/universal_control/placement")
     });
-    let s = p
-        .and_then(|p| std::fs::read_to_string(p).ok())
-        .unwrap_or_default();
+    let s = p.and_then(|p| std::fs::read_to_string(p).ok()).unwrap_or_default();
     parse_placement(s.trim())
 }
 
@@ -164,10 +161,7 @@ fn arm(app: tauri::AppHandle, require_injector: bool) -> Result<(), String> {
         }
         let _guard = RunningGuard;
 
-        let rt = match tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-        {
+        let rt = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
             Ok(rt) => rt,
             Err(e) => {
                 tracing::warn!("universal-control: runtime: {e}");
@@ -201,9 +195,7 @@ async fn capture_loop() -> Result<(), Box<dyn std::error::Error>> {
     let phys = crate::mirror_inject::display_size().ok_or("no_display_size")?;
     let (mut pw, mut ph) = phys;
     tracing::info!("universal-control: phone physical bounds {}x{}", phys.0, phys.1);
-    let ic = InputCapture::new()
-        .await
-        .map_err(|e| format!("no_portal|{e}"))?;
+    let ic = InputCapture::new().await.map_err(|e| format!("no_portal|{e}"))?;
     let (session, _cap) = ic
         .create_session(
             &ashpd::WindowIdentifier::default(),
@@ -235,21 +227,13 @@ async fn capture_loop() -> Result<(), Box<dyn std::error::Error>> {
             .enumerate()
             .max_by_key(|(_, r)| r.x_offset() + r.width() as i32)
             .map(|(i, _)| i),
-        Edge::Left => regions
-            .iter()
-            .enumerate()
-            .min_by_key(|(_, r)| r.x_offset())
-            .map(|(i, _)| i),
+        Edge::Left => regions.iter().enumerate().min_by_key(|(_, r)| r.x_offset()).map(|(i, _)| i),
         Edge::Bottom => regions
             .iter()
             .enumerate()
             .max_by_key(|(_, r)| r.y_offset() + r.height() as i32)
             .map(|(i, _)| i),
-        Edge::Top => regions
-            .iter()
-            .enumerate()
-            .min_by_key(|(_, r)| r.y_offset())
-            .map(|(i, _)| i),
+        Edge::Top => regions.iter().enumerate().min_by_key(|(_, r)| r.y_offset()).map(|(i, _)| i),
     }
     .unwrap_or(0);
     let Some(r) = regions.get(idx) else {
@@ -671,10 +655,7 @@ async fn capture_loop() -> Result<(), Box<dyn std::error::Error>> {
     if active {
         crate::mirror_inject::send("V 0");
     }
-    if let Err(e) = ic
-        .release(&session, activation_id, Some(return_pos(edge, entry)))
-        .await
-    {
+    if let Err(e) = ic.release(&session, activation_id, Some(return_pos(edge, entry))).await {
         tracing::debug!("universal-control: final release: {e}");
     }
     let _ = ic.disable(&session).await;
@@ -738,14 +719,12 @@ fn abandon_pos(
 ) -> (f64, f64) {
     let (rx, ry, rw, rh) = region;
     let moved = match edge {
-        Edge::Right | Edge::Left => (
-            entry.0,
-            (entry.1 + slide).clamp(ry as f32, (ry + rh - 1) as f32),
-        ),
-        Edge::Top | Edge::Bottom => (
-            (entry.0 + slide).clamp(rx as f32, (rx + rw - 1) as f32),
-            entry.1,
-        ),
+        Edge::Right | Edge::Left => {
+            (entry.0, (entry.1 + slide).clamp(ry as f32, (ry + rh - 1) as f32))
+        }
+        Edge::Top | Edge::Bottom => {
+            ((entry.0 + slide).clamp(rx as f32, (rx + rw - 1) as f32), entry.1)
+        }
     };
     return_pos(edge, moved)
 }
@@ -802,11 +781,7 @@ fn laptop_point(
     let (origin, len) = span;
     let (rx, ry, rw, rh) = rect;
     let along = |v: f32, size: i32| {
-        let f = if size > 1 {
-            (v / (size - 1) as f32).clamp(0.0, 1.0)
-        } else {
-            0.5
-        };
+        let f = if size > 1 { (v / (size - 1) as f32).clamp(0.0, 1.0) } else { 0.5 };
         origin as f32 + f * (len - 1).max(0) as f32
     };
     match edge {
@@ -835,7 +810,6 @@ fn edge_name(edge: Edge) -> &'static str {
         Edge::Bottom => "bottom",
     }
 }
-
 
 struct UcDbus {
     cursor_hidden: bool,
@@ -867,10 +841,7 @@ fn ensure_cursor_publisher() {
         let conn = match zbus::connection::Builder::session()
             .and_then(|b| b.name("org.vortex.UniversalControl"))
             .and_then(|b| {
-                b.serve_at(
-                    "/org/vortex/UniversalControl",
-                    UcDbus { cursor_hidden: false },
-                )
+                b.serve_at("/org/vortex/UniversalControl", UcDbus { cursor_hidden: false })
             }) {
             Ok(b) => match b.build().await {
                 Ok(c) => c,
@@ -884,17 +855,15 @@ fn ensure_cursor_publisher() {
                 return;
             }
         };
-        let iface_ref = match conn
-            .object_server()
-            .interface::<_, UcDbus>("/org/vortex/UniversalControl")
-            .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::warn!("universal-control: cursor dbus iface: {e}");
-                return;
-            }
-        };
+        let iface_ref =
+            match conn.object_server().interface::<_, UcDbus>("/org/vortex/UniversalControl").await
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    tracing::warn!("universal-control: cursor dbus iface: {e}");
+                    return;
+                }
+            };
         tracing::info!("universal-control: cursor-hide D-Bus up (org.vortex.UniversalControl)");
         let _conn = conn;
         while let Some(hidden) = rx.recv().await {
@@ -940,12 +909,9 @@ mod tests {
 
     #[test]
     fn centre_is_rotation_invariant() {
-        for (rot, x, y) in [
-            (0u32, 540.0, 1170.0),
-            (1, 1170.0, 540.0),
-            (2, 540.0, 1170.0),
-            (3, 1170.0, 540.0),
-        ] {
+        for (rot, x, y) in
+            [(0u32, 540.0, 1170.0), (1, 1170.0, 540.0), (2, 540.0, 1170.0), (3, 1170.0, 540.0)]
+        {
             let (rx, ry) = touch_raw(rot, x, y, NAT);
             assert!((rx as i32 - 32768).abs() <= 1, "rot {rot}: x {rx}");
             assert!((ry as i32 - 32768).abs() <= 1, "rot {rot}: y {ry}");
@@ -963,10 +929,7 @@ mod tests {
             ("LEFT-Top", Edge::Left, Segment::Start),
         ] {
             let got = parse_placement(s);
-            assert!(
-                got.0 as u8 == edge as u8 && got.1 == seg,
-                "{s} read as the wrong placement"
-            );
+            assert!(got.0 as u8 == edge as u8 && got.1 == seg, "{s} read as the wrong placement");
         }
     }
 
@@ -983,10 +946,7 @@ mod tests {
         let full = (0, 2560);
         assert_eq!(barrier_span(Segment::Full, full), full);
         assert_eq!(barrier_span(Segment::Start, full), (0, SEGMENT_LEN));
-        assert_eq!(
-            barrier_span(Segment::End, full),
-            (2560 - SEGMENT_LEN, SEGMENT_LEN)
-        );
+        assert_eq!(barrier_span(Segment::End, full), (2560 - SEGMENT_LEN, SEGMENT_LEN));
         let off = (1920, 1080);
         assert_eq!(barrier_span(Segment::Start, off).0, 1920);
         let end = barrier_span(Segment::End, off);

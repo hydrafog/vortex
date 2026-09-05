@@ -1,9 +1,7 @@
-
-use std::io::{Cursor, Read, Write};
 use std::path::Path;
 
 use tauri::AppHandle;
-use vortex_l3_daemon::core::outgoing_share::{enqueue_batch, OutgoingFile, MAX_PUSH_BYTES};
+use vortex_l3_daemon::core::outgoing_share::{enqueue_batch, OutgoingFile};
 
 pub(crate) fn handle_share(_app: &AppHandle, paths: Vec<String>) -> Result<usize, String> {
     let mut batch: Vec<OutgoingFile> = Vec::new();
@@ -16,25 +14,21 @@ pub(crate) fn handle_share(_app: &AppHandle, paths: Vec<String>) -> Result<usize
                 continue;
             }
         };
-        let prepared = if meta.is_dir() {
-            zip_folder(path)
-        } else {
-            read_file(path)
-        };
+        let prepared = if meta.is_dir() { zip_folder(path) } else { read_file(path) };
         match prepared {
-            Some(f) if !f.bytes.is_empty() && f.bytes.len() <= MAX_PUSH_BYTES => {
-                tracing::info!(name = %f.name, bytes = f.bytes.len(), "share: added to batch");
+            Some(f) if f.size > 0 => {
+                tracing::info!(name = %f.name, size = f.size, "share: added to batch");
                 batch.push(f);
             }
             Some(f) => {
-                tracing::warn!(name = %f.name, len = f.bytes.len(), "share: empty or over cap; skipping");
+                tracing::warn!(name = %f.name, size = f.size, "share: empty file; skipping");
             }
             None => {}
         }
     }
     if batch.is_empty() {
         tracing::warn!("share: nothing to send");
-        return Err("No valid files selected or files exceed size limit".to_string());
+        return Err("No valid files selected".to_string());
     }
     let count = batch.len();
     if enqueue_batch(batch) {
@@ -44,15 +38,31 @@ pub(crate) fn handle_share(_app: &AppHandle, paths: Vec<String>) -> Result<usize
         }
         Ok(count)
     } else {
-        tracing::warn!(count, "share: batch rejected (empty or over batch cap)");
-        Err("Batch rejected: exceeds total batch size limit".to_string())
+        tracing::warn!(count, "share: batch rejected");
+        Err("Batch rejected: could not queue files".to_string())
     }
 }
 
 pub(crate) async fn pick_files() -> Option<Vec<String>> {
     let candidates: [(&str, Vec<&str>); 2] = [
-        ("zenity", vec!["--file-selection", "--multiple", "--separator=\n", "--title=Select files to send to phone"]),
-        ("kdialog", vec!["--getopenfilename", "--multiple", "--separate-output", "--title=Select files to send to phone"]),
+        (
+            "zenity",
+            vec![
+                "--file-selection",
+                "--multiple",
+                "--separator=\n",
+                "--title=Select files to send to phone",
+            ],
+        ),
+        (
+            "kdialog",
+            vec![
+                "--getopenfilename",
+                "--multiple",
+                "--separate-output",
+                "--title=Select files to send to phone",
+            ],
+        ),
     ];
     for (bin, args) in candidates {
         match tokio::process::Command::new(bin).args(&args).output().await {
@@ -61,11 +71,8 @@ pub(crate) async fn pick_files() -> Option<Vec<String>> {
                     return None;
                 }
                 let text = String::from_utf8_lossy(&out.stdout);
-                let files: Vec<String> = text
-                    .lines()
-                    .map(|l| l.trim().to_string())
-                    .filter(|l| !l.is_empty())
-                    .collect();
+                let files: Vec<String> =
+                    text.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect();
                 return if files.is_empty() { None } else { Some(files) };
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
@@ -91,23 +98,7 @@ pub async fn pick_and_send_files(app: AppHandle) -> Result<usize, String> {
 }
 
 fn read_file(path: &Path) -> Option<OutgoingFile> {
-    let bytes = match std::fs::read(path) {
-        Ok(b) => b,
-        Err(e) => {
-            tracing::warn!(path = %path.display(), "share: cannot read: {e}");
-            return None;
-        }
-    };
-    let name = path
-        .file_name()
-        .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or_else(|| "vortex-file".to_string());
-    Some(OutgoingFile {
-        name,
-        mime: "application/octet-stream".to_string(),
-        bytes,
-        extract: false,
-    })
+    OutgoingFile::from_path(path)
 }
 
 fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
@@ -116,7 +107,10 @@ fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_else(|| "folder".to_string());
 
-    let mut zw = zip::ZipWriter::new(Cursor::new(Vec::<u8>::new()));
+    let tmp_path =
+        std::env::temp_dir().join(format!("vortex_{}_{}.zip", folder_name, std::process::id()));
+    let file = std::fs::File::create(&tmp_path).ok()?;
+    let mut zw = zip::ZipWriter::new(file);
     let opts: zip::write::FileOptions<()> =
         zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
@@ -134,6 +128,7 @@ fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
         if entry.file_type().is_dir() {
             if zw.add_directory(format!("{arc_name}/"), opts).is_err() {
                 tracing::warn!(folder = %folder_name, "share: zip add_directory failed");
+                let _ = std::fs::remove_file(&tmp_path);
                 return None;
             }
         } else if entry.file_type().is_file() {
@@ -145,26 +140,30 @@ fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
                 }
             };
             if zw.start_file(&arc_name, opts).is_err() {
+                let _ = std::fs::remove_file(&tmp_path);
                 return None;
             }
-            let mut buf = Vec::new();
-            if f.read_to_end(&mut buf).is_err() || zw.write_all(&buf).is_err() {
+            if std::io::copy(&mut f, &mut zw).is_err() {
+                let _ = std::fs::remove_file(&tmp_path);
                 return None;
             }
             count += 1;
         }
     }
 
-    let bytes = zw.finish().ok()?.into_inner();
-    if count == 0 {
-        tracing::warn!(folder = %folder_name, "share: folder empty; skipping");
+    if zw.finish().is_err() || count == 0 {
+        let _ = std::fs::remove_file(&tmp_path);
+        tracing::warn!(folder = %folder_name, "share: folder empty or finish failed; skipping");
         return None;
     }
-    tracing::info!(folder = %folder_name, files = count, bytes = bytes.len(), "share: folder zipped (in-process)");
+    let meta = std::fs::metadata(&tmp_path).ok()?;
+    tracing::info!(folder = %folder_name, files = count, size = meta.len(), "share: folder zipped to disk");
     Some(OutgoingFile {
         name: format!("{folder_name}.zip"),
         mime: "application/zip".to_string(),
-        bytes,
+        size: meta.len(),
+        path: Some(tmp_path),
+        bytes: Vec::new(),
         extract: true,
     })
 }

@@ -1,4 +1,3 @@
-
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -63,8 +62,7 @@ pub(crate) fn spawn_consumer(
                     if id.is_none() {
                         return;
                     }
-                    let still_here =
-                        CURRENT_URL.lock().map(|g| *g == ev.url).unwrap_or(false);
+                    let still_here = CURRENT_URL.lock().map(|g| *g == ev.url).unwrap_or(false);
                     if still_here {
                         let d = domain_of(&ev.url).unwrap_or_default();
                         let _ = live_tx.send(handoff_pill(&ev, &d, id));
@@ -81,16 +79,8 @@ fn is_web_url(url: &str) -> bool {
 }
 
 fn domain_of(url: &str) -> Option<String> {
-    let after = url
-        .strip_prefix("https://")
-        .or_else(|| url.strip_prefix("http://"))?;
-    let host = after
-        .split('/')
-        .next()?
-        .rsplit('@')
-        .next()?
-        .split(':')
-        .next()?;
+    let after = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://"))?;
+    let host = after.split('/').next()?.rsplit('@').next()?.split(':').next()?;
     let host = host.strip_prefix("www.").unwrap_or(host);
     if host.is_empty() {
         None
@@ -155,9 +145,7 @@ fn cached_favicon(domain: &str) -> Option<String> {
         return None;
     }
     let app_id = favicon_app_id(domain);
-    icon_cache::icon_path(&app_id)
-        .filter(|p| p.exists())
-        .map(|_| app_id)
+    icon_cache::icon_path(&app_id).filter(|p| p.exists()).map(|_| app_id)
 }
 
 fn ensure_favicon(domain: &str) -> Option<String> {
@@ -167,10 +155,8 @@ fn ensure_favicon(domain: &str) -> Option<String> {
         return Some(app_id);
     }
     let url = format!("https://{domain}/favicon.ico");
-    let out = std::process::Command::new("curl")
-        .args(["-sfL", "--max-time", "4", &url])
-        .output()
-        .ok()?;
+    let out =
+        std::process::Command::new("curl").args(["-sfL", "--max-time", "4", &url]).output().ok()?;
     if !out.status.success() || out.stdout.is_empty() {
         return None;
     }

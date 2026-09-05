@@ -1,4 +1,3 @@
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -81,14 +80,16 @@ pub(crate) async fn request(label: &str, count: usize, total: u64) -> bool {
         ("fc:accept".to_string(), "Accept".to_string()),
         ("fc:decline".to_string(), "Decline".to_string()),
     ];
-    let id = match notification_display::show_call_banner(&title, &body, "vortex", &actions, 0, true).await
-    {
-        Ok(id) => id,
-        Err(e) => {
-            tracing::warn!("file-consent banner failed ({e}); declining");
-            return false;
-        }
-    };
+    let id =
+        match notification_display::show_call_banner(&title, &body, "vortex", &actions, 0, true)
+            .await
+        {
+            Ok(id) => id,
+            Err(e) => {
+                tracing::warn!("file-consent banner failed ({e}); declining");
+                return false;
+            }
+        };
     let (tx, rx) = oneshot::channel();
     if let Ok(mut g) = registry().lock() {
         g.insert(id, tx);

@@ -1,4 +1,3 @@
-
 use std::os::fd::AsRawFd;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -31,11 +30,7 @@ fn set_error(msg: Option<String>) {
     }
 }
 
-fn spawn_video_sender(
-    phone_ip: std::net::IpAddr,
-    key: [u8; 32],
-    au_rx: mpsc::Receiver<Vec<u8>>,
-) {
+fn spawn_video_sender(phone_ip: std::net::IpAddr, key: [u8; 32], au_rx: mpsc::Receiver<Vec<u8>>) {
     tokio::spawn(async move {
         mirror_tcp::run_tcp_video_client(phone_ip, key, au_rx).await;
         if CAST.lock().map(|g| g.is_some()).unwrap_or(false) {
@@ -137,13 +132,8 @@ async fn start_portal(
     key: [u8; 32],
     source: SourceType,
 ) -> Result<(), String> {
-    let proxy = Screencast::new()
-        .await
-        .map_err(|e| format!("portal connect: {e}"))?;
-    let session = proxy
-        .create_session()
-        .await
-        .map_err(|e| format!("portal session: {e}"))?;
+    let proxy = Screencast::new().await.map_err(|e| format!("portal connect: {e}"))?;
+    let session = proxy.create_session().await.map_err(|e| format!("portal session: {e}"))?;
     proxy
         .select_sources(
             &session,
@@ -161,10 +151,8 @@ async fn start_portal(
         .map_err(|e| format!("portal start (consent declined?): {e}"))?
         .response()
         .map_err(|e| format!("portal start response: {e}"))?;
-    let stream = streams
-        .streams()
-        .first()
-        .ok_or_else(|| "portal returned no stream".to_string())?;
+    let stream =
+        streams.streams().first().ok_or_else(|| "portal returned no stream".to_string())?;
     let node_id = stream.pipe_wire_node_id();
     let fd = proxy
         .open_pipe_wire_remote(&session)
@@ -211,9 +199,7 @@ async fn start_portal(
 
     spawn_video_sender(phone_ip, key, au_rx);
 
-    pipeline
-        .set_state(gst::State::Playing)
-        .map_err(|e| format!("pipeline play: {e}"))?;
+    pipeline.set_state(gst::State::Playing).map_err(|e| format!("pipeline play: {e}"))?;
     tracing::info!("laptop-cast: capturing + serving on {}", mirror_tcp::LAPTOP_VIDEO_PORT);
 
     let (stop_tx, stop_rx) = tokio::sync::oneshot::channel::<()>();
@@ -307,10 +293,7 @@ async fn start_extend(phone_ip: std::net::IpAddr, key: [u8; 32]) -> Result<(), S
         return Err(format!("gst init: {e}"));
     }
     let cursor_stage = match crate::virtual_display::stage_cursor_image() {
-        Some(p) => format!(
-            "gdkpixbufoverlay name=cursor location=\"{}\" alpha=0 ! ",
-            p.display()
-        ),
+        Some(p) => format!("gdkpixbufoverlay name=cursor location=\"{}\" alpha=0 ! ", p.display()),
         None => {
             tracing::warn!("laptop-cast: no cursor artwork — extending without a pointer");
             String::new()
@@ -352,9 +335,7 @@ async fn start_extend(phone_ip: std::net::IpAddr, key: [u8; 32]) -> Result<(), S
     );
 
     spawn_video_sender(phone_ip, key, au_rx);
-    pipeline
-        .set_state(gst::State::Playing)
-        .map_err(|e| format!("pipeline play: {e}"))?;
+    pipeline.set_state(gst::State::Playing).map_err(|e| format!("pipeline play: {e}"))?;
     tracing::info!(
         "laptop-cast: extending onto a new {EXTEND_W}x{EXTEND_H} monitor, serving on {}",
         mirror_tcp::LAPTOP_VIDEO_PORT

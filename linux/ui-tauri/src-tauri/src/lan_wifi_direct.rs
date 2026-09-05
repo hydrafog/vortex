@@ -1,8 +1,6 @@
-
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter};
-
 
 pub(crate) const WIFI_DIRECT_GO_IP: [u8; 4] = [192, 168, 49, 1];
 
@@ -17,11 +15,7 @@ pub(crate) fn wd_active() -> bool {
 }
 
 async fn nmcli(args: &[&str]) -> Option<String> {
-    let out = tokio::process::Command::new("nmcli")
-        .args(args)
-        .output()
-        .await
-        .ok()?;
+    let out = tokio::process::Command::new("nmcli").args(args).output().await.ok()?;
     if out.status.success() {
         Some(String::from_utf8_lossy(&out.stdout).trim().to_string())
     } else {
@@ -61,11 +55,7 @@ async fn join_go(ssid: &str, pass: &str) -> bool {
 }
 
 pub(crate) async fn restore_wifi(app: &AppHandle) {
-    let saved = WIFI_DIRECT
-        .lock()
-        .ok()
-        .and_then(|mut g| g.take())
-        .and_then(|s| s.saved_wifi);
+    let saved = WIFI_DIRECT.lock().ok().and_then(|mut g| g.take()).and_then(|s| s.saved_wifi);
     if let Some(name) = saved {
         let _ = nmcli(&["con", "up", &name]).await;
         tracing::info!(name = %name, "Wi-Fi Direct: Wi-Fi restored");

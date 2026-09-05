@@ -1,4 +1,3 @@
-
 use std::time::Duration;
 
 use tauri::Emitter;
@@ -15,10 +14,8 @@ pub(crate) async fn refresh_state(ctx: &WorkerCtx) {
     let local = vortex_l3_daemon::core::earbuds::scan_local_earbuds(&ctx.adapter).await;
     crate::tray::update_battery_rows(app, local.as_ref(), None);
     let _ = app.emit("vortex:local_earbuds", local.map(EarbudsDto::from));
-    let _ = app.emit(
-        "vortex:switch_state",
-        switch_state_dto(&ctx.switch_orchestrator.state().borrow()),
-    );
+    let _ = app
+        .emit("vortex:switch_state", switch_state_dto(&ctx.switch_orchestrator.state().borrow()));
 }
 
 pub(crate) async fn rescan_and_publish(app: &tauri::AppHandle, adapter: &bluer::Adapter) {
@@ -187,8 +184,9 @@ pub(crate) async fn toggle_earbuds(ctx: &WorkerCtx) {
         let own = vortex_l3_daemon::core::audio_switch::audio_active(&adapter_c, addr).await;
         if own {
             tracing::info!("tray toggle: laptop holds buds → hand to phone");
-            let _ = vortex_l3_daemon::core::audio_switch::disconnect_audio_initiate(&adapter_c, &mac)
-                .await;
+            let _ =
+                vortex_l3_daemon::core::audio_switch::disconnect_audio_initiate(&adapter_c, &mac)
+                    .await;
             orch.send_claim(peer_pub, mac).await;
         } else {
             tracing::info!("tray toggle: grabbing buds to laptop");

@@ -3,7 +3,15 @@ import { useI18n } from "vue-i18n";
 import { SolarMoon, SolarSun, SolarTranslation, SolarDevices } from "@/lib/solarIcons";
 import Modal from "./Modal.vue";
 import Button from "./Button.vue";
-import { theme, themePreference, setThemePreference, type ThemePreference } from "@/lib/theme";
+import {
+  theme,
+  themePreference,
+  setThemePreference,
+  accentPreference,
+  setAccentPreference,
+  ACCENT_PRESETS,
+  type ThemePreference,
+} from "@/lib/theme";
 import { setLocale, LOCALES, type LocaleCode } from "@/lib/i18n";
 
 defineProps<{ open: boolean }>();
@@ -50,6 +58,32 @@ function pickTheme(mode: ThemePreference) {
           >
             <SolarSun class="h-3.5 w-3.5" />
             {{ t("settings.theme_light") }}
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <div class="flex items-center gap-2 mb-2 text-sm font-medium">
+          <SolarDevices class="h-4 w-4" />
+          {{ t("settings.accent_color") }}
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <button
+            v-for="preset in ACCENT_PRESETS"
+            :key="preset.code"
+            class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors cursor-pointer"
+            :class="
+              accentPreference === preset.code
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border hover:bg-accent'
+            "
+            @click="setAccentPreference(preset.code)"
+          >
+            <span
+              class="w-3 h-3 rounded-full border border-black/10 shrink-0"
+              :style="preset.code === 'system' ? 'background: linear-gradient(135deg, #3584e4 50%, #2ecc71 50%)' : { backgroundColor: preset.hex }"
+            />
+            {{ t(`settings.accent_${preset.code}`) }}
           </button>
         </div>
       </div>

@@ -1,4 +1,3 @@
-
 use std::sync::Mutex;
 
 use tauri::{
@@ -87,11 +86,7 @@ pub(crate) fn update_battery_rows(
     // NOTE: "(charging)" suffix marks a charging device in plain ASCII for portability.
     let phone_text = snap.as_ref().map(|s| {
         let bolt = if s.charging { " (charging)" } else { "" };
-        let name = s
-            .name
-            .clone()
-            .filter(|n| !n.is_empty())
-            .unwrap_or_else(|| "Phone".to_string());
+        let name = s.name.clone().filter(|n| !n.is_empty()).unwrap_or_else(|| "Phone".to_string());
         format!("{}   {}{}", trunc(&name, 18), pf(s.battery), bolt)
     });
     drop(cache);
@@ -107,23 +102,14 @@ pub(crate) fn update_battery_rows(
 }
 
 pub(crate) fn setup(app: &tauri::App) -> tauri::Result<()> {
-    let buds_i = MenuItem::with_id(
-        app, "buds_batt", "Buds   --", false, None::<&str>,
-    )?;
-    let phone_i = MenuItem::with_id(
-        app, "phone_batt", "Phone   --", false, None::<&str>,
-    )?;
-    let send_files_i = MenuItem::with_id(
-        app, "send_files", "Send files to phone", true, None::<&str>,
-    )?;
-    let mirror_i = MenuItem::with_id(
-        app, "mirror", "Share screen", true, None::<&str>,
-    )?;
-    let clipboard_i = MenuItem::with_id(
-        app, "clipboard", "Open clipboard history", true, None::<&str>,
-    )?;
-    let switch_i =
-        MenuItem::with_id(app, "switch", "Switch earbuds", true, None::<&str>)?;
+    let buds_i = MenuItem::with_id(app, "buds_batt", "Buds   --", false, None::<&str>)?;
+    let phone_i = MenuItem::with_id(app, "phone_batt", "Phone   --", false, None::<&str>)?;
+    let send_files_i =
+        MenuItem::with_id(app, "send_files", "Send files to phone", true, None::<&str>)?;
+    let mirror_i = MenuItem::with_id(app, "mirror", "Share screen", true, None::<&str>)?;
+    let clipboard_i =
+        MenuItem::with_id(app, "clipboard", "Open clipboard history", true, None::<&str>)?;
+    let switch_i = MenuItem::with_id(app, "switch", "Switch earbuds", true, None::<&str>)?;
     let show_i = MenuItem::with_id(app, "show", "Show / Hide", true, None::<&str>)?;
     let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(

@@ -1,4 +1,3 @@
-
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -9,10 +8,10 @@ use sha2::{Digest, Sha256};
 
 use crate::clipboard::{hash_id, now_ms, store_capture};
 
-
 pub(crate) type ClipboardWriter = std::sync::Arc<
-    dyn Fn(vortex_l3_daemon::core::clipboard_mirror::ClipboardMirror)
-            -> futures::future::BoxFuture<'static, Result<(), String>>
+    dyn Fn(
+            vortex_l3_daemon::core::clipboard_mirror::ClipboardMirror,
+        ) -> futures::future::BoxFuture<'static, Result<(), String>>
         + Send
         + Sync,
 >;
@@ -59,9 +58,7 @@ pub(crate) fn img_sig(w: usize, h: usize, rgba: &[u8]) -> String {
 }
 
 pub(crate) fn decode_png_rgba(png: &[u8]) -> Option<(usize, usize, Vec<u8>)> {
-    let img = image::load_from_memory_with_format(png, image::ImageFormat::Png)
-        .ok()?
-        .into_rgba8();
+    let img = image::load_from_memory_with_format(png, image::ImageFormat::Png).ok()?.into_rgba8();
     let (w, h) = img.dimensions();
     Some((w as usize, h as usize, img.into_raw()))
 }
@@ -323,9 +320,7 @@ pub(crate) fn downloads_dir() -> Option<PathBuf> {
 pub(crate) fn downloads_label() -> String {
     downloads_dir()
         .and_then(|d| {
-            d.file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .filter(|n| !n.is_empty())
+            d.file_name().map(|n| n.to_string_lossy().to_string()).filter(|n| !n.is_empty())
         })
         .unwrap_or_else(|| "Downloads".to_string())
 }
@@ -375,11 +370,7 @@ fn expand_home(raw: &str, home: &std::path::Path) -> Option<PathBuf> {
     for prefix in ["$HOME", "${HOME}", "~"] {
         if let Some(rest) = raw.strip_prefix(prefix) {
             let rest = rest.trim_start_matches('/');
-            return Some(if rest.is_empty() {
-                home.to_path_buf()
-            } else {
-                home.join(rest)
-            });
+            return Some(if rest.is_empty() { home.to_path_buf() } else { home.join(rest) });
         }
     }
     let p = PathBuf::from(raw);
@@ -392,14 +383,9 @@ fn unique_path(dir: &std::path::Path, name: &str) -> PathBuf {
         return first;
     }
     let p = std::path::Path::new(name);
-    let stem = p
-        .file_stem()
-        .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or_else(|| name.to_string());
-    let ext = p
-        .extension()
-        .map(|e| format!(".{}", e.to_string_lossy()))
-        .unwrap_or_default();
+    let stem =
+        p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| name.to_string());
+    let ext = p.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
     for n in 1..10_000 {
         let cand = dir.join(format!("{stem} ({n}){ext}"));
         if !cand.exists() {
@@ -471,11 +457,7 @@ async fn flush_file_batch(batch: Vec<Offer>) {
     }
     let count = batch.len();
     let total: u64 = batch.iter().map(|o| o.bytes).sum();
-    let label = if count == 1 {
-        batch[0].name.clone()
-    } else {
-        format!("{count} files")
-    };
+    let label = if count == 1 { batch[0].name.clone() } else { format!("{count} files") };
     let accepted = crate::file_consent::request(&label, count, total).await;
     if !accepted {
         tracing::info!(count, "phone file offer(s) declined on laptop");
@@ -504,7 +486,8 @@ pub(crate) fn spawn_image_offer_consumer() -> tokio::sync::mpsc::UnboundedSender
             let next = if file_buf.is_empty() {
                 rx.recv().await
             } else {
-                match tokio::time::timeout(std::time::Duration::from_millis(1200), rx.recv()).await {
+                match tokio::time::timeout(std::time::Duration::from_millis(1200), rx.recv()).await
+                {
                     Ok(v) => v,
                     Err(_) => {
                         flush_file_batch(std::mem::take(&mut file_buf)).await;
@@ -575,19 +558,13 @@ XDG_DOCUMENTS_DIR="$HOME/Documents"
     fn ignores_comments_and_other_keys() {
         assert_eq!(parse_user_dirs(FR, "XDG_MUSIC_DIR"), None);
         let text = "#XDG_DOWNLOAD_DIR=\"$HOME/nope\"\nXDG_DOWNLOAD_DIR=\"$HOME/yes\"\n";
-        assert_eq!(
-            parse_user_dirs(text, "XDG_DOWNLOAD_DIR"),
-            Some("$HOME/yes".to_string())
-        );
+        assert_eq!(parse_user_dirs(text, "XDG_DOWNLOAD_DIR"), Some("$HOME/yes".to_string()));
     }
 
     #[test]
     fn last_assignment_wins_like_a_shell() {
         let text = "XDG_DOWNLOAD_DIR=\"$HOME/first\"\nXDG_DOWNLOAD_DIR=\"$HOME/second\"\n";
-        assert_eq!(
-            parse_user_dirs(text, "XDG_DOWNLOAD_DIR"),
-            Some("$HOME/second".to_string())
-        );
+        assert_eq!(parse_user_dirs(text, "XDG_DOWNLOAD_DIR"), Some("$HOME/second".to_string()));
     }
 
     #[test]
@@ -614,4 +591,3 @@ XDG_DOCUMENTS_DIR="$HOME/Documents"
         );
     }
 }
-

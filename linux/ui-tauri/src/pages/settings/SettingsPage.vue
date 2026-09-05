@@ -17,7 +17,15 @@ import {
   SolarFileDownload,
   SolarDevices,
 } from "@/lib/solarIcons";
-import { theme, themePreference, setThemePreference, type ThemePreference } from "@/lib/theme";
+import {
+  theme,
+  themePreference,
+  setThemePreference,
+  accentPreference,
+  setAccentPreference,
+  ACCENT_PRESETS,
+  type ThemePreference,
+} from "@/lib/theme";
 import { smartSwitchEnabled, setSmartSwitch } from "@/lib/smartSwitch";
 import { notifMirrorShow, setNotifMirror, notifMirrorSend, setNotifSend } from "@/lib/notifMirror";
 import {
@@ -186,6 +194,32 @@ const pill = (active: boolean) =>
               </button>
               <button :class="pill(themePreference === 'light')" @click="pickTheme('light')">
                 <SolarSun class="h-4 w-4" :stroke-width="1.9" />{{ t("settings.theme_light") }}
+              </button>
+            </div>
+          </div>
+          <div class="h-px bg-border/60" />
+          <div class="px-[18px] py-4">
+            <div class="flex items-center gap-2.5 mb-3">
+              <SolarDevices class="h-[18px] w-[18px] text-muted-foreground" :stroke-width="1.9" />
+              <span class="text-sm font-semibold text-foreground">{{ t("settings.accent_color") }}</span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="preset in ACCENT_PRESETS"
+                :key="preset.code"
+                class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer"
+                :class="
+                  accentPreference === preset.code
+                    ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                    : 'border-border bg-muted/40 text-foreground hover:bg-muted/70'
+                "
+                @click="setAccentPreference(preset.code)"
+              >
+                <span
+                  class="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0"
+                  :style="preset.code === 'system' ? 'background: linear-gradient(135deg, #3584e4 50%, #2ecc71 50%)' : { backgroundColor: preset.hex }"
+                />
+                {{ t(`settings.accent_${preset.code}`) }}
               </button>
             </div>
           </div>

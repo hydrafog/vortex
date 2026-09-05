@@ -1,13 +1,9 @@
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
 fn norm(s: &str) -> String {
-    s.chars()
-        .filter(|c| c.is_ascii_alphanumeric())
-        .flat_map(|c| c.to_lowercase())
-        .collect()
+    s.chars().filter(|c| c.is_ascii_alphanumeric()).flat_map(|c| c.to_lowercase()).collect()
 }
 
 fn app_dirs() -> Vec<PathBuf> {
@@ -26,9 +22,7 @@ fn app_dirs() -> Vec<PathBuf> {
         dirs.push(PathBuf::from(format!("{d}/applications")));
     }
     dirs.push(PathBuf::from("/var/lib/flatpak/exports/share/applications"));
-    dirs.push(PathBuf::from(format!(
-        "{data_home}/flatpak/exports/share/applications"
-    )));
+    dirs.push(PathBuf::from(format!("{data_home}/flatpak/exports/share/applications")));
     dirs.push(PathBuf::from("/var/lib/snapd/desktop/applications"));
     dirs
 }
@@ -92,18 +86,11 @@ pub(crate) fn match_label(label: &str) -> Option<PathBuf> {
     if let Some(p) = idx.get(&want) {
         return Some(p.clone());
     }
-    idx.iter()
-        .find(|(k, _)| k.contains(&want) || want.contains(k.as_str()))
-        .map(|(_, p)| p.clone())
+    idx.iter().find(|(k, _)| k.contains(&want) || want.contains(k.as_str())).map(|(_, p)| p.clone())
 }
 
 pub(crate) fn launch(desktop: &std::path::Path) {
-    if tokio::process::Command::new("gio")
-        .arg("launch")
-        .arg(desktop)
-        .spawn()
-        .is_ok()
-    {
+    if tokio::process::Command::new("gio").arg("launch").arg(desktop).spawn().is_ok() {
         return;
     }
     if let Some(id) = desktop.file_stem().and_then(|s| s.to_str()) {

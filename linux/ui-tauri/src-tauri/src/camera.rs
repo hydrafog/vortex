@@ -1,4 +1,3 @@
-
 use std::net::IpAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -63,16 +62,13 @@ pub fn dispatch_offer(offer: &Option<CameraOffer>, phone_ip: Option<IpAddr>) {
     match offer {
         Some(o) => {
             OFFER_MISSES.store(0, Ordering::SeqCst);
-            if ENGAGED.load(Ordering::SeqCst)
-                && o.rot as u32 != CURRENT_ROT.load(Ordering::SeqCst)
+            if ENGAGED.load(Ordering::SeqCst) && o.rot as u32 != CURRENT_ROT.load(Ordering::SeqCst)
             {
                 ENGAGED.store(false, Ordering::SeqCst);
                 stop();
             }
             if camera_wanted()
-                && ENGAGED
-                    .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-                    .is_ok()
+                && ENGAGED.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_ok()
             {
                 let (Some(ip), Some(key)) = (phone_ip, hex_to_key(&o.key)) else {
                     ENGAGED.store(false, Ordering::SeqCst);
@@ -182,9 +178,7 @@ pub fn start(phone_ip: IpAddr, key: [u8; 32], rot: u16) -> Result<(), String> {
         None,
     ));
 
-    pipeline
-        .set_state(gst::State::Playing)
-        .map_err(|e| format!("pipeline play: {e}"))?;
+    pipeline.set_state(gst::State::Playing).map_err(|e| format!("pipeline play: {e}"))?;
     tracing::info!(%phone_ip, "continuity-camera: piping phone camera → {v4l2_device}");
 
     let (stop_tx, mut stop_rx) = tokio::sync::oneshot::channel::<()>();

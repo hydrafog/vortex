@@ -1,4 +1,3 @@
-
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -21,8 +20,9 @@ pub(crate) static PENDING_CALL_CONTROL: std::sync::Mutex<
 > = std::sync::Mutex::new(None);
 
 pub(crate) type CallWriter = Arc<
-    dyn Fn(vortex_l3_daemon::core::call_event::CallControl)
-            -> futures::future::BoxFuture<'static, Result<(), String>>
+    dyn Fn(
+            vortex_l3_daemon::core::call_event::CallControl,
+        ) -> futures::future::BoxFuture<'static, Result<(), String>>
         + Send
         + Sync,
 >;
@@ -77,12 +77,7 @@ async fn send_call_control(
         return;
     }
     let seq = crate::CALL_CONTROL_SEQ.fetch_add(1, Ordering::SeqCst);
-    let ctrl = CallControl {
-        id: call_id,
-        action: act.to_string(),
-        arg: String::new(),
-        seq,
-    };
+    let ctrl = CallControl { id: call_id, action: act.to_string(), arg: String::new(), seq };
     let w = { writer.lock().await.clone() };
     let ble_ok = match w {
         Some(w) => match w(ctrl.clone()).await {
@@ -114,12 +109,7 @@ async fn send_media_control(
     writer: &Arc<Mutex<Option<crate::CallWriter>>>,
 ) {
     let seq = crate::CALL_CONTROL_SEQ.fetch_add(1, Ordering::SeqCst);
-    let ctrl = CallControl {
-        id: String::new(),
-        action: act.to_string(),
-        arg: pkg,
-        seq,
-    };
+    let ctrl = CallControl { id: String::new(), action: act.to_string(), arg: pkg, seq };
     let w = { writer.lock().await.clone() };
     let ble_ok = match w {
         Some(w) => match w(ctrl.clone()).await {
@@ -146,10 +136,7 @@ async fn send_media_control(
 }
 
 async fn control_active_call(act: &str) {
-    let id = CURRENT_CALL_ID
-        .lock()
-        .map(|g| g.clone())
-        .unwrap_or_default();
+    let id = CURRENT_CALL_ID.lock().map(|g| g.clone()).unwrap_or_default();
     if id.is_empty() {
         tracing::warn!(action = act, "call-control requested but no active call");
         return;
@@ -325,15 +312,11 @@ fn now_millis() -> i64 {
         .unwrap_or(0)
 }
 
-
 pub(crate) async fn spawn_consumer(
     _app: AppHandle,
     live_tx: tokio::sync::mpsc::UnboundedSender<LiveActivity>,
     mut call_action_rx: tokio::sync::mpsc::UnboundedReceiver<String>,
-) -> (
-    tokio::sync::mpsc::UnboundedSender<CallEvent>,
-    Arc<Mutex<Option<crate::CallWriter>>>,
-) {
+) -> (tokio::sync::mpsc::UnboundedSender<CallEvent>, Arc<Mutex<Option<crate::CallWriter>>>) {
     let (call_tx, mut call_rx) = tokio::sync::mpsc::unbounded_channel::<CallEvent>();
     let call_writer: Arc<Mutex<Option<crate::CallWriter>>> = Arc::new(Mutex::new(None));
     let state: Arc<Mutex<CallState>> = Arc::new(Mutex::new(CallState::default()));
@@ -391,7 +374,10 @@ pub(crate) async fn spawn_consumer(
                             };
                             drop(s);
                             let _ = live_tx.send(pill);
-                            tracing::info!(connect = connect_now, "call pill updated (audio/connect)");
+                            tracing::info!(
+                                connect = connect_now,
+                                "call pill updated (audio/connect)"
+                            );
                         }
                         continue;
                     }
@@ -488,8 +474,7 @@ pub(crate) async fn spawn_consumer(
                             ("On call".to_string(), s)
                         };
                         let app_id = ev.app_id.clone();
-                        let (muted, speaker, has_earbuds) =
-                            (ev.muted, ev.speaker, ev.has_earbuds);
+                        let (muted, speaker, has_earbuds) = (ev.muted, ev.speaker, ev.has_earbuds);
                         {
                             let mut s = state.lock().await;
                             s.pill_started_ms = started_ms;
@@ -529,7 +514,9 @@ pub(crate) async fn spawn_consumer(
                                     break;
                                 }
                                 if writer.lock().await.is_none() {
-                                    tracing::info!("call pill keep-alive: BLE link gone, letting it expire");
+                                    tracing::info!(
+                                        "call pill keep-alive: BLE link gone, letting it expire"
+                                    );
                                     break;
                                 }
                                 let pill = {
@@ -572,8 +559,10 @@ pub(crate) async fn spawn_consumer(
                             } else {
                                 ev.name.clone()
                             };
-                            let actions =
-                                vec![(format!("call:redial:{}", ev.number), "Call back".to_string())];
+                            let actions = vec![(
+                                format!("call:redial:{}", ev.number),
+                                "Call back".to_string(),
+                            )];
                             match notification_display::show_call_banner(
                                 &title,
                                 "Missed call",
@@ -671,14 +660,23 @@ pub(crate) async fn spawn_consumer(
                     {
                         continue;
                     }
-                    (s.call_id.clone(), s.ring_title.clone(), s.ring_body.clone(), s.ring_app_id.clone())
+                    (
+                        s.call_id.clone(),
+                        s.ring_title.clone(),
+                        s.ring_body.clone(),
+                        s.ring_app_id.clone(),
+                    )
                 };
                 send_call_control(action::SILENCE, call_id, &writer).await;
                 let actions = vec![
                     ("call:accept".to_string(), "Accept".to_string()),
                     ("call:decline".to_string(), "Decline".to_string()),
                 ];
-                match notification_display::show_call_banner(&title, &body, &app_id, &actions, 0, false).await {
+                match notification_display::show_call_banner(
+                    &title, &body, &app_id, &actions, 0, false,
+                )
+                .await
+                {
                     Ok(new_id) => {
                         let mut s = state.lock().await;
                         if !s.call_id.is_empty() {
