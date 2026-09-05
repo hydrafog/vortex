@@ -238,7 +238,7 @@ class VortexStack(internal val service: Service) : VortexNotification.Host {
             return false
         }
         gattServer = server
-        startNotesSync() // notes/todos bidirectional sync (NOTES_SYNC)
+        startNotesSync()
 
         server.onAudioOpReceived = { peerPub, jsonBytes ->
             val frame = com.vortex.a3.core.earbuds.AudioOpFrame.fromJsonBytes(jsonBytes)

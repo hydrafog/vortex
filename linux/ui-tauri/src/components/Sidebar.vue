@@ -50,9 +50,10 @@ function go(to: string) {
       transition: 'width .42s cubic-bezier(.22,1,.36,1)',
     }"
   >
-    <!-- Logo + wordmark. The logo stays left-anchored so it never jumps; only
-         the wordmark fades + slides right as the rail collapses. -->
-    <div class="flex items-center justify-start gap-[11px] px-2 pt-1">
+    <div
+      data-tauri-drag-region
+      class="flex items-center justify-start gap-[11px] px-2 pt-1 cursor-grab select-none"
+    >
       <img
         :src="logo"
         alt="Vortex"
@@ -65,7 +66,6 @@ function go(to: string) {
       >Vortex</span>
     </div>
 
-    <!-- Nav with a sliding active highlight -->
     <nav class="relative mt-[30px] flex flex-col gap-1">
       <div
         v-show="activeIndex >= 0"
@@ -101,7 +101,6 @@ function go(to: string) {
 
     <div class="flex-1" />
 
-    <!-- Collapse toggle (the bottom status card is intentionally omitted) -->
     <button
       :title="collapsed ? 'Expand' : 'Collapse'"
       class="flex h-10 items-center justify-start gap-3 rounded-xl px-3 text-muted-foreground transition-colors hover:text-secondary-foreground"

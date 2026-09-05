@@ -22,7 +22,6 @@ function pickLang(code: LocaleCode) {
     <h1 style="font-size:26px;font-weight:600;letter-spacing:-.5px;margin-top:18px;">{{ t("intro.welcome") }}</h1>
     <p style="font-size:14px;color:#8A8D93;margin-top:7px;">{{ t("intro.welcome_sub") }}</p>
 
-    <!-- language -->
     <div style="text-align:left;margin-top:30px;">
       <div class="label">{{ t("intro.language") }}</div>
       <div style="display:flex;flex-direction:column;gap:9px;">

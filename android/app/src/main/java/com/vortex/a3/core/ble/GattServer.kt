@@ -75,8 +75,6 @@ class GattServer(
     @Volatile var onCallControlReceived: (peerStaticPub: ByteArray, jsonBytes: ByteArray) -> Unit =
         { _, _ -> }
 
-    /** Invoked when the laptop WRITES a NOTES_SYNC chunk (`[total][idx][data]`):
-     *  reassembled + LWW-merged into the local notes store. */
     @Volatile var onNotesSyncReceived: (peerStaticPub: ByteArray, chunk: ByteArray) -> Unit =
         { _, _ -> }
 
@@ -317,8 +315,6 @@ class GattServer(
     fun sendNotificationEncrypted(peerStaticPub: ByteArray, notifJson: ByteArray): Boolean =
         sealAndNotify(peerStaticPub, FrameType.NOTIFICATION, notifJson, "sendNotificationEncrypted", logSuccess = true)
 
-    /** One notes/todos sync chunk (NOTES_SYNC 0x4D): `[total][idx][data]` of the
-     *  full item set. Bidirectional LWW sync; see NoteSync. */
     fun sendNotesSyncEncrypted(peerStaticPub: ByteArray, chunkPayload: ByteArray): Boolean =
         sealAndNotify(peerStaticPub, FrameType.NOTES_SYNC, chunkPayload, "sendNotesSync")
 

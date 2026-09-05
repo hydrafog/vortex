@@ -50,7 +50,6 @@ function finish() {
 
 <template>
   <div class="onb-root">
-    <!-- top bar -->
     <div class="onb-top">
       <div class="onb-brand">
         <button v-if="canBack" class="onb-chip" @click="go(step - 1)">
@@ -62,11 +61,8 @@ function finish() {
       <button v-if="canSkip" class="onb-skip" @click="skip">{{ t("intro.skip") }}</button>
     </div>
 
-    <!-- progress -->
     <div class="onb-progress"><div class="onb-bar" :style="{ width: pct }" /></div>
 
-    <!-- content — the :key swap remounts each step so its own entrance
-         animation plays instantly (no out-in gap, snappy yet smooth). -->
     <div class="onb-content">
       <component :is="current" v-bind="currentProps" :key="step" @next="next" @start="finish" />
     </div>

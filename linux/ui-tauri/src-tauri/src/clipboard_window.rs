@@ -1,40 +1,21 @@
-//! Clipboard-history popup WINDOW management — split out of `clipboard.rs`.
-//! Owns the frameless Super+V popup: pre-warm/show/hide, focus-loss auto-hide,
-//! and the narrow↔wide resize for the detail pane. No coupling to the clipboard
-//! store/sync internals — purely Tauri window plumbing.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 use tauri::{AppHandle, Manager};
 
-// One window, macOS-clipboard style: opens NARROW (list only) and WIDENS to
-// reveal a right-hand detail pane when the selected entry needs it (image /
-// long text), narrowing back otherwise. +2 for the card's 1px border each side.
 const LIST_W: f64 = 462.0;
 const PREVIEW_W: f64 = 440.0;
 const WIDE_W: f64 = LIST_W + PREVIEW_W;
 
-// Height is a share of the MONITOR, not a constant: a launcher panel that is
-// 600px on a 1440-logical-tall display reads as a dialog, not as a panel. The
-// clamp keeps it sane on a netbook and on a 5K.
 const H_FRACTION: f64 = 0.62;
 const H_MIN: f64 = 560.0;
 const H_MAX: f64 = 920.0;
-/// Fraction of the LEFTOVER vertical space that goes above the panel. Below
-/// 0.5 it sits a little high, the way macOS launchers do — dead-centre looks
-/// like it sank.
 const TOP_BIAS: f64 = 0.38;
 
-// Hide only when the window has truly lost focus. A short delayed re-check
-// tolerates any transient blur the compositor emits.
 static LIST_FOCUSED: AtomicBool = AtomicBool::new(false);
 
-/// Height chosen for the current monitor (f64 bits; 0 = not computed yet), so
-/// the detail-pane resize keeps the height it was shown at.
 static POPUP_H: AtomicU64 = AtomicU64::new(0);
 
-/// The popup's X window id, resolved once and reused. The window is hidden on
-/// dismiss, never destroyed, so the id is stable for the process's life.
 static CLIP_XID: AtomicU32 = AtomicU32::new(0);
 
 fn popup_h() -> f64 {
@@ -50,9 +31,6 @@ fn hide_popup(app: &AppHandle) {
     }
 }
 
-/// Size + top-left corner for the monitor the POINTER is on — the panel should
-/// open on the screen the user is looking at, which `center()` (the window's
-/// last monitor) gets wrong the moment a second display is attached.
 fn panel_geometry(app: &AppHandle) -> (f64, f64, f64) {
     let monitor = app
         .cursor_position()
@@ -67,7 +45,6 @@ fn panel_geometry(app: &AppHandle) -> (f64, f64, f64) {
     let logical_w = m.size().width as f64 / scale;
     let origin_x = m.position().x as f64 / scale;
     let origin_y = m.position().y as f64 / scale;
-    // Never taller than the screen with room to breathe, whatever the clamp says.
     let height = (logical_h * H_FRACTION)
         .clamp(H_MIN, H_MAX)
         .min(logical_h - 80.0);
@@ -76,18 +53,6 @@ fn panel_geometry(app: &AppHandle) -> (f64, f64, f64) {
     (height, x, y)
 }
 
-/// Put the keyboard on the popup via a direct X11 `SetInputFocus`. Tauri's
-/// `set_focus()` only ASKS the WM, but under Wayland+XWayland Mutter's
-/// focus-stealing prevention denies a focus request lacking a fresh
-/// user-activation timestamp — and the Super+V press went to gnome-shell, not to
-/// our already-running process. Without real focus the search box never gets the
-/// caret AND the window never emits `Focused(false)`, so click-outside can't
-/// auto-hide it. Going straight to X bypasses the WM policy.
-///
-/// Asking ONCE is not enough, which is what made this flaky: `show()` maps the
-/// window asynchronously and X refuses `SetInputFocus` on a window that is not
-/// yet viewable, and Mutter can take focus back a beat after it is granted. So
-/// ask, then VERIFY with `GetInputFocus`, and keep at it until X agrees.
 fn force_x11_focus() {
     std::thread::spawn(|| {
         use x11rb::connection::Connection;
@@ -116,8 +81,6 @@ fn force_x11_focus() {
             None
         }
 
-        /// X may report focus on a DESCENDANT of our toplevel (WebKitGTK nests
-        /// its own X windows), which is still our window having the keyboard.
         fn owns(conn: &impl Connection, ancestor: u32, mut win: u32) -> bool {
             for _ in 0..8 {
                 if win == ancestor {
@@ -144,9 +107,6 @@ fn force_x11_focus() {
         };
         let root = conn.setup().roots[screen].root;
 
-        // Resolve the id once: the tree walk costs a round-trip PER window, so
-        // paying it on every open is both slow and pointless for a window we
-        // only ever hide.
         let mut win = CLIP_XID.load(Ordering::Relaxed);
         if win == 0 {
             for _ in 0..25 {
@@ -174,7 +134,7 @@ fn force_x11_focus() {
                 .map(|a| a.map_state == MapState::VIEWABLE)
                 .unwrap_or(false);
             if !viewable {
-                continue; // still mapping — SetInputFocus would be a BadMatch
+                continue;
             }
             let _ = conn
                 .configure_window(win, &ConfigureWindowAux::new().stack_mode(StackMode::ABOVE));
@@ -187,7 +147,7 @@ fn force_x11_focus() {
                 .map(|r| r.focus)
                 .unwrap_or(0);
             if focused != 0 && owns(&conn, win, focused) {
-                return; // X confirms we hold the keyboard
+                return;
             }
         }
         tracing::warn!("clipboard popup: X never confirmed keyboard focus");
@@ -204,8 +164,6 @@ fn schedule_group_hide(app: &AppHandle) {
     });
 }
 
-/// Build the popup window. `visible` false is the pre-warm path — the window
-/// and its webview exist, the page has booted, nothing is on screen.
 fn build(app: &AppHandle, visible: bool) -> bool {
     match tauri::WebviewWindowBuilder::new(
         app,
@@ -214,13 +172,9 @@ fn build(app: &AppHandle, visible: bool) -> bool {
     )
     .title("Vortex Clipboard")
     .inner_size(LIST_W, popup_h())
-    // Pin the floor at list-width so the compositor honours the narrow request
-    // when the detail pane closes (it won't clamp up to content).
     .min_inner_size(LIST_W, H_MIN)
     .max_inner_size(WIDE_W, H_MAX)
     .decorations(false)
-    // Transparent WINDOW so the page's rounded-corner card cuts cleanly; the
-    // card paints a SOLID background, so there's no see-through.
     .transparent(true)
     .always_on_top(true)
     .skip_taskbar(true)
@@ -249,10 +203,6 @@ fn build(app: &AppHandle, visible: bool) -> bool {
     }
 }
 
-/// Build the popup hidden, at startup, so the FIRST Super+V is a show — not a
-/// window build plus a webview boot plus a Vue mount while the user waits. The
-/// launcher process itself costs ~50 ms (measured); everything else the first
-/// open used to pay for happens here instead.
 pub(crate) fn prewarm(app: &AppHandle) {
     if app.get_webview_window("clipboard").is_some() {
         return;
@@ -260,12 +210,6 @@ pub(crate) fn prewarm(app: &AppHandle) {
     build(app, false);
 }
 
-/// Show the frameless clipboard-history popup. Reuses the window across opens
-/// (hide on dismiss, show here); re-arms the webview via a direct eval so a
-/// just-copied item appears on first open (WebKitGTK pauses hidden-webview JS,
-/// so an event emit right after show() would race the webview waking). When the
-/// eval lands before the page has mounted, the page's own `onMounted` re-arms —
-/// so a never-yet-shown pre-warmed window is covered either way.
 pub(crate) fn show_clipboard_window(app: &AppHandle) {
     let (h, x, y) = panel_geometry(app);
     POPUP_H.store(h.to_bits(), Ordering::Relaxed);
@@ -292,10 +236,6 @@ pub fn clipboard_hide(app: AppHandle) {
     hide_popup(&app);
 }
 
-/// Widen the popup to reveal the right-hand detail pane, or narrow it back to
-/// list-only. The list calls this as the selection changes — `visible` is true
-/// for entries that need the extra room (image / long text). Same window
-/// throughout, so keyboard focus is never disturbed.
 #[tauri::command]
 pub fn clipboard_set_preview(app: AppHandle, visible: bool) {
     if let Some(w) = app.get_webview_window("clipboard") {

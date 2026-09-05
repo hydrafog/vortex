@@ -1,9 +1,3 @@
-//! Ongoing file-transfer indicator, shown as a LIVE ACTIVITY — the same
-//! top-bar "pill" the in-call timer uses (drawn by the Vortex GNOME Shell
-//! extension if installed, else a per-activity tray icon + progress menu). One
-//! pill aggregates the current batch of phone→laptop file shares: it updates in
-//! place as bytes arrive (no toast, no re-sliding banner) and resolves to
-//! "Received N → Downloads" before disappearing. Session-only.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -11,7 +5,6 @@ use std::sync::{Mutex, OnceLock};
 use tokio::sync::mpsc::UnboundedSender;
 use vortex_l3_daemon::core::live_activity::LiveActivity;
 
-/// Stable pill key — one transfer pill at a time (the batch).
 const PILL_KEY: &str = "vortex-file-transfer";
 
 struct Item {
@@ -27,10 +20,7 @@ static ITEMS: Mutex<Vec<Item>> = Mutex::new(Vec::new());
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 static LIVE_TX: OnceLock<UnboundedSender<LiveActivity>> = OnceLock::new();
 
-/// Receive the live-activity channel (the same one the call pill / phone live
-/// activities use), wired at worker start.
 pub(crate) fn init(live_tx: UnboundedSender<LiveActivity>) {
-    // Make the Vortex logo available at the "vortex" app_id path for the pill.
     let _ = vortex_l3_daemon::core::icon_cache::ensure_vortex();
     let _ = LIVE_TX.set(live_tx);
 }
@@ -107,8 +97,6 @@ fn pill(title: String, text: String, progress: i32, ended: bool) -> LiveActivity
     LiveActivity {
         key: PILL_KEY.to_string(),
         app: "Vortex".to_string(),
-        // Resolves to cache/vortex.png (ensured in init) → the Vortex logo,
-        // not the generic bell.
         app_id: "vortex".to_string(),
         title,
         text,
@@ -123,8 +111,6 @@ fn pill(title: String, text: String, progress: i32, ended: bool) -> LiveActivity
     }
 }
 
-/// Aggregate the batch and push the pill; resolve + schedule its removal once
-/// everything finishes.
 fn emit() {
     let (title, text, progress, all_done) = {
         let g = match ITEMS.lock() {
@@ -147,9 +133,6 @@ fn emit() {
         } else {
             0
         };
-        // One aggregate pill for the whole batch (instant-share style: a single
-        // "Receiving N items", not one per file). Multi-file gets an "X/N"
-        // completion count so each finishing file is still visible.
         let label = if count == 1 {
             g[0].name.clone()
         } else {
@@ -158,9 +141,6 @@ fn emit() {
         if all_done {
             (
                 format!("Received {label}"),
-                // Name the folder they actually landed in — it's localised
-                // ("Téléchargements", …), and a wrong name here sends the user
-                // hunting in a folder that hasn't got the files.
                 format!("Saved to {}", crate::clipboard_sync::downloads_label()),
                 100,
                 true,
@@ -189,8 +169,6 @@ fn emit() {
     send(pill(title, text, progress, false));
 
     if all_done {
-        // Reset the batch so the next share starts fresh, then remove the pill
-        // shortly after — unless a NEW batch has begun in the meantime.
         if let Ok(mut g) = ITEMS.lock() {
             g.clear();
         }

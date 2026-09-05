@@ -24,21 +24,16 @@ const { t } = useI18n();
   <div class="min-h-screen">
     <Devices />
 
-    <!-- Continuity-style pairing flow: radar scan → connecting → emoji security
-         check → success / aborted. Self-contained; reads the pairing state. -->
     <PairingOverlay />
 
-    <!-- Forget-device confirm -->
     <ForgetModal
       :target="forgetTarget"
       @dismiss="forgetTarget = null"
       @confirm="confirmForget"
     />
 
-    <!-- Earbuds picker: magical Bluetooth-scan sheet (own component). -->
     <EarbudsPicker />
 
-    <!-- Earbuds long-press / right-click → context menu. -->
     <Modal
       :open="earbudsMenuOpen"
       :title="activeEarbuds?.name || t('device.earbuds')"

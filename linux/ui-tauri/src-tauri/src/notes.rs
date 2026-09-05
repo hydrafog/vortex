@@ -1,11 +1,3 @@
-//! Notes + Todos — a unified notes/todos list, bidirectionally synced.
-//! Each item is a free-text note OR a checkable todo (with an optional due-date
-//! reminder). UNLIKE the contacts/SMS mirrors (phone-authoritative, one-way),
-//! BOTH devices create/edit/delete, so the store is a state-based LWW-Element-
-//! Set: items carry an `updated_at` clock + a `deleted` tombstone, and `merge`
-//! keeps the newest version per id. This file owns the laptop's local store +
-//! the Tauri CRUD commands + the `vortex:notes` emit; the sync wire (NOTES_SYNC
-//! frame) lands in a follow-up.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -13,30 +5,19 @@ use std::sync::{Arc, Mutex, OnceLock};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
-/// One note or todo. Identical shape on the phone (Kotlin `Note`) so the JSON
-/// round-trips across the sync wire untouched.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Item {
-    /// UUID, minted by whichever device created the item (the Vue/Compose side
-    /// generates it — no server, no central id authority).
     pub id: String,
-    /// "note" | "todo".
     pub kind: String,
     #[serde(default)]
     pub title: String,
     #[serde(default)]
     pub body: String,
-    /// Todos only — checked off.
     #[serde(default)]
     pub done: bool,
-    /// Todos only — epoch ms of the reminder, 0 = none.
     #[serde(default)]
     pub due_at: i64,
-    /// LWW clock — epoch ms, bumped on every local change. The merge keeps the
-    /// item with the greater `updated_at`.
     pub updated_at: i64,
-    /// Tombstone — a deleted item is kept (so the delete propagates) but hidden
-    /// from the UI. A delete with a greater `updated_at` beats a concurrent edit.
     #[serde(default)]
     pub deleted: bool,
 }
@@ -48,8 +29,6 @@ pub(crate) fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-/// `~/.cache/vortex/notes.json` — the full item array incl. tombstones (so a
-/// delete still propagates after a restart).
 fn cache_path() -> Option<PathBuf> {
     let mut p = PathBuf::from(std::env::var_os("HOME")?);
     p.push(".cache/vortex/notes.json");
@@ -69,8 +48,6 @@ fn save_store(items: &[Item]) {
     }
 }
 
-/// In-memory store guarded for concurrent Tauri commands; lazily loaded from
-/// disk and written back after each mutation (mirrors `clipboard.rs`).
 static NOTES: Mutex<Option<Vec<Item>>> = Mutex::new(None);
 
 fn with_notes<R>(f: impl FnOnce(&mut Vec<Item>) -> R) -> R {
@@ -81,21 +58,14 @@ fn with_notes<R>(f: impl FnOnce(&mut Vec<Item>) -> R) -> R {
     r
 }
 
-/// The UI's view: live (non-deleted) items only; tombstones stay in the store
-/// for sync but never reach the page.
 fn visible(items: &[Item]) -> Vec<Item> {
     items.iter().filter(|i| !i.deleted).cloned().collect()
 }
 
-/// Push the current live list to the Vue page.
 fn emit(app: &AppHandle, items: &[Item]) {
     let _ = app.emit("vortex:notes", visible(items));
 }
 
-/// Wipe the notes store (in-memory + disk) and blank the Notes page. Called on
-/// peer forget. Notes are bidirectionally synced, so this drops the laptop's
-/// copy of the shared list along with the peer relationship; re-pairing the
-/// same phone re-syncs whatever it still holds.
 pub(crate) fn clear(app: &AppHandle) {
     {
         let mut g = NOTES.lock().unwrap_or_else(|e| e.into_inner());
@@ -107,15 +77,11 @@ pub(crate) fn clear(app: &AppHandle) {
     let _ = app.emit("vortex:notes", Vec::<Item>::new());
 }
 
-/// Tauri command: the cached live list (page populates instantly on open).
 #[tauri::command]
 pub(crate) fn get_notes() -> Vec<Item> {
     with_notes(|items| visible(items))
 }
 
-/// Tauri command: create or update an item. The frontend supplies the full
-/// item (a new one carries a freshly-minted `id`); we stamp `updated_at` and
-/// replace any same-id entry. Emits the fresh list.
 #[tauri::command]
 pub(crate) fn upsert_note(app: AppHandle, mut item: Item) {
     item.updated_at = now_ms();
@@ -130,7 +96,6 @@ pub(crate) fn upsert_note(app: AppHandle, mut item: Item) {
     mark_dirty();
 }
 
-/// Tauri command: check/uncheck a todo.
 #[tauri::command]
 pub(crate) fn toggle_todo(app: AppHandle, id: String, done: bool) {
     with_notes(|items| {
@@ -143,7 +108,6 @@ pub(crate) fn toggle_todo(app: AppHandle, id: String, done: bool) {
     mark_dirty();
 }
 
-/// Tauri command: delete an item (tombstone — kept for sync, hidden from UI).
 #[tauri::command]
 pub(crate) fn delete_note(app: AppHandle, id: String) {
     with_notes(|items| {
@@ -156,22 +120,10 @@ pub(crate) fn delete_note(app: AppHandle, id: String) {
     mark_dirty();
 }
 
-// ── Bidirectional sync (NOTES_SYNC frame) ───────────────────────────────────
-//
-// State-based LWW-Element-Set: each device pushes its FULL item set (incl.
-// tombstones) after a local edit; the receiver LWW-merges by id (greater
-// `updated_at` wins, a tombstone propagates) and replies with the merged set
-// ONLY if it holds items the sender lacked — converges in ≤2 rounds. The
-// transport is generic (a `SealedWriter` + a raw-frame channel the BLE loop
-// fills); ALL the logic lives in THIS file.
 
-/// `ty::NOTES_SYNC` — mirrored so this module needn't reach the daemon's frame
-/// table for one byte.
 const NOTES_FRAME: u8 = 0x4D;
-/// Chunk payload size — fits one BLE notify after AEAD overhead.
 const CHUNK_DATA: usize = 400;
 
-/// Fired to make the dirty-watcher push our set (set in [spawn_sync]).
 static NOTES_DIRTY: OnceLock<Arc<tokio::sync::Notify>> = OnceLock::new();
 fn mark_dirty() {
     if let Some(n) = NOTES_DIRTY.get() {
@@ -179,12 +131,10 @@ fn mark_dirty() {
     }
 }
 
-/// Full set incl. tombstones, read without re-saving.
 fn snapshot() -> Vec<Item> {
     NOTES.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(load_store).clone()
 }
 
-/// LWW union by id: keep the greater `updated_at`. Commutative + idempotent.
 fn merge(local: &[Item], remote: &[Item]) -> Vec<Item> {
     use std::collections::HashMap;
     let mut by_id: HashMap<&str, Item> = HashMap::new();
@@ -199,8 +149,6 @@ fn merge(local: &[Item], remote: &[Item]) -> Vec<Item> {
     by_id.into_values().collect()
 }
 
-/// Canonical change-signature (sorted `id:updated_at:deleted`) — equality test
-/// independent of JSON key / item order.
 fn sig(items: &[Item]) -> String {
     let mut v: Vec<String> = items
         .iter()
@@ -210,7 +158,6 @@ fn sig(items: &[Item]) -> String {
     v.join("|")
 }
 
-/// Serialise the full set into `[total u16][idx u16][data]` BLE chunks.
 fn build_chunks(items: &[Item]) -> Vec<Vec<u8>> {
     let json = serde_json::to_vec(items).unwrap_or_else(|_| b"[]".to_vec());
     let total = json.len().div_ceil(CHUNK_DATA).max(1) as u16;
@@ -237,7 +184,6 @@ fn parse_chunk(p: &[u8]) -> Option<(u16, u16, Vec<u8>)> {
     ))
 }
 
-/// Reassembles a chunked full item set.
 #[derive(Default)]
 struct Assembler {
     parts: std::collections::BTreeMap<u16, Vec<u8>>,
@@ -266,10 +212,6 @@ async fn send_full(writer: &Arc<tokio::sync::Mutex<Option<crate::SealedWriter>>>
     }
 }
 
-/// Wire the sync: a dirty-watcher (pushes our set after a local edit) and a
-/// raw-frame consumer (merges an inbound set, replies if we hold more).
-/// `writer` is the generic sealed-frame writer the BLE loop fills on connect;
-/// returns the raw-frame sender the BLE listener forwards NOTES_SYNC into.
 pub(crate) fn spawn_sync(
     app: AppHandle,
     writer: Arc<tokio::sync::Mutex<Option<crate::SealedWriter>>>,
@@ -277,7 +219,6 @@ pub(crate) fn spawn_sync(
     let notify = Arc::new(tokio::sync::Notify::new());
     let _ = NOTES_DIRTY.set(notify.clone());
 
-    // Dirty-watcher: push the full set ~300ms after the last local edit.
     {
         let writer = writer.clone();
         tokio::spawn(async move {
@@ -294,7 +235,7 @@ pub(crate) fn spawn_sync(
         let mut asm = Assembler::default();
         while let Some((ty, payload)) = rx.recv().await {
             if ty != NOTES_FRAME {
-                continue; // the raw channel is generic — ignore other features
+                continue;
             }
             let Some((total, idx, data)) = parse_chunk(&payload) else {
                 continue;
@@ -302,7 +243,6 @@ pub(crate) fn spawn_sync(
             let Some(remote) = asm.add(total, idx, data) else {
                 continue;
             };
-            // Atomic LWW merge into the store.
             let (merged, changed) = with_notes(|v| {
                 let merged = merge(v, &remote);
                 let changed = sig(&merged) != sig(v);
@@ -318,7 +258,6 @@ pub(crate) fn spawn_sync(
                     "notes: merged peer set"
                 );
             }
-            // Reply only if WE hold items the peer's set lacked → converges.
             if sig(&merged) != sig(&remote) {
                 send_full(&writer, &merged).await;
             }
@@ -327,14 +266,7 @@ pub(crate) fn spawn_sync(
     tx
 }
 
-// ── Due-date reminders (laptop side) ────────────────────────────────────────
-//
-// Each device independently fires the reminder from the synced `due_at` (so it
-// shows on all devices). A 30s poll fires a desktop notification when a
-// todo's due time CROSSES while the daemon runs — matching the phone's alarms,
-// which only fire FUTURE due times (a past-due item on startup is not re-fired).
 
-/// Spawn the reminder poll (call once at worker start).
 pub(crate) fn spawn_reminders() {
     tokio::spawn(async move {
         let mut last_scan = now_ms();
@@ -357,9 +289,6 @@ pub(crate) fn spawn_reminders() {
 }
 
 async fn fire_reminder(it: &Item) {
-    // Reuse the desktop-notification path. show() stamps a vortex-cache icon, so
-    // the notif-capturer's loop-guard skips it — the laptop's own reminder is NOT
-    // mirrored to the phone (the phone fires its own from the same due_at).
     let notif = vortex_l3_daemon::core::notif_mirror::NotificationMirror {
         app: "Reminder".to_string(),
         title: if it.title.is_empty() {

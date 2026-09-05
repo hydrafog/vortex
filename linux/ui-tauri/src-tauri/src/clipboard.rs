@@ -1,21 +1,3 @@
-//! Clipboard HISTORY — P1 of the clipboard feature (see the agreed plan):
-//! a Windows-Win+V-style local history of everything copied on this
-//! laptop (text AND images — screenshots land as `image/png`), shown in
-//! a frameless popup bound to a GNOME custom shortcut (default Super+V).
-//!
-//! Capture strategy: GNOME has no wlroots data-control protocol, so
-//! `wl-paste --watch` is unavailable — we POLL the clipboard through
-//! `arboard`, which holds ONE persistent X11 (XWayland) connection that
-//! Mutter keeps in sync with the Wayland clipboard. NOT short-lived
-//! `wl-paste` subprocesses: each of those creates a transient Wayland
-//! surface, which flashed a barely-visible ghost window on every poll
-//! (live-hit here AND in the old ecosystem project, which moved to
-//! arboard for exactly this reason).
-//!
-//! Storage: `~/.cache/vortex/clipboard/` (0600/0700) — `index.json`
-//! holds the entries (text inline, images as sibling PNG files),
-//! newest-first, deduped by content hash, capped by count and total
-//! bytes. Pinned entries survive eviction.
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -29,40 +11,23 @@ use crate::clipboard_sync::{
     with_clip_setter,
 };
 
-/// Poll cadence. The list-types probe is a ~5ms subprocess; content is
-/// only read when the type set suggests something might have changed.
 const POLL_MS: u64 = 700;
-/// History caps: entries and total on-disk bytes (images dominate).
 const MAX_ENTRIES: usize = 1000;
 const MAX_TOTAL_BYTES: u64 = 100 * 1024 * 1024;
-/// Per-item guards: a copied novel is truncated, a >20MB image skipped.
-/// Matches the sync cap (`clipboard_mirror::MAX_CLIPBOARD_TEXT_CHARS`) so the
-/// watcher doesn't truncate text below what the long-text path can carry.
 const MAX_TEXT_CHARS: usize = 65_536;
 const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024;
 
-// --------------------------------------------------------------------------
-// Store
-// --------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ClipEntry {
-    /// Content hash (sha256 hex, first 16 chars) — the identity used for
-    /// dedup and by every command.
     pub id: String,
-    /// "text" | "image"
     pub kind: String,
-    /// Inline text (kind == "text").
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
-    /// PNG filename inside the clipboard dir (kind == "image").
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file: Option<String>,
-    /// Content size (text bytes / PNG bytes) for the eviction budget.
     pub bytes: u64,
-    /// Capture time (unix millis) — display only.
     pub ts_ms: u64,
-    /// Pinned entries are never evicted by the caps.
     #[serde(default)]
     pub pinned: bool,
 }
@@ -86,8 +51,6 @@ fn load_index() -> Vec<ClipEntry> {
 fn save_index(entries: &[ClipEntry]) {
     let Some(dir) = clip_dir() else { return };
     let _ = std::fs::create_dir_all(&dir);
-    // Clipboard content is sensitive (passwords get copied) — keep the
-    // whole directory private, same policy as the SMS caches.
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -98,7 +61,6 @@ fn save_index(entries: &[ClipEntry]) {
     }
 }
 
-/// In-memory mirror of the index, guarded for the watcher + commands.
 static ENTRIES: Mutex<Option<Vec<ClipEntry>>> = Mutex::new(None);
 
 fn with_entries<R>(f: impl FnOnce(&mut Vec<ClipEntry>) -> R) -> R {
@@ -122,8 +84,6 @@ pub(crate) fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// Insert (or re-surface) a captured entry. Returns true when the list
-/// changed in a way the popup should re-render.
 pub(crate) fn store_capture(kind: &str, text: Option<String>, png: Option<Vec<u8>>) -> bool {
     let id = match (&text, &png) {
         (Some(t), _) => hash_id(t.as_bytes()),
@@ -131,8 +91,6 @@ pub(crate) fn store_capture(kind: &str, text: Option<String>, png: Option<Vec<u8
         _ => return false,
     };
     with_entries(|entries| {
-        // Dedup: same content again just moves to the front (Win+V
-        // semantics — re-copying or re-selecting surfaces it).
         if let Some(pos) = entries.iter().position(|e| e.id == id) {
             if pos == 0 {
                 return false;
@@ -170,8 +128,6 @@ pub(crate) fn store_capture(kind: &str, text: Option<String>, png: Option<Vec<u8
     })
 }
 
-/// Enforce the count/bytes caps, oldest-unpinned first. Deletes the
-/// evicted images' PNG files.
 fn evict(entries: &mut Vec<ClipEntry>) {
     let dir = clip_dir();
     loop {
@@ -181,7 +137,7 @@ fn evict(entries: &mut Vec<ClipEntry>) {
             return;
         }
         let Some(pos) = entries.iter().rposition(|e| !e.pinned) else {
-            return; // everything pinned — caps yield
+            return;
         };
         let e = entries.remove(pos);
         if let (Some(d), Some(f)) = (&dir, &e.file) {
@@ -190,11 +146,7 @@ fn evict(entries: &mut Vec<ClipEntry>) {
     }
 }
 
-// --------------------------------------------------------------------------
-// Capture (arboard — one persistent XWayland connection, no ghost windows)
-// --------------------------------------------------------------------------
 
-/// Encode an arboard RGBA image as PNG bytes for on-disk storage.
 fn rgba_to_png(img: &arboard::ImageData) -> Option<Vec<u8>> {
     let buf: image::RgbaImage = image::RgbaImage::from_raw(
         img.width as u32,
@@ -206,53 +158,30 @@ fn rgba_to_png(img: &arboard::ImageData) -> Option<Vec<u8>> {
     Some(out.into_inner())
 }
 
-/// One poll round against the persistent clipboard handle. Returns true
-/// when the history changed. `last_sig` dedups unchanged rounds cheaply
-/// (text hash / image dims+raw hash) so a parked screenshot isn't
-/// re-encoded every tick. `last_state` logs read-state TRANSITIONS only
-/// (text/image/empty/error) so a capture-miss is visible in the log
-/// without spamming a line every 700ms tick.
 fn poll_once(cb: &mut arboard::Clipboard, last_sig: &mut String, last_state: &mut u8) -> bool {
-    // Try text first. Note: a NON-empty text wins; an empty/whitespace
-    // text must FALL THROUGH to the image probe (some apps offer an empty
-    // text/plain target alongside an image — returning early there dropped
-    // the image entirely).
     match cb.get_text() {
         Ok(text) if !text.trim().is_empty() => {
             log_clip_state(last_state, 1, "text");
-            // Dedup on the RAW text so identity is exact…
             let sig = format!("t:{}", hash_id(text.as_bytes()));
             if sig == *last_sig {
                 return false;
             }
             *last_sig = sig;
-            // Concealed-clipboard handling (Linux side): a password-manager copy
-            // (KeePassXC/KDE mark it with the `x-kde-passwordManagerHint` target)
-            // is neither stored nor synced. Best-effort, fails OPEN.
             if clipboard_is_secret() {
                 tracing::info!("clipboard: sensitive (password-manager) — skipped");
                 return false;
             }
-            // …but store a tidied copy: trim the leading/trailing blank
-            // lines a copy often carries, and collapse 3+ consecutive
-            // blank lines to one, so a YAML/code block doesn't balloon the
-            // card. The meaningful content + internal layout is preserved.
             let mut clean = tidy_text(&text);
             if clean.chars().count() > MAX_TEXT_CHARS {
                 clean = clean.chars().take(MAX_TEXT_CHARS).collect();
             }
             tracing::info!(chars = clean.chars().count(), "clipboard: text captured");
-            // Sync hook: a NEW text copy → queue it for the phone (the async
-            // sender applies the on/off toggle, the loop guard, and the live
-            // link). Reached only on an actual change (dedup returned above).
             queue_clipboard_for_sync(&clean);
             return store_capture("text", Some(clean), None);
         }
-        Ok(_) => { /* empty text — fall through to the image probe */ }
-        Err(arboard::Error::ContentNotAvailable) => { /* no text — maybe image */ }
+        Ok(_) => {  }
+        Err(arboard::Error::ContentNotAvailable) => {  }
         Err(e) => {
-            // A real read error (timeout / connection): the copy is NOT
-            // seen this tick. Log the transition so a miss is diagnosable.
             log_clip_state(last_state, 3, &format!("text read error: {e}"));
         }
     }
@@ -264,9 +193,6 @@ fn poll_once(cb: &mut arboard::Clipboard, last_sig: &mut String, last_state: &mu
                 return false;
             }
             *last_sig = sig;
-            // Loop-guard signature keyed on the RGBA pixels (see img_sig),
-            // computed BEFORE re-encoding so it matches the one apply_synced_image
-            // seeds from a received image's decoded pixels — no echo bounce.
             let sync_sig = img_sig(img.width, img.height, &img.bytes);
             let Some(png) = rgba_to_png(&img) else {
                 return false;
@@ -276,8 +202,6 @@ fn poll_once(cb: &mut arboard::Clipboard, last_sig: &mut String, last_state: &mu
                 return false;
             }
             tracing::info!(w = img.width, h = img.height, "clipboard: image captured");
-            // Sync hook: a new image copy → queue it for the phone (capped /
-            // loop-guarded by the async sender). Reached only on a change.
             queue_clipboard_image_for_sync(sync_sig, &png);
             return store_capture("image", None, Some(png));
         }
@@ -287,29 +211,7 @@ fn poll_once(cb: &mut arboard::Clipboard, last_sig: &mut String, last_state: &mu
     false
 }
 
-/// Best-effort "is the current CLIPBOARD a password-manager secret?" probe
-/// (concealed-clipboard handling, Linux side). KeePassXC / KDE apps advertise a
-/// `x-kde-passwordManagerHint` selection target (value "secret") on a copied
-/// password. We ask the CLIPBOARD owner to convert to that target: if it's
-/// offered, the copy is secret → don't store or sync it.
-///
-/// Fails OPEN on ANY error — a probe failure must never silently halt normal
-/// clipboard sync.
-///
-/// It has to ask about the SAME selection arboard reads, or it answers about
-/// text that was never captured. Under Wayland those are two different
-/// selections: arboard (with `wayland-data-control`) reads the Wayland one,
-/// while the X11 probe below sees whatever XWayland last got handed — which on
-/// Plasma is frequently minutes stale. An X11-only probe would then report "not
-/// secret" for a password copy it simply cannot see, and the password would sync
-/// to the phone. So Wayland is asked first, on Wayland's own terms.
 
-/// The Wayland arm: list the MIME types the selection offers and look for the
-/// hint among them. Cheaper than the X11 round trip — no conversion request,
-/// the compositor already knows the offer's type list.
-///
-/// `None` means "could not ask" (no Wayland display, no data-control protocol),
-/// which hands the question to the X11 probe rather than answering it wrongly.
 fn wayland_clipboard_is_secret() -> Option<bool> {
     use wl_clipboard_rs::paste::{get_mime_types, ClipboardType, Seat};
 
@@ -318,7 +220,6 @@ fn wayland_clipboard_is_secret() -> Option<bool> {
     }
     match get_mime_types(ClipboardType::Regular, Seat::Unspecified) {
         Ok(types) => Some(types.iter().any(|t| t == "x-kde-passwordManagerHint")),
-        // An empty clipboard is a definite "not secret", not a failure to ask.
         Err(wl_clipboard_rs::paste::Error::ClipboardEmpty) => Some(false),
         Err(_) => None,
     }
@@ -374,12 +275,10 @@ fn clipboard_is_secret() -> bool {
             .convert_selection(p.win, p.clipboard, p.hint, p.prop, 0u32)
             .ok()?;
         p.conn.flush().ok()?;
-        // Bounded wait for the SelectionNotify (never block the watcher).
         let deadline = std::time::Instant::now() + std::time::Duration::from_millis(60);
         loop {
             match p.conn.poll_for_event().ok()? {
                 Some(Event::SelectionNotify(ev)) => {
-                    // property == NONE (0) → the owner didn't offer the target.
                     if ev.property == 0 {
                         return Some(false);
                     }
@@ -389,12 +288,6 @@ fn clipboard_is_secret() -> bool {
                         .ok()?
                         .reply()
                         .ok()?;
-                    // ONLY a real password manager (KeePassXC/KDE) sets this hint
-                    // target's VALUE to "secret". Permissive owners (xclip, the
-                    // GNOME clipboard bridge) answer an unknown target by echoing
-                    // the clipboard TEXT — so a non-empty property is NOT enough;
-                    // we must see the literal "secret" or we'd false-flag normal
-                    // copies and silently break text sync.
                     let val = String::from_utf8_lossy(&r.value);
                     let secret = val.trim().eq_ignore_ascii_case("secret");
                     let _ = p.conn.delete_property(p.win, p.prop);
@@ -412,7 +305,6 @@ fn clipboard_is_secret() -> bool {
         }
     }
 
-    // Outer Option = "init attempted?"; inner = Some(probe) / None(init failed).
     static PROBE: Mutex<Option<Option<Probe>>> = Mutex::new(None);
     let mut g = match PROBE.lock() {
         Ok(g) => g,
@@ -423,11 +315,10 @@ fn clipboard_is_secret() -> bool {
     }
     match g.as_ref().and_then(|o| o.as_ref()) {
         Some(p) => query(p).unwrap_or(false),
-        None => false, // init failed earlier — fail open
+        None => false,
     }
 }
 
-/// Log a clipboard read-state change once, on transition (not every tick).
 fn log_clip_state(last_state: &mut u8, state: u8, label: &str) {
     if *last_state != state {
         *last_state = state;
@@ -439,14 +330,6 @@ fn log_clip_state(last_state: &mut u8, state: u8, label: &str) {
     }
 }
 
-/// One-shot capture of whatever is on the clipboard RIGHT NOW, using a
-/// FRESH arboard connection. The long-lived watcher's X connection can go
-/// stale (it stops seeing new selection owners after the clipboard churns,
-/// so a just-copied item only appeared after an app restart). The popup
-/// calls this every time it opens so the current clipboard is always in the
-/// list — independent of the watcher's connection health. A fresh `last_sig`
-/// means it always tries; `store_capture` dedups by content (a re-copy just
-/// surfaces to the front, never a duplicate).
 #[tauri::command]
 pub async fn clipboard_capture_now(app: AppHandle) {
     let changed = tokio::task::spawn_blocking(|| {
@@ -468,9 +351,6 @@ pub async fn clipboard_capture_now(app: AppHandle) {
     }
 }
 
-/// Spawn the history watcher (plain thread — arboard is blocking and the
-/// emit handle is Send). Emits `vortex:clipboard` whenever the history
-/// changes so an open popup re-renders live.
 pub(crate) fn spawn_clipboard_watcher(app: AppHandle) {
     std::thread::spawn(move || {
         let mut cb = match arboard::Clipboard::new() {
@@ -491,17 +371,12 @@ pub(crate) fn spawn_clipboard_watcher(app: AppHandle) {
     });
 }
 
-// --------------------------------------------------------------------------
-// Tauri commands
-// --------------------------------------------------------------------------
 
 #[derive(Serialize)]
 pub(crate) struct ClipEntryDto {
     id: String,
     kind: String,
-    /// Truncated preview for the list (full text is applied on select).
     text: Option<String>,
-    /// Absolute PNG path for `convertFileSrc`.
     path: Option<String>,
     bytes: u64,
     ts_ms: u64,
@@ -530,9 +405,6 @@ pub fn clipboard_history() -> Vec<ClipEntryDto> {
     })
 }
 
-/// Put an entry back into the system clipboard. arboard again — the
-/// process is long-lived, so the served selection stays alive (and
-/// Mutter mirrors it to the Wayland side).
 #[tauri::command]
 pub async fn clipboard_select(app: AppHandle, id: String) -> Result<(), String> {
     enum Payload {
@@ -555,9 +427,6 @@ pub async fn clipboard_select(app: AppHandle, id: String) -> Result<(), String> 
     .ok_or("entry not found")?;
 
     tokio::task::spawn_blocking(move || -> Result<(), String> {
-        // Use the ONE shared setter (see CLIP_SETTER) — a separate handle here
-        // would race the sync setters for X11 CLIPBOARD ownership, so a pick
-        // could silently lose to (or steal from) an in-flight synced item.
         with_clip_setter(|cb| match payload {
             Payload::Text(t) => cb.set_text(t).map_err(|e| format!("set_text: {e}")),
             Payload::Image(path) => {
@@ -578,10 +447,6 @@ pub async fn clipboard_select(app: AppHandle, id: String) -> Result<(), String> 
     .await
     .map_err(|e| format!("join: {e}"))??;
 
-    // Surface the just-picked entry to the front ourselves and tell the UI,
-    // instead of waiting for the watcher to observe our own write — two
-    // arboard handles in one process race on X selection ownership, so the
-    // re-capture path isn't reliable (the entry would appear to stay put).
     with_entries(|entries| {
         if let Some(pos) = entries.iter().position(|e| e.id == id) {
             if pos != 0 {
@@ -615,9 +480,6 @@ pub fn clipboard_delete(id: String) {
     });
 }
 
-/// Full entry by id for the preview pane — like `clipboard_history` but a
-/// single item with the text UNtruncated (the list truncates to 400 chars
-/// for speed; the preview shows everything).
 #[tauri::command]
 pub fn clipboard_get(id: String) -> Option<ClipEntryDto> {
     let dir = clip_dir();
@@ -660,7 +522,6 @@ mod tests {
             (0..n).map(|i| text_entry(&format!("e{i}"), 1, false)).collect();
         evict(&mut v);
         assert_eq!(v.len(), MAX_ENTRIES);
-        // Newest (front) survive; the tail got dropped.
         assert_eq!(v[0].id, "e0");
         assert_eq!(v.last().unwrap().id, format!("e{}", MAX_ENTRIES - 1));
     }

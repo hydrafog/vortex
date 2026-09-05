@@ -8,7 +8,7 @@ import android.util.Log
 data class ClipboardOutgoingFile(val bytes: ByteArray, val name: String, val mime: String)
 
 object ClipboardFileReader {
-    const val MAX_FILE_BYTES = 64L * 1024 * 1024
+    const val MAX_FILE_BYTES = 2L * 1024 * 1024 * 1024
 
     private const val TAG = "ClipboardFileOut"
 

@@ -20,17 +20,31 @@ import { sasToGlyphs } from "@/lib/sasEmoji";
 
 const { t } = useI18n();
 
-type Screen = "proximity" | "scan" | "connecting" | "emoji" | "success" | "aborted" | null;
+type Screen = "proximity" | "scan" | "connecting" | "emoji" | "success" | "aborted" | "failed" | null;
 const screen = computed<Screen>(() => {
   if (pairingPeer.value) {
     if (pairLocalRejected.value) return "aborted";
-    if (pairingResult.value) return pairingResult.value.ok ? "success" : "aborted";
+    if (pairingResult.value) {
+      if (pairingResult.value.ok) return "success";
+      const err = (pairingResult.value.error || "").toLowerCase();
+      if (err.includes("sas") || err.includes("mismatch") || err.includes("declined") || err.includes("security")) {
+        return "aborted";
+      }
+      return "failed";
+    }
     if (pairingSas.value) return "emoji";
     return "connecting";
   }
   if (proximityHit.value) return "proximity";
   if (showPairPhoneModal.value) return "scan";
   return null;
+});
+
+const pairErrorMessage = computed(() => {
+  if (pairingResult.value && !pairingResult.value.ok) {
+    return pairingResult.value.error;
+  }
+  return "";
 });
 
 const proximityName = computed(() => proximityHit.value?.name || t("device.android"));
@@ -81,7 +95,6 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
   <Transition name="vx-fade">
     <div v-if="screen" class="vp-backdrop" :class="{ 'vp-backdrop--sheet': screen === 'proximity' }" @click.self="onBackdrop">
 
-      <!-- ░ PROXIMITY SHEET (AirPods-style, slides up) ░ -->
       <div v-if="screen === 'proximity'" class="vp-sheet">
         <div class="vp-grabber" />
         <div class="vp-phone-illus">
@@ -98,7 +111,6 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
         <button class="vp-btn vp-btn-quiet" @click="dismissProximity">{{ t("pair.not_now") }}</button>
       </div>
 
-      <!-- ░ RADAR SCAN ░ -->
       <div v-if="screen === 'scan'" class="vp-card" style="width: 560px">
         <button class="vp-x" :title="t('scan.close')" @click="close"><SolarClose :size="18" /></button>
         <div class="text-center">
@@ -138,7 +150,6 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
         </div>
       </div>
 
-      <!-- ░ CONNECTING ░ -->
       <div v-else-if="screen === 'connecting'" class="vp-card text-center" style="width: 460px">
         <div class="vp-link">
           <span class="vp-halo" style="left: 70px" />
@@ -156,7 +167,6 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
         <div class="vp-sub vp-glow"><SolarShieldCheck :size="13" class="text-primary" />{{ t("pair.e2e") }}</div>
       </div>
 
-      <!-- ░ EMOJI SECURITY CHECK ░ -->
       <div v-else-if="screen === 'emoji'" class="vp-card text-center" style="width: 500px">
         <span class="vp-badge"><SolarShieldCheck :size="13" :stroke-width="2" />{{ t("pair.sec_check") }}</span>
         <div class="vp-title" style="margin-top: 16px">{{ t("pair.emoji_title") }}</div>
@@ -167,14 +177,11 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
             <span class="vp-tile-name">{{ g.name }}</span>
           </div>
         </div>
-        <!-- The phone is the decision point: it shows the same 3 emoji with
-             Approve / Decline. The laptop just waits. -->
         <div class="vp-waiting">
           <SolarLoader :size="16" class="vp-spin" />{{ t("pair.awaiting_phone") }}
         </div>
       </div>
 
-      <!-- ░ SUCCESS ░ -->
       <div v-else-if="screen === 'success'" class="vp-card text-center" style="width: 440px; overflow: hidden">
         <div class="vp-confetti-origin">
           <span
@@ -195,12 +202,21 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
         <div class="vp-sub">{{ t("pair.success_body") }}</div>
       </div>
 
-      <!-- ░ ABORTED (mismatch / possible MITM) ░ -->
       <div v-else-if="screen === 'aborted'" class="vp-card text-center vp-card-danger" style="width: 460px">
         <div class="vp-warn"><SolarDangerTriangle :size="36" :stroke-width="1.9" /></div>
         <div class="vp-title" style="margin-top: 20px">{{ t("pair.abort_title") }}</div>
         <div class="vp-sub" style="max-width: 380px; margin: 9px auto 0; line-height: 1.55">{{ t("pair.abort_body") }}</div>
         <button class="vp-btn vp-btn-primary" style="margin-top: 24px" @click="dismissPairing">{{ t("pair.start_over") }}</button>
+      </div>
+
+      <div v-else-if="screen === 'failed'" class="vp-card text-center vp-card-danger" style="width: 460px">
+        <div class="vp-warn"><SolarDangerTriangle :size="36" :stroke-width="1.9" /></div>
+        <div class="vp-title" style="margin-top: 20px">{{ t("pair.failed_title") }}</div>
+        <div class="vp-sub" style="max-width: 380px; margin: 9px auto 0; line-height: 1.55">{{ t("pair.failed_body") }}</div>
+        <div v-if="pairErrorMessage" class="text-xs text-muted-foreground mt-3 font-mono break-all px-4 py-2 rounded-xl bg-muted/40 border border-border">
+          {{ pairErrorMessage }}
+        </div>
+        <button class="vp-btn vp-btn-primary" style="margin-top: 24px" @click="dismissPairing">{{ t("pair.try_again") }}</button>
       </div>
 
     </div>

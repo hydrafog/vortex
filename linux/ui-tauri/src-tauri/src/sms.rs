@@ -1,7 +1,3 @@
-//! SMS mirror consumer: reassembles the phone's recent SMS from BLE SMS chunks,
-//! caches it to disk, and pushes it to the Vue UI's Messages page. Read-only
-//! mirror — routed entirely separately from the audio handoff. Bodies are never
-//! logged.
 
 use std::path::PathBuf;
 
@@ -9,20 +5,12 @@ use tauri::{AppHandle, Emitter};
 
 use vortex_l3_daemon::core::sms::{SmsAssembler, SmsMessage};
 
-/// `~/.cache/vortex/sms.json` — survives a daemon restart so the page shows the
-/// last-known messages instantly while a fresh sync arrives.
 fn cache_path() -> Option<PathBuf> {
     let mut p = PathBuf::from(std::env::var_os("HOME")?);
     p.push(".cache/vortex/sms.json");
     Some(p)
 }
 
-/// Spawn the SMS consumer; returns the sender the BLE listener feeds
-/// `(total, idx, chunk)` into. On a complete list: validate → cache → emit
-/// `vortex:sms` to the UI.
-/// Validate a complete recent-SMS JSON blob, persist it to the disk cache
-/// and push it to the UI. Shared by the BLE chunk consumer and the LAN
-/// bulk-sync delivery. Bodies are never logged.
 pub(crate) fn deliver(app: &AppHandle, json: &[u8], source: &str) {
     match serde_json::from_slice::<Vec<SmsMessage>>(json) {
         Ok(messages) => {
@@ -38,22 +26,9 @@ pub(crate) fn deliver(app: &AppHandle, json: &[u8], source: &str) {
     }
 }
 
-/// A code older than this is not the one the user is waiting for.
 const OTP_FRESH_MS: i64 = 5 * 60 * 1000;
 
-/// If this delivery brought a NEW inbound message carrying a login code, put it
-/// on the laptop's clipboard and say so.
-///
-/// The point is the paste: codes arrive while you are already in the field that
-/// wants them, and walking to the phone to read six digits is the single most
-/// common reason to pick it up at all.
-///
-/// Deliberately narrow, because clobbering the clipboard is rude. It fires only
-/// for messages absent from the previous cache — so a first sync, a reconnect
-/// or a full history import stays silent — and only for codes that arrived in
-/// the last few minutes.
 fn offer_login_code(known: &[SmsMessage], incoming: &[SmsMessage]) {
-    // No prior cache means this is a first sync: everything looks new.
     if known.is_empty() {
         return;
     }
@@ -65,7 +40,6 @@ fn offer_login_code(known: &[SmsMessage], incoming: &[SmsMessage]) {
 
     let Some((msg, code)) = incoming
         .iter()
-        // Inbound only, genuinely new, and recent.
         .filter(|m| m.r#type == 1 && !seen.contains(m.id.as_str()))
         .filter(|m| now - m.date < OTP_FRESH_MS)
         .filter_map(|m| vortex_l3_daemon::core::sms::extract_otp(&m.body).map(|c| (m, c)))
@@ -74,7 +48,6 @@ fn offer_login_code(known: &[SmsMessage], incoming: &[SmsMessage]) {
         return;
     };
 
-    // The code itself is never logged — it is a credential.
     let sender = msg.address.clone();
     tracing::info!(from = %sender, "sms: login code → clipboard");
     if let Err(e) = crate::clipboard_sync::set_local_text(&code) {
@@ -95,9 +68,6 @@ fn offer_login_code(known: &[SmsMessage], incoming: &[SmsMessage]) {
     });
 }
 
-/// Wipe the cached SMS (live + full history + watermark) and blank the
-/// Messages page. Called on peer forget so a new peer never sees the previous
-/// phone's messages.
 pub(crate) fn clear(app: &AppHandle) {
     for p in [cache_path(), history_path(), history_since_path()]
         .into_iter()
@@ -109,8 +79,6 @@ pub(crate) fn clear(app: &AppHandle) {
     let _ = app.emit("vortex:sms-history", Vec::<SmsMessage>::new());
 }
 
-/// Sha256-hex of the cached recent-SMS JSON for the LAN bulk-sync hash
-/// gate. Empty when no cache exists (the phone then always ships).
 pub(crate) fn cache_hash() -> String {
     use sha2::{Digest, Sha256};
     cache_path()
@@ -135,10 +103,6 @@ pub(crate) async fn spawn_consumer(
     tx
 }
 
-/// Spawn the on-demand SMS-thread consumer: reassembles a single conversation's
-/// page (the Messages page's infinite scroll) and emits `vortex:sms-thread` so
-/// the UI MERGES it into the open thread. No disk cache — these pages are
-/// ephemeral (re-requested on demand). Returns the sender the BLE listener feeds.
 pub(crate) async fn spawn_thread_consumer(
     app: AppHandle,
 ) -> tokio::sync::mpsc::UnboundedSender<(u16, u16, Vec<u8>)> {
@@ -161,8 +125,6 @@ pub(crate) async fn spawn_thread_consumer(
     tx
 }
 
-/// Tauri command: the cached SMS list (so the page is populated instantly on
-/// open / after a daemon restart, before the next BLE sync).
 #[tauri::command]
 pub(crate) fn get_sms() -> Vec<SmsMessage> {
     cache_path()
@@ -171,12 +133,6 @@ pub(crate) fn get_sms() -> Vec<SmsMessage> {
         .unwrap_or_default()
 }
 
-// ---- Full-history store (LAN bulk-sync watermark dataset) ----
-//
-// `sms_history.json` accumulates every message the phone has ever shipped
-// (append-only; deletions on the phone are not mirrored). The `.since`
-// sidecar holds the newest synced date so each heartbeat asks only for
-// what's missing — reading one tiny file instead of parsing the store.
 
 fn history_path() -> Option<PathBuf> {
     let mut p = PathBuf::from(std::env::var_os("HOME")?);
@@ -190,8 +146,6 @@ fn history_since_path() -> Option<PathBuf> {
     Some(p)
 }
 
-/// The history watermark: newest message date we've synced, 0 = nothing yet
-/// (the phone then backfills everything).
 pub(crate) fn history_since() -> i64 {
     history_since_path()
         .and_then(|p| std::fs::read_to_string(&p).ok())
@@ -199,8 +153,6 @@ pub(crate) fn history_since() -> i64 {
         .unwrap_or(0)
 }
 
-/// Merge a history batch into the store (dedup by id, date-sorted), advance
-/// the watermark and push the full list to the UI. Bodies never logged.
 pub(crate) fn merge_history(app: &AppHandle, json: &[u8]) {
     let batch: Vec<SmsMessage> = match serde_json::from_slice(json) {
         Ok(b) => b,
@@ -242,9 +194,6 @@ pub(crate) fn merge_history(app: &AppHandle, json: &[u8]) {
     let _ = app.emit("vortex:sms-history", merged);
 }
 
-/// Canonical id-list JSON of the history store (compact array, ids
-/// ascending) — must be byte-identical to what the phone builds from the
-/// same ids, since the bulk-sync gate compares sha256 of the two.
 fn ids_json() -> Vec<u8> {
     let mut ids: Vec<i64> = get_sms_history()
         .iter()
@@ -255,14 +204,11 @@ fn ids_json() -> Vec<u8> {
     serde_json::to_vec(&strs).unwrap_or_else(|_| b"[]".to_vec())
 }
 
-/// Sha256-hex of the canonical id list, for the bulk-sync request.
 pub(crate) fn ids_hash() -> String {
     use sha2::{Digest, Sha256};
     hex::encode(Sha256::digest(ids_json()))
 }
 
-/// The phone's full id list arrived (our hash was stale): prune history
-/// entries the phone no longer has — the deletion-reconcile pass.
 pub(crate) fn reconcile_ids(app: &AppHandle, json: &[u8]) {
     let ids: Vec<String> = match serde_json::from_slice(json) {
         Ok(v) => v,
@@ -280,9 +226,6 @@ pub(crate) fn reconcile_ids(app: &AppHandle, json: &[u8]) {
         .collect();
     let pruned = before.len() - after.len();
     if pruned == 0 {
-        // Hash mismatch but nothing to prune: the phone has ids we lack —
-        // those are messages the history watermark hasn't caught up to yet
-        // (or pre-store rows); the history dataset handles them.
         return;
     }
     if let Some(p) = history_path() {
@@ -294,7 +237,6 @@ pub(crate) fn reconcile_ids(app: &AppHandle, json: &[u8]) {
     let _ = app.emit("vortex:sms-history", after);
 }
 
-/// Tauri command: the full synced SMS history (instant, from disk).
 #[tauri::command]
 pub(crate) fn get_sms_history() -> Vec<SmsMessage> {
     history_path()

@@ -1,14 +1,3 @@
-//! Continuity Camera (phone → laptop): use the phone's camera as a laptop
-//! webcam. Dials the phone's `CAMERA_VIDEO_PORT`, decrypts the sealed H.264
-//! stream (reusing `mirror_tcp`), decodes it on the CPU (no GPU — same reason
-//! the screen cast avoids NVENC on this hybrid box), and writes the frames into
-//! a v4l2loopback device (`/dev/video42`) that any app — Zoom, Meet, the
-//! browser's getUserMedia — sees as a regular webcam.
-//!
-//! Triggered from the laptop ("use phone as webcam"): the phone starts its
-//! camera, advertises `{port, key}` in its AppState, and we dial it (the phone
-//! is unreachable inbound on real networks, but laptop→phone always works — the
-//! same direction the phone→laptop screen mirror uses).
 
 use std::net::IpAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -22,41 +11,26 @@ use tokio::sync::mpsc;
 use vortex_l3_daemon::core::appstate::CameraOffer;
 use vortex_l3_daemon::core::mirror_tcp;
 
-/// True while the laptop WANTS the phone camera (the user toggled "use phone as
-/// webcam"). Read by the AppState builder → `camera_req`; the phone streams only
-/// while it's set. The actual v4l2 pipe starts when the phone's offer arrives.
 pub static CAMERA_WANTED: AtomicBool = AtomicBool::new(false);
 
-/// "A camera session is engaged." The phone's offer arrives over BOTH BLE and
-/// LAN at nearly the same instant; without an atomic gate both dispatchers race
-/// past `!active()` and call `start()` twice (each tears the other down). This
-/// compare-exchange flag lets exactly ONE of them start the pipe.
 static ENGAGED: AtomicBool = AtomicBool::new(false);
 
-/// Which phone lens to request — "front" (selfie, the natural webcam default)
-/// or "back". Sent to the phone in `camera_facing`; it re-opens the camera when
-/// this changes mid-stream.
 static CAMERA_FACING: Mutex<&'static str> = Mutex::new("front");
 
-/// Read by the laptop's outgoing AppState builder (BLE + LAN).
 pub fn camera_wanted() -> bool {
     CAMERA_WANTED.load(Ordering::SeqCst)
 }
 
-/// Read by the AppState builder → `camera_facing`.
 pub fn camera_facing() -> String {
     CAMERA_FACING.lock().map(|g| g.to_string()).unwrap_or_default()
 }
 
-/// Tauri command: the UI toggles "use phone as webcam".
 #[tauri::command]
 pub(crate) fn set_camera_request(on: bool) {
     tracing::info!(on, "continuity-camera: request toggled");
     set_wanted(on);
 }
 
-/// Tauri command: flip the phone lens (front ↔ back). The phone re-opens the
-/// camera; our v4l2 pipe survives the brief reconnect.
 #[tauri::command]
 pub(crate) fn set_camera_facing(facing: String) {
     let f = if facing == "back" { "back" } else { "front" };
@@ -69,8 +43,6 @@ pub(crate) fn set_camera_facing(facing: String) {
     }
 }
 
-/// Flip the "want phone camera" request (the Tauri command / UI toggle). On
-/// `false` we also tear down any live pipe immediately.
 pub fn set_wanted(on: bool) {
     CAMERA_WANTED.store(on, Ordering::SeqCst);
     if !on {
@@ -78,38 +50,25 @@ pub fn set_wanted(on: bool) {
         stop();
     }
     if let Some(n) = crate::SYNC_NUDGE.get() {
-        n.notify_waiters(); // ship camera_req to the phone now
+        n.notify_waiters();
     }
 }
 
-/// Consecutive offer-less AppStates seen while piping. The phone advertises
-/// `camera_offer` over BOTH BLE and LAN; right after a toggle a STALE pre-toggle
-/// snapshot (offer=None) can arrive over the other transport and would otherwise
-/// stop→restart the pipe (thrash). Only stop after a sustained absence.
 static OFFER_MISSES: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 const OFFER_MISS_LIMIT: u32 = 4;
 
-/// Rotation the live pipe was built with. A lens flip changes the phone's
-/// `rot`; we rebuild the pipe so the new lens shows upright.
 static CURRENT_ROT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
-/// React to the phone's `camera_offer` (carried on each AppState). When it
-/// appears and we want the camera, dial the phone + start the v4l2 pipe; when it
-/// stays gone (debounced), stop. `phone_ip` comes from the live LAN session.
 pub fn dispatch_offer(offer: &Option<CameraOffer>, phone_ip: Option<IpAddr>) {
     match offer {
         Some(o) => {
             OFFER_MISSES.store(0, Ordering::SeqCst);
-            // A lens flip changes `rot` while engaged → tear down so the pipe
-            // rebuilds with the new rotation on the next dispatch.
             if ENGAGED.load(Ordering::SeqCst)
                 && o.rot as u32 != CURRENT_ROT.load(Ordering::SeqCst)
             {
                 ENGAGED.store(false, Ordering::SeqCst);
                 stop();
             }
-            // Win the start race against the other transport: only the dispatcher
-            // that flips ENGAGED false→true starts the pipe.
             if camera_wanted()
                 && ENGAGED
                     .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -148,23 +107,10 @@ fn hex_to_key(hex_str: &str) -> Option<[u8; 32]> {
     Some(k)
 }
 
-/// The v4l2loopback device the phone camera is written to. Created once with
-/// `modprobe v4l2loopback video_nr=42 card_label="Vortex Camera" exclusive_caps=1`.
-/// This fixed node is only a *fallback* — [`resolve_v4l2_device`] prefers to
-/// discover the loopback by its card label so a different `video_nr` (or a
-/// machine where 42 is taken by a real camera) still works.
 const V4L2_DEVICE: &str = "/dev/video42";
 
-/// The `card_label` we create the v4l2loopback node with. We match on this to
-/// find our node regardless of its number.
 const V4L2_CARD_LABEL: &str = "Vortex Camera";
 
-/// Find the v4l2loopback node that carries our "Vortex Camera" label instead of
-/// trusting a fixed number. v4l2loopback writes the card label to
-/// `/sys/class/video4linux/videoN/name`; we scan for ours. Falls back to the
-/// conventional [`V4L2_DEVICE`] when present, else returns a clear, actionable
-/// error — so the camera doesn't silently fail on a machine where the module
-/// isn't loaded or used a different `video_nr`.
 fn resolve_v4l2_device() -> Result<String, String> {
     if let Ok(entries) = std::fs::read_dir("/sys/class/video4linux") {
         for entry in entries.flatten() {
@@ -189,28 +135,18 @@ fn resolve_v4l2_device() -> Result<String, String> {
 static CAM: Mutex<Option<CamHandle>> = Mutex::new(None);
 
 struct CamHandle {
-    /// Fire to tear the camera feed down (pipeline → Null, receiver dropped).
     stop_tx: tokio::sync::oneshot::Sender<()>,
 }
 
-/// True while the phone camera is being piped into the v4l2 device.
 pub fn active() -> bool {
     CAM.lock().map(|g| g.is_some()).unwrap_or(false)
 }
 
-/// Start piping the phone camera into the v4l2 webcam. `key` is the media key
-/// the phone sealed the stream with (carried in its AppState offer). Replaces
-/// any prior feed. Returns once the pipeline + dialer are up.
 pub fn start(phone_ip: IpAddr, key: [u8; 32], rot: u16) -> Result<(), String> {
     stop();
     gst::init().map_err(|e| format!("gst init: {e}"))?;
-    // Discover our loopback node by label (fail fast with a clear hint if the
-    // v4l2loopback module isn't loaded) rather than assuming /dev/video42.
     let v4l2_device = resolve_v4l2_device()?;
 
-    // Rotate to upright by the phone's sensor orientation (videoflip, before the
-    // scale/cap so the dimensions are right). 90/270 swap W/H → the webcam is
-    // portrait when the phone is held portrait, which is the upright view.
     let flip = match rot {
         90 => "videoflip method=clockwise ! ",
         180 => "videoflip method=rotate-180 ! ",
@@ -218,8 +154,6 @@ pub fn start(phone_ip: IpAddr, key: [u8; 32], rot: u16) -> Result<(), String> {
         _ => "",
     };
 
-    // CPU H.264 decode → YUY2 (the format webcam consumers expect) → v4l2sink.
-    // 720p30 SW-decode is light and avoids any GPU context the compositor owns.
     let desc = format!(
         "appsrc name=src is-live=true format=time do-timestamp=true \
          max-bytes=4194304 caps=video/x-h264,stream-format=byte-stream,alignment=au ! \
@@ -239,15 +173,12 @@ pub fn start(phone_ip: IpAddr, key: [u8; 32], rot: u16) -> Result<(), String> {
     appsrc.set_format(gst::Format::Time);
     appsrc.set_max_bytes(4 * 1024 * 1024);
 
-    // Dial the phone's camera server; decrypted access units land on this channel.
     let (au_tx, mut au_rx) = mpsc::channel::<Vec<u8>>(8);
     tokio::spawn(mirror_tcp::run_tcp_video_receiver_on(
         phone_ip,
         mirror_tcp::CAMERA_VIDEO_PORT,
         key,
         au_tx,
-        // The webcam path has no control plane to ask for an IDR on; a dropped
-        // frame simply resolves at the next scheduled keyframe.
         None,
     ));
 
@@ -261,7 +192,6 @@ pub fn start(phone_ip: IpAddr, key: [u8; 32], rot: u16) -> Result<(), String> {
     tokio::spawn(async move {
         let mut first = true;
         loop {
-            // Drain any fatal pipeline message without blocking the runtime.
             let mut fatal = false;
             if let Some(bus) = &bus {
                 while let Some(msg) = bus.pop() {
@@ -292,7 +222,7 @@ pub fn start(phone_ip: IpAddr, key: [u8; 32], rot: u16) -> Result<(), String> {
                                 break;
                             }
                         }
-                        None => break, // phone closed the stream
+                        None => break,
                     }
                 }
             }
@@ -302,8 +232,6 @@ pub fn start(phone_ip: IpAddr, key: [u8; 32], rot: u16) -> Result<(), String> {
         if let Ok(mut g) = CAM.lock() {
             *g = None;
         }
-        // Release engagement so a later offer can re-start cleanly (e.g. after a
-        // pipeline error/EOS, not just a user stop).
         ENGAGED.store(false, Ordering::SeqCst);
         tracing::info!("continuity-camera: stopped");
     });
@@ -314,7 +242,6 @@ pub fn start(phone_ip: IpAddr, key: [u8; 32], rot: u16) -> Result<(), String> {
     Ok(())
 }
 
-/// Stop the camera feed (if any). Idempotent.
 pub fn stop() {
     let taken = CAM.lock().ok().and_then(|mut g| g.take());
     if let Some(h) = taken {

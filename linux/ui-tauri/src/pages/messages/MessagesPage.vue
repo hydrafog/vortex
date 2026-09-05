@@ -342,7 +342,6 @@ function bubbleClass(m: SmsMessage): string {
 
 <template>
   <div class="h-full flex flex-col">
-    <!-- Conversation list -->
     <template v-if="!activeNumber">
       <header class="flex items-center gap-2 px-5 py-4 border-b border-border bg-card/30">
         <SolarChatSquare class="h-5 w-5 text-muted-foreground" />
@@ -352,13 +351,10 @@ function bubbleClass(m: SmsMessage): string {
         </span>
       </header>
 
-      <!-- Search (matches name, number digits, or any message body) -->
       <div class="px-4 pt-3 pb-2">
         <SearchInput v-model="query" :placeholder="t('messages.search')" />
       </div>
 
-      <!-- Virtualised conversation list. No padding on the scroll container
-           — useVirtualList maps scrollTop straight to row offsets. -->
       <main v-bind="convContainer" class="flex-1 min-h-0 overflow-y-auto">
         <div v-bind="convWrapper">
           <div
@@ -381,7 +377,6 @@ function bubbleClass(m: SmsMessage): string {
       </main>
     </template>
 
-    <!-- Thread view + composer -->
     <template v-else>
       <header class="flex items-center gap-2 px-3 py-3 border-b border-border bg-card/30">
         <button class="h-8 w-8 rounded-md flex items-center justify-center hover:bg-accent" @click="back">
@@ -389,8 +384,6 @@ function bubbleClass(m: SmsMessage): string {
         </button>
         <Avatar :name="activeName" :size="28" />
         <h1 class="flex-1 text-sm font-semibold truncate">{{ activeName }}</h1>
-        <!-- Call this number (numeric addresses only — alphanumeric sender
-             IDs can't be dialled, same gate as the composer) -->
         <button
           v-if="canReply && activeNumber"
           :title="t('contacts.call')"
@@ -402,7 +395,6 @@ function bubbleClass(m: SmsMessage): string {
       </header>
 
       <div class="relative flex-1 min-h-0 flex flex-col">
-      <!-- Jump to newest (TG-style) — floats over the thread while scrolled up -->
       <button
         v-if="!atBottom"
         class="absolute bottom-3 right-3 z-10 h-9 w-9 rounded-full bg-card border border-border shadow-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
@@ -415,7 +407,6 @@ function bubbleClass(m: SmsMessage): string {
           <SolarLoader class="h-4 w-4 animate-spin text-muted-foreground/60" />
         </div>
         <template v-for="item in threadItems" :key="item.kind === 'date' ? item.key : item.m.id">
-          <!-- Telegram-style day separator chip -->
           <div v-if="item.kind === 'date'" class="self-center shrink-0 my-1">
             <span class="text-xs text-muted-foreground bg-card dark:bg-accent/60 border border-border/50 rounded-full px-3 py-1">
               {{ item.label }}
@@ -427,7 +418,6 @@ function bubbleClass(m: SmsMessage): string {
             class="flex items-center gap-1.5 max-w-[80%]"
             :class="item.m.type === 2 ? 'self-end' : 'self-start'"
           >
-          <!-- Failed-send actions (left of the bubble, Redmi-style) -->
           <template v-if="item.m.status === 'failed'">
             <button
               :title="t('messages.resend')"
@@ -449,18 +439,10 @@ function bubbleClass(m: SmsMessage): string {
             class="relative rounded-2xl px-3 py-2 min-w-0"
             :class="[bubbleClass(item.m), item.m.status === 'sending' ? 'opacity-70' : '']"
           >
-            <!-- TG-style timestamp: anchored bottom-right; the invisible
-                 trailing spacer reserves that corner on the LAST text line,
-                 so a short line sits beside the time and a long one wraps
-                 above it — text never runs into the clock. -->
             <template v-if="!item.m.status">
-              <!-- pb keeps a TG-like breathing band between the last text
-                   line and the clock floating below it -->
               <p class="text-sm whitespace-pre-wrap break-words pb-1.5 selectable-text">{{ item.m.body }}<span class="inline-block w-12" /></p>
               <span class="absolute bottom-1 right-3 text-[10px] opacity-70">{{ clockTime(item.m.date) }}</span>
             </template>
-            <!-- Transient states (sending/failed) keep the roomier two-row
-                 layout — their labels are wider than a clock. -->
             <template v-else>
               <p class="text-sm whitespace-pre-wrap break-words selectable-text">{{ item.m.body }}</p>
               <p class="text-[10px] mt-0.5 opacity-70 text-right flex items-center justify-end gap-1">
@@ -478,7 +460,6 @@ function bubbleClass(m: SmsMessage): string {
       </main>
       </div>
 
-      <!-- No-reply sender (alphanumeric ID) — composer replaced with a note -->
       <div
         v-if="!canReply"
         class="border-t border-border bg-card/30 px-4 py-3 text-center text-xs text-muted-foreground"
@@ -486,10 +467,7 @@ function bubbleClass(m: SmsMessage): string {
         {{ t("messages.noReply") }}
       </div>
 
-      <!-- Composer -->
       <div v-else class="relative border-t border-border bg-card/30">
-        <!-- Emoji picker popover (emoji are plain Unicode — they ride SMS
-             fine; real image stickers would need MMS, deferred) -->
         <div
           v-if="emojiOpen"
           class="emoji-zone absolute bottom-full right-2 mb-2 z-10 rounded-xl overflow-hidden shadow-xl border border-border bg-card"
@@ -529,7 +507,6 @@ function bubbleClass(m: SmsMessage): string {
             class="flex-1 resize-none max-h-28 rounded-xl border border-border bg-muted/50 px-3.5 py-2.5 text-[13.5px] outline-none placeholder:text-muted-foreground transition-colors focus:border-primary"
             @keydown.enter.exact.prevent="send"
           />
-          <!-- Telegram layout: smiley sits right of the input, panel above it -->
           <button
             type="button"
             :title="t('messages.emoji')"

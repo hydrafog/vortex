@@ -3,7 +3,6 @@
 
 <template>
   <div class="stage">
-    <!-- phone with an open link -->
     <div class="phone">
       <div class="pscreen">
         <div class="urlbar"><span class="globe" /><span class="u" /></div>
@@ -11,18 +10,15 @@
       </div>
     </div>
 
-    <!-- the page handing off -->
     <div class="card">
       <span class="globe sm" /><span class="u sm" />
     </div>
 
-    <!-- chevrons phone -> laptop -->
     <div class="link">
       <span class="chev" style="animation-delay:0s" />
       <span class="chev" style="animation-delay:.4s" />
     </div>
 
-    <!-- laptop opening the same page (empty until the card lands) -->
     <div class="laptop">
       <div class="lid">
         <div class="lwin">

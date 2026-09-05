@@ -1,11 +1,3 @@
-//! Shared handles the worker command-loop hands to each command handler.
-//!
-//! `run_worker` builds one `WorkerCtx` after its init block, then each
-//! `UiCmd` arm delegates to a per-feature handler (`cmd_pairing`, `cmd_earbuds`,
-//! `mirror`) taking `&WorkerCtx`. Every field is cheap to clone (handles /
-//! `Arc`s), so handlers clone what they need into spawned tasks. This keeps
-//! run_worker a thin dispatcher and each feature's command logic in its own
-//! file — so the project can grow without run_worker growing.
 
 use std::sync::Arc;
 

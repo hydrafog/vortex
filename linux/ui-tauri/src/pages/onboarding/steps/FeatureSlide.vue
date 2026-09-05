@@ -27,10 +27,7 @@ const feature = computed(() => FEATURES[props.index] ?? FEATURES[0]);
 </script>
 
 <template>
-  <!-- Fixed-height regions (art + copy) keep the Next button pinned to the same
-       spot on every slide, so it never jumps as the title/body length changes. -->
   <div class="vxo-screen feat">
-    <!-- :key re-mounts the art each slide so its entrance animation replays -->
     <div class="art-wrap">
       <span class="art-glow" />
       <component :is="feature.art" :key="feature.key" />

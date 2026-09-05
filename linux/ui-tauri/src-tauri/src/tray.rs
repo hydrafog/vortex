@@ -1,5 +1,3 @@
-//! System-tray icon + menu. Split out of lib.rs; `run()`'s setup hook
-//! calls [`setup`] once at startup.
 
 use std::sync::Mutex;
 
@@ -13,21 +11,11 @@ use vortex_l3_daemon::core::appstate::{AppState, EarbudsInfo};
 
 use crate::{CmdChannel, UiCmd};
 
-/// The tray's battery-readout menu items, kept in managed state so the
-/// heartbeat can update their text as batteries change. Two plain `MenuItem`
-/// rows (earbuds + phone) with word labels ("Buds"/"Phone") instead of emoji
-/// or image icons: the Linux backend (libayatana-appindicator) renders
-/// neither custom menu-item icons (IconMenuItem) nor color emoji — both come
-/// out blank/invisible on dark themes. Plain text renders in the theme color
-/// (visible in dark mode) AND updates live via `set_text`.
 pub(crate) struct BatteryMenuItem {
     pub(crate) buds: MenuItem<tauri::Wry>,
     pub(crate) phone: MenuItem<tauri::Wry>,
 }
 
-/// Phone-side fields cached from the last inbound AppState, so a local-only
-/// refresh (BlueZ rescan — knows nothing about the phone) can still redraw
-/// both rows without wiping the phone's data.
 struct PhoneSnap {
     name: Option<String>,
     battery: Option<u8>,
@@ -37,18 +25,11 @@ struct PhoneSnap {
 
 static LAST_PHONE: Mutex<Option<PhoneSnap>> = Mutex::new(None);
 
-/// Redraw the tray tooltip + the two battery menu rows. The single render
-/// path for all three triggers: inbound phone state over LAN (lan.rs),
-/// inbound phone state over BLE (lan_state.rs), and the UI's 5-second local
-/// earbuds rescan (cmd_earbuds.rs). The last one is what makes the buds row
-/// appear the moment they connect to the laptop, instead of sitting on
-/// "Buds --" until the phone's next heartbeat happens to arrive.
 pub(crate) fn update_battery_rows(
     app: &tauri::AppHandle,
     local_earbuds: Option<&EarbudsInfo>,
     phone: Option<&AppState>,
 ) {
-    // A fresh phone state refreshes the cache; a local-only refresh reuses it.
     let mut cache = LAST_PHONE.lock().unwrap_or_else(|p| p.into_inner());
     if let Some(p) = phone {
         *cache = Some(PhoneSnap {
@@ -104,8 +85,6 @@ pub(crate) fn update_battery_rows(
     .unwrap_or_else(|| "Buds".to_string());
     let buds_text = format!("{}   {} ({})", trunc(&buds_name, 18), pf(buds_pct), owner);
     // NOTE: "(charging)" suffix marks a charging device in plain ASCII for portability.
-    // No phone seen yet this session → leave the row on its "Phone   --"
-    // placeholder rather than inventing a name.
     let phone_text = snap.as_ref().map(|s| {
         let bolt = if s.charging { " (charging)" } else { "" };
         let name = s
@@ -116,7 +95,6 @@ pub(crate) fn update_battery_rows(
         format!("{}   {}{}", trunc(&name, 18), pf(s.battery), bolt)
     });
     drop(cache);
-    // Menu mutations must run on the main thread.
     let app_menu = app.clone();
     let _ = app.run_on_main_thread(move || {
         if let Some(item) = app_menu.try_state::<BatteryMenuItem>() {
@@ -129,36 +107,30 @@ pub(crate) fn update_battery_rows(
 }
 
 pub(crate) fn setup(app: &tauri::App) -> tauri::Result<()> {
-    // System tray (Telegram-style): icon in the top status area;
-    // left-click shows/hides the main window; right-click → menu.
-    // Battery readout: two disabled rows (earbuds + phone) with plain
-    // WORD labels. We deliberately avoid glyph/icon prefixes: color
-    // symbols render blank in the appindicator menu, and the
-    // monochrome icon glyphs that do render here (Font Awesome / Nerd
-    // Font PUA, e.g. U+F025/U+F10B) are NOT installed on a stock Linux
-    // box, so they'd show empty boxes on other machines. Plain text
-    // renders everywhere in the theme color. Refreshed from heartbeat.
     let buds_i = MenuItem::with_id(
         app, "buds_batt", "Buds   --", false, None::<&str>,
     )?;
     let phone_i = MenuItem::with_id(
         app, "phone_batt", "Phone   --", false, None::<&str>,
     )?;
+    let send_files_i = MenuItem::with_id(
+        app, "send_files", "Send files to phone", true, None::<&str>,
+    )?;
+    let mirror_i = MenuItem::with_id(
+        app, "mirror", "Share screen", true, None::<&str>,
+    )?;
+    let clipboard_i = MenuItem::with_id(
+        app, "clipboard", "Open clipboard history", true, None::<&str>,
+    )?;
     let switch_i =
         MenuItem::with_id(app, "switch", "Switch earbuds", true, None::<&str>)?;
-    let show_i = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
+    let show_i = MenuItem::with_id(app, "show", "Show / Hide", true, None::<&str>)?;
     let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
-        &[&phone_i, &buds_i, &switch_i, &show_i, &quit_i],
+        &[&phone_i, &buds_i, &send_files_i, &mirror_i, &clipboard_i, &switch_i, &show_i, &quit_i],
     )?;
     app.manage(BatteryMenuItem { buds: buds_i, phone: phone_i });
-    // White monochrome BRAND SPIRAL for the status area. Like Telegram / Cursor,
-    // we ship ONE fixed light icon rather than swapping per theme: the
-    // GNOME/Ubuntu top bar is dark even in light mode, and Linux SNI hosts
-    // render a raw PNG as-is (no auto-recolor), so a single white glyph reads
-    // everywhere. Embedded via include_bytes so it works from the standalone
-    // prod binary.
     let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))
         .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
     let _ = TrayIconBuilder::with_id("vortex")
@@ -166,17 +138,38 @@ pub(crate) fn setup(app: &tauri::App) -> tauri::Result<()> {
         .tooltip("Vortex")
         .menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
+            "send_files" => {
+                let h = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    let _ = crate::share::pick_and_send_files(h).await;
+                });
+            }
+            "mirror" => {
+                if let Some(ch) = app.try_state::<CmdChannel>() {
+                    let _ = ch.0.send(UiCmd::StartMirror {
+                        width: 720,
+                        height: 1560,
+                        fps: 60,
+                        bitrate: 10_000_000,
+                    });
+                }
+            }
+            "clipboard" => {
+                crate::clipboard_window::show_clipboard_window(app);
+            }
             "switch" => {
-                // Toggle the buds between this laptop and the phone.
-                use tauri::Manager;
                 if let Some(ch) = app.try_state::<CmdChannel>() {
                     let _ = ch.0.send(UiCmd::ToggleEarbuds);
                 }
             }
             "show" => {
                 if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
+                    if w.is_visible().unwrap_or(false) {
+                        let _ = w.hide();
+                    } else {
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                    }
                 }
             }
             "quit" => app.exit(0),

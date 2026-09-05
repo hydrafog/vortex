@@ -1,24 +1,62 @@
 import { ref, watchEffect } from "vue";
 
 export type Theme = "light" | "dark";
+export type ThemePreference = "system" | "light" | "dark";
 
 const STORAGE_KEY = "vortex.theme";
 
-function detect(): Theme {
-  const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-  if (stored === "light" || stored === "dark") return stored;
-  return "dark";
+const mediaQuery =
+  typeof window !== "undefined" && window.matchMedia
+    ? window.matchMedia("(prefers-color-scheme: dark)")
+    : null;
+
+function getSystemTheme(): Theme {
+  return mediaQuery && mediaQuery.matches ? "dark" : "light";
 }
 
-export const theme = ref<Theme>(detect());
+function detectPreference(): ThemePreference {
+  const stored =
+    typeof localStorage !== "undefined"
+      ? (localStorage.getItem(STORAGE_KEY) as ThemePreference | null)
+      : null;
+  if (stored === "system" || stored === "light" || stored === "dark") return stored;
+  return "system";
+}
+
+export const themePreference = ref<ThemePreference>(detectPreference());
+
+function resolveTheme(pref: ThemePreference): Theme {
+  if (pref === "system") return getSystemTheme();
+  return pref;
+}
+
+export const theme = ref<Theme>(resolveTheme(themePreference.value));
+
+if (mediaQuery) {
+  mediaQuery.addEventListener("change", () => {
+    if (themePreference.value === "system") {
+      theme.value = getSystemTheme();
+    }
+  });
+}
 
 watchEffect(() => {
-  const root = document.documentElement;
-  if (theme.value === "dark") root.classList.add("dark");
-  else root.classList.remove("dark");
-  localStorage.setItem(STORAGE_KEY, theme.value);
+  theme.value = resolveTheme(themePreference.value);
+  if (typeof document !== "undefined") {
+    const root = document.documentElement;
+    if (theme.value === "dark") root.classList.add("dark");
+    else root.classList.remove("dark");
+  }
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem(STORAGE_KEY, themePreference.value);
+  }
 });
 
+export function setThemePreference(pref: ThemePreference) {
+  themePreference.value = pref;
+}
+
 export function toggleTheme() {
-  theme.value = theme.value === "dark" ? "light" : "dark";
+  const current = theme.value;
+  setThemePreference(current === "dark" ? "light" : "dark");
 }

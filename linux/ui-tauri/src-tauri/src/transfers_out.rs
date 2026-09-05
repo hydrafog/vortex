@@ -1,9 +1,3 @@
-//! Outgoing file-transfer indicator (laptop → phone), shown as the same top-bar
-//! "pill" live activity the receive side uses (`transfers.rs`) — worded for
-//! sending: "Waiting for phone…" → "Sending <label>" → "Sent <label>" (or
-//! "Declined by phone"). Driven by the daemon's `outgoing_share` progress hook.
-//! One batch at a time (the push queue is FIFO); a batch aggregates all its
-//! files into a single pill. Session-only.
 
 use std::sync::Mutex;
 use std::sync::OnceLock;
@@ -11,8 +5,6 @@ use std::sync::OnceLock;
 use tokio::sync::mpsc::UnboundedSender;
 use vortex_l3_daemon::core::live_activity::LiveActivity;
 
-/// Stable pill key — distinct from the receive pill so a simultaneous send and
-/// receive each get their own top-bar slot.
 const PILL_KEY: &str = "vortex-file-send";
 
 #[derive(Clone, Copy, PartialEq)]
@@ -34,7 +26,6 @@ struct Batch {
 static BATCH: Mutex<Option<Batch>> = Mutex::new(None);
 static LIVE_TX: OnceLock<UnboundedSender<LiveActivity>> = OnceLock::new();
 
-/// Receive the live-activity channel (shared with the call / receive pills).
 pub(crate) fn init(live_tx: UnboundedSender<LiveActivity>) {
     let _ = vortex_l3_daemon::core::icon_cache::ensure_vortex();
     let _ = LIVE_TX.set(live_tx);

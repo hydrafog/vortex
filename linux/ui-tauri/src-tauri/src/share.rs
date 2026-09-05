@@ -1,15 +1,3 @@
-//! Laptop → phone file sharing (instant-share style, the reverse of the phone→laptop
-//! pull). Triggered by the GNOME Files "Share via Vortex" menu, which runs
-//! `vortex-ui-tauri --share <paths…>`; the single-instance plugin forwards the
-//! argv to the running app, landing here.
-//!
-//! One "Share" action becomes ONE batch (so the phone shows a single consent
-//! prompt and one progress pill): every selected file is read into the batch,
-//! and every selected FOLDER is zipped into a single `<name>.zip` archive
-//! (Android opens .zip natively). The batch is staged in `core::outgoing_share`;
-//! the next LAN heartbeat pushes it after bulk-sync, the phone asks the user to
-//! accept, and on accept saves each file to its Downloads. We nudge the
-//! heartbeat so it goes out promptly.
 
 use std::io::{Cursor, Read, Write};
 use std::path::Path;
@@ -17,9 +5,7 @@ use std::path::Path;
 use tauri::AppHandle;
 use vortex_l3_daemon::core::outgoing_share::{enqueue_batch, OutgoingFile, MAX_PUSH_BYTES};
 
-/// Entry point from the `--share` arg. Builds one batch from all paths (folders
-/// zipped) and stages it for the heartbeat push.
-pub(crate) fn handle_share(_app: &AppHandle, paths: Vec<String>) {
+pub(crate) fn handle_share(_app: &AppHandle, paths: Vec<String>) -> Result<usize, String> {
     let mut batch: Vec<OutgoingFile> = Vec::new();
     for p in &paths {
         let path = Path::new(p);
@@ -48,20 +34,62 @@ pub(crate) fn handle_share(_app: &AppHandle, paths: Vec<String>) {
     }
     if batch.is_empty() {
         tracing::warn!("share: nothing to send");
-        return;
+        return Err("No valid files selected or files exceed size limit".to_string());
     }
     let count = batch.len();
     if enqueue_batch(batch) {
         tracing::info!(count, "share: batch queued for push to phone");
         if let Some(n) = crate::SYNC_NUDGE.get() {
-            n.notify_one(); // push now instead of waiting out the heartbeat tick
+            n.notify_one();
         }
+        Ok(count)
     } else {
         tracing::warn!(count, "share: batch rejected (empty or over batch cap)");
+        Err("Batch rejected: exceeds total batch size limit".to_string())
     }
 }
 
-/// Read a single file into an `OutgoingFile`.
+pub(crate) async fn pick_files() -> Option<Vec<String>> {
+    let candidates: [(&str, Vec<&str>); 2] = [
+        ("zenity", vec!["--file-selection", "--multiple", "--separator=\n", "--title=Select files to send to phone"]),
+        ("kdialog", vec!["--getopenfilename", "--multiple", "--separate-output", "--title=Select files to send to phone"]),
+    ];
+    for (bin, args) in candidates {
+        match tokio::process::Command::new(bin).args(&args).output().await {
+            Ok(out) => {
+                if !out.status.success() {
+                    return None;
+                }
+                let text = String::from_utf8_lossy(&out.stdout);
+                let files: Vec<String> = text
+                    .lines()
+                    .map(|l| l.trim().to_string())
+                    .filter(|l| !l.is_empty())
+                    .collect();
+                return if files.is_empty() { None } else { Some(files) };
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(_) => return None,
+        }
+    }
+    None
+}
+
+#[tauri::command]
+pub async fn send_files(app: AppHandle, paths: Vec<String>) -> Result<usize, String> {
+    handle_share(&app, paths)
+}
+
+#[tauri::command]
+pub async fn pick_and_send_files(app: AppHandle) -> Result<usize, String> {
+    if let Some(paths) = pick_files().await {
+        if !paths.is_empty() {
+            return handle_share(&app, paths);
+        }
+    }
+    Ok(0)
+}
+
 fn read_file(path: &Path) -> Option<OutgoingFile> {
     let bytes = match std::fs::read(path) {
         Ok(b) => b,
@@ -78,14 +106,10 @@ fn read_file(path: &Path) -> Option<OutgoingFile> {
         name,
         mime: "application/octet-stream".to_string(),
         bytes,
-        // A user's own file (incl. a real `.zip`) is sent as-is — never unpacked.
         extract: false,
     })
 }
 
-/// Zip a folder into a single `<folder>.zip` archive (entries rooted at the
-/// folder name) and return it as one `OutgoingFile`. Done in-process with the
-/// `zip` crate — no system `zip` binary needed, so it works on any machine.
 fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
     let folder_name = dir
         .file_name()
@@ -96,8 +120,6 @@ fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
     let opts: zip::write::FileOptions<()> =
         zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
-    // Walk the tree; archive entries are rooted at the folder's own name
-    // (`<folder>/sub/file`), not an absolute path — same layout as `zip -r`.
     let mut count = 0usize;
     for entry in walkdir::WalkDir::new(dir).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
@@ -105,11 +127,8 @@ fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
             Ok(r) => r,
             Err(_) => continue,
         };
-        // Entries are relative to the shared dir (NO top-folder prefix): the
-        // phone re-roots them under Downloads/<folder>/ using the zip's own
-        // name, so prefixing here would double-nest (folder/folder/file).
         if rel.as_os_str().is_empty() {
-            continue; // the root dir itself
+            continue;
         }
         let arc_name = rel.to_string_lossy().to_string();
         if entry.file_type().is_dir() {
@@ -146,8 +165,6 @@ fn zip_folder(dir: &Path) -> Option<OutgoingFile> {
         name: format!("{folder_name}.zip"),
         mime: "application/zip".to_string(),
         bytes,
-        // We made this archive from a folder → the phone unpacks it back to a
-        // folder and discards the .zip (seamless folder-share convenience).
         extract: true,
     })
 }

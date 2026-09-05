@@ -15,8 +15,9 @@ import {
   SolarClipboardList,
   SolarCursor,
   SolarFileDownload,
+  SolarDevices,
 } from "@/lib/solarIcons";
-import { theme } from "@/lib/theme";
+import { theme, themePreference, setThemePreference, type ThemePreference } from "@/lib/theme";
 import { smartSwitchEnabled, setSmartSwitch } from "@/lib/smartSwitch";
 import { notifMirrorShow, setNotifMirror, notifMirrorSend, setNotifSend } from "@/lib/notifMirror";
 import {
@@ -122,8 +123,8 @@ function setFileAutoAccept(v: boolean) {
 function pickLocale(code: LocaleCode) {
   setLocale(code);
 }
-function pickTheme(mode: "light" | "dark") {
-  theme.value = mode;
+function pickTheme(mode: ThemePreference) {
+  setThemePreference(mode);
 }
 
 const pill = (active: boolean) =>
@@ -136,8 +137,7 @@ const pill = (active: boolean) =>
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-background">
-    <!-- Top bar with back arrow -->
+  <div class="h-full flex flex-col bg-background overflow-y-auto scrollbar-thin">
     <header class="flex items-center gap-1 px-3 py-2.5 border-b border-border bg-card/40">
       <button
         class="h-9 w-9 rounded-md flex items-center justify-center hover:bg-accent transition-colors"
@@ -148,16 +148,13 @@ const pill = (active: boolean) =>
       <h1 class="text-base font-semibold ml-1">{{ t("settings.title") }}</h1>
     </header>
 
-    <!-- Body -->
     <main class="flex-1 overflow-auto">
       <div class="w-full px-7 pt-8 pb-14">
         <h1 class="text-[25px] font-semibold tracking-[-0.5px]">{{ t("settings.title") }}</h1>
         <p class="text-[13.5px] text-muted-foreground mt-1">{{ t("settings.subtitle") }}</p>
 
-        <!-- APPEARANCE -->
         <div class="sec-label">{{ t("settings.sec_appearance") }}</div>
         <div class="rounded-[20px] border border-border bg-card overflow-hidden">
-          <!-- language -->
           <div class="px-[18px] py-4">
             <div class="flex items-center gap-2.5 mb-3">
               <SolarGlobe class="h-[18px] w-[18px] text-muted-foreground" :stroke-width="1.8" />
@@ -175,24 +172,25 @@ const pill = (active: boolean) =>
             </div>
           </div>
           <div class="h-px bg-border/60" />
-          <!-- theme -->
           <div class="px-[18px] py-4">
             <div class="flex items-center gap-2.5 mb-3">
               <component :is="theme === 'dark' ? SolarMoon : SolarSun" class="h-[18px] w-[18px] text-muted-foreground" :stroke-width="1.9" />
               <span class="text-sm font-semibold text-foreground">{{ t("settings.theme") }}</span>
             </div>
             <div class="flex gap-2.5">
-              <button :class="pill(theme === 'dark')" @click="pickTheme('dark')">
+              <button :class="pill(themePreference === 'system')" @click="pickTheme('system')">
+                <SolarDevices class="h-4 w-4" :stroke-width="1.9" />{{ t("settings.theme_system") }}
+              </button>
+              <button :class="pill(themePreference === 'dark')" @click="pickTheme('dark')">
                 <SolarMoon class="h-4 w-4" :stroke-width="1.9" />{{ t("settings.theme_dark") }}
               </button>
-              <button :class="pill(theme === 'light')" @click="pickTheme('light')">
+              <button :class="pill(themePreference === 'light')" @click="pickTheme('light')">
                 <SolarSun class="h-4 w-4" :stroke-width="1.9" />{{ t("settings.theme_light") }}
               </button>
             </div>
           </div>
         </div>
 
-        <!-- CONTINUITY -->
         <div class="sec-label">{{ t("settings.sec_continuity") }}</div>
         <div class="rounded-[20px] border border-border bg-card overflow-hidden">
           <SettingsRow
@@ -243,20 +241,15 @@ const pill = (active: boolean) =>
             :model-value="ucEnabled"
             @update:model-value="setUniversalControl"
           />
-          <!-- Experimental for a reason, and the reasons are all environmental —
-               worth stating up front rather than as a failure later. -->
           <p class="px-[18px] pb-4 -mt-1.5 text-[11.5px] leading-relaxed text-muted-foreground">
             {{ t("settings.uc_needs") }}
           </p>
-          <!-- why it switched itself off: no portal on this desktop, no adb, a
-               barrier the compositor would not arm -->
           <p
             v-if="ucErrorText"
             class="px-[18px] pb-4 -mt-1 text-xs leading-relaxed text-destructive"
           >
             {{ ucErrorText }}
           </p>
-          <!-- phone placement: which screen edge the phone sits past -->
           <div v-if="ucEnabled" class="px-[18px] py-4 border-t border-border/60">
             <div class="flex items-center gap-2.5 mb-3">
               <SolarCursor class="h-[18px] w-[18px] text-muted-foreground" :stroke-width="1.8" />
@@ -287,7 +280,6 @@ const pill = (active: boolean) =>
           </div>
         </div>
 
-        <!-- PRIVACY & PROXIMITY -->
         <div class="sec-label">{{ t("settings.sec_privacy") }}</div>
         <div class="rounded-[20px] border border-border bg-card overflow-hidden">
           <SettingsRow

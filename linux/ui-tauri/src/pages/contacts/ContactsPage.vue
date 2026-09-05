@@ -48,14 +48,10 @@ watch(query, () => vScrollTo(0));
       </span>
     </header>
 
-    <!-- Search -->
     <div class="px-4 pt-3 pb-2">
       <SearchInput v-model="query" :placeholder="t('contacts.search')" />
     </div>
 
-    <!-- Virtualised list (only this scrolls; the header + search stay fixed).
-         No padding on the scroll container — useVirtualList maps scrollTop
-         straight to row offsets, so padding would shift/clip rows. -->
     <main v-bind="containerProps" class="flex-1 min-h-0 overflow-y-auto">
       <div v-bind="wrapperProps">
         <div
@@ -68,7 +64,6 @@ watch(query, () => vScrollTo(0));
         </div>
       </div>
 
-      <!-- Empty states -->
       <div
         v-if="contactsLoaded && contacts.length === 0"
         class="flex flex-col items-center justify-center text-center text-muted-foreground py-16"

@@ -30,6 +30,8 @@ SUPPORTED_EXTENSIONS = {
     ".toml",
     ".rb",
     ".nix",
+    ".html",
+    ".xml",
 }
 
 
@@ -65,6 +67,7 @@ def strip_comments(file_path):
     in_multiline = False
     multiline_char = None
     in_block_comment = False
+    in_html_comment = False
 
     for line in lines:
         stripped = line.strip()
@@ -73,9 +76,35 @@ def strip_comments(file_path):
             new_lines.append(line)
             continue
 
-        if not in_block_comment and ANNOTATION_REGEX.search(line):
+        if not in_block_comment and not in_html_comment and ANNOTATION_REGEX.search(line):
             new_lines.append(line)
             continue
+
+        # HTML/XML/Vue template comments
+        if ext in [".vue", ".html", ".xml"]:
+            if in_html_comment:
+                if "-->" in line:
+                    in_html_comment = False
+                    idx = line.find("-->") + 3
+                    line = line[idx:]
+                    if not line.strip():
+                        continue
+                else:
+                    continue
+
+            if "<!--" in line and "-->" in line:
+                start_idx = line.find("<!--")
+                end_idx = line.find("-->", start_idx)
+                remainder = line[end_idx + 3:].rstrip()
+                line = line[:start_idx].rstrip() + ((" " + remainder) if remainder and line[:start_idx].strip() else remainder) + "\n"
+                if not line.strip():
+                    continue
+            elif "<!--" in line:
+                start_idx = line.find("<!--")
+                in_html_comment = True
+                line = line[:start_idx].rstrip() + "\n"
+                if not line.strip():
+                    continue
 
         if ext in [".py", ".sh", ".yaml", ".yml", ".toml", ".rb", ".nix"]:
             if stripped.startswith("#!"):
@@ -180,19 +209,42 @@ def strip_comments(file_path):
             f.writelines(new_lines)
 
 
+def process_path(target):
+    if os.path.isdir(target):
+        for root, dirs, files in os.walk(target):
+            dirs[:] = [
+                d
+                for d in dirs
+                if not d.startswith(".")
+                and d not in ("node_modules", "target", "build", "dist")
+            ]
+            for file in files:
+                ext = os.path.splitext(file)[1]
+                if ext in SUPPORTED_EXTENSIONS:
+                    strip_comments(os.path.join(root, file))
+    elif os.path.isfile(target):
+        strip_comments(target)
+
+
 if __name__ == "__main__":
-    for arg in sys.argv[1:]:
-        if os.path.isdir(arg):
-            for root, dirs, files in os.walk(arg):
-                dirs[:] = [
-                    d
-                    for d in dirs
-                    if not d.startswith(".")
-                    and d not in ("node_modules", "target", "build", "dist")
-                ]
-                for file in files:
-                    ext = os.path.splitext(file)[1]
-                    if ext in SUPPORTED_EXTENSIONS:
-                        strip_comments(os.path.join(root, file))
-        else:
-            strip_comments(arg)
+    args = sys.argv[1:]
+    if not args or "-h" in args or "--help" in args:
+        print("Usage: strip-comments [--all] <file_or_directory...>")
+        sys.exit(0)
+
+    if "--all" in args or "-a" in args:
+        default_targets = [
+            "linux/ui-tauri/src",
+            "linux/ui-tauri/src-tauri/src",
+            "linux/daemon/src",
+            "android/app/src/main/java",
+            "android/app/src/main/res/layout",
+            "scripts",
+        ]
+        for t in default_targets:
+            if os.path.exists(t):
+                process_path(t)
+        args = [a for a in args if a not in ("--all", "-a")]
+
+    for arg in args:
+        process_path(arg)

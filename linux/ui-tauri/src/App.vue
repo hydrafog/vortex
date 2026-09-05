@@ -18,8 +18,6 @@ onUnmounted(() => window.removeEventListener("contextmenu", onContextMenu));
 </script>
 
 <template>
-  <!-- The clipboard popup window renders bare; the main window shows the
-       first-run intro until it's completed, then the app shell. -->
   <RouterView v-if="bare" />
   <OnboardingFlow v-else-if="!introDone" />
   <AppShell v-else />

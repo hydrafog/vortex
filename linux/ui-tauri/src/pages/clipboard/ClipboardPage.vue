@@ -269,11 +269,6 @@ onUnmounted(() => {
   <div
     class="h-screen w-screen flex bg-background text-foreground overflow-hidden border border-border rounded-2xl"
   >
-    <!-- LEFT: search + virtualised list. ALWAYS a fixed 460px (never flex)
-         so toggling the detail pane can't reflow it by even a sub-pixel —
-         narrow window == this column exactly; wide window == this column +
-         the pane. The border-r is always present (invisible at the window
-         edge when narrow) so it claims no extra space when the pane opens. -->
     <div class="flex flex-col w-[460px] shrink-0 min-w-0 min-h-0 border-r border-border">
       <header class="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-card shrink-0">
         <SolarClipboardList class="h-4 w-4 text-muted-foreground" />
@@ -293,10 +288,6 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- No padding on the scroll container: useVirtualList maps scrollTop
-           directly to row offsets, so a padding-top would shift everything
-           and clip the last row. Each row's py-1 gives the gap + the top /
-           bottom breathing room. -->
       <main v-bind="containerProps" class="flex-1 min-h-0 overflow-y-auto">
         <p v-if="visible.length === 0" class="text-xs text-muted-foreground text-center py-8">
           {{ t("clipboard.empty") }}
@@ -316,9 +307,6 @@ onUnmounted(() => {
               @click="pick(e)"
               @mousemove="onHover(i, $event)"
             >
-              <!-- Compact image row: a small left-aligned thumbnail (its
-                   shape still hints which screenshot) + size — the full image
-                   lives in the right preview pane, so the list stays tight. -->
               <div v-if="e.kind === 'image' && e.path" class="flex items-center gap-2.5 w-full">
                 <img
                   :src="convertFileSrc(e.path)"
@@ -330,14 +318,10 @@ onUnmounted(() => {
                   {{ t("clipboard.image") }} · {{ fmtSize(e.bytes) }}
                 </span>
               </div>
-              <!-- Compact text row: a single truncated line (the full text is
-                   in the preview pane), slightly larger for readability. -->
               <p
                 v-else
                 class="text-sm truncate pr-10"
               >{{ e.text }}</p>
-              <!-- Pin / delete at the END (bottom-right), revealed on hover
-                   or when pinned. Absolute so they don't push the content. -->
               <span
                 class="absolute bottom-1.5 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5"
                 :class="{ 'opacity-100': e.pinned }"
@@ -359,11 +343,7 @@ onUnmounted(() => {
       </main>
     </div>
 
-    <!-- RIGHT: detail pane — shown when the entry needs the room. The
-         window itself widens (Rust) so this never overlaps the list. -->
     <aside v-if="showPreview && full" class="flex-1 min-w-0 flex flex-col bg-background">
-      <!-- Image: centred vertically + horizontally; text: top-aligned so it
-           reads from the top. -->
       <div
         ref="previewEl"
         class="flex-1 min-h-0 overflow-auto p-4 flex justify-center"

@@ -42,7 +42,6 @@ function close() {
       <div class="eb-card">
         <button class="eb-x" :title="t('switch.cancel')" @click="close"><SolarClose :size="18" /></button>
 
-        <!-- ░ SCANNER ORB ░ -->
         <div class="eb-orb">
           <span class="eb-orb-glow" />
           <span class="eb-pulse" />
@@ -56,7 +55,6 @@ function close() {
           <div class="eb-sub">{{ t("earbuds.add_modal_hint") }}</div>
         </div>
 
-        <!-- status + rescan -->
         <div class="eb-status">
           <SolarLoader v-if="earbudsScanning" :size="14" class="eb-spin" />
           <span v-else class="eb-status-dot" />
@@ -67,7 +65,6 @@ function close() {
           </button>
         </div>
 
-        <!-- device list -->
         <div class="eb-list">
           <button
             v-for="d in audioRows"
@@ -89,7 +86,6 @@ function close() {
             <span class="eb-pick">{{ t("earbuds.use_here") }}</span>
           </button>
 
-          <!-- non-audio tail, quieter -->
           <button
             v-for="d in otherRows"
             :key="d.address"
@@ -106,7 +102,6 @@ function close() {
             </span>
           </button>
 
-          <!-- empty / scanning placeholder -->
           <div v-if="!hasResults" class="eb-empty">
             <template v-if="earbudsScanning">
               <span class="eb-dot-pulse" />{{ t("earbuds.scanning") }}

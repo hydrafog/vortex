@@ -1,6 +1,3 @@
-//! Call-log mirror consumer: reassembles the phone's recent call log from BLE
-//! CALL_LOG chunks, caches it to disk, and pushes it to the Vue UI's Recents
-//! page. Read-only mirror — routed entirely separately from the audio handoff.
 
 use std::path::PathBuf;
 
@@ -8,17 +5,12 @@ use tauri::{AppHandle, Emitter};
 
 use vortex_l3_daemon::core::call_log::{CallLogAssembler, CallLogEntry};
 
-/// `~/.cache/vortex/call_log.json` — survives a daemon restart so the page
-/// shows the last-known list instantly while a fresh sync arrives.
 fn cache_path() -> Option<PathBuf> {
     let mut p = PathBuf::from(std::env::var_os("HOME")?);
     p.push(".cache/vortex/call_log.json");
     Some(p)
 }
 
-/// Validate a complete call-log JSON blob, persist it to the disk cache and
-/// push it to the UI. Shared by the BLE chunk consumer and the LAN
-/// bulk-sync delivery.
 pub(crate) fn deliver(app: &AppHandle, json: &[u8], source: &str) {
     match serde_json::from_slice::<Vec<CallLogEntry>>(json) {
         Ok(entries) => {
@@ -32,9 +24,6 @@ pub(crate) fn deliver(app: &AppHandle, json: &[u8], source: &str) {
     }
 }
 
-/// Wipe the cached call log (live + full history + watermark) and blank the
-/// Recents page. Called on peer forget so a new peer never sees the previous
-/// phone's calls.
 pub(crate) fn clear(app: &AppHandle) {
     for p in [cache_path(), history_path(), history_since_path()]
         .into_iter()
@@ -46,8 +35,6 @@ pub(crate) fn clear(app: &AppHandle) {
     let _ = app.emit("vortex:call-log-history", Vec::<CallLogEntry>::new());
 }
 
-/// Sha256-hex of the cached call-log JSON for the LAN bulk-sync hash gate.
-/// Empty when no cache exists (the phone then always ships).
 pub(crate) fn cache_hash() -> String {
     use sha2::{Digest, Sha256};
     cache_path()
@@ -56,8 +43,6 @@ pub(crate) fn cache_hash() -> String {
         .unwrap_or_default()
 }
 
-// ---- Full-history store (LAN bulk-sync watermark dataset) ----
-// The twin of sms.rs's history store; see there for the model.
 
 fn history_path() -> Option<PathBuf> {
     let mut p = PathBuf::from(std::env::var_os("HOME")?);
@@ -71,7 +56,6 @@ fn history_since_path() -> Option<PathBuf> {
     Some(p)
 }
 
-/// The history watermark: newest call date we've synced, 0 = nothing yet.
 pub(crate) fn history_since() -> i64 {
     history_since_path()
         .and_then(|p| std::fs::read_to_string(&p).ok())
@@ -79,8 +63,6 @@ pub(crate) fn history_since() -> i64 {
         .unwrap_or(0)
 }
 
-/// Merge a history batch into the store (dedup by id, date-sorted), advance
-/// the watermark and push the full list to the UI.
 pub(crate) fn merge_history(app: &AppHandle, json: &[u8]) {
     let batch: Vec<CallLogEntry> = match serde_json::from_slice(json) {
         Ok(b) => b,
@@ -122,7 +104,6 @@ pub(crate) fn merge_history(app: &AppHandle, json: &[u8]) {
     let _ = app.emit("vortex:call-log-history", merged);
 }
 
-/// Tauri command: the full synced call-log history (instant, from disk).
 #[tauri::command]
 pub(crate) fn get_call_log_history() -> Vec<CallLogEntry> {
     history_path()
@@ -131,9 +112,6 @@ pub(crate) fn get_call_log_history() -> Vec<CallLogEntry> {
         .unwrap_or_default()
 }
 
-/// Spawn the call-log consumer; returns the sender the BLE listener feeds
-/// `(total, idx, chunk)` into. On a complete list: validate → cache → emit
-/// `vortex:call_log` to the UI.
 pub(crate) async fn spawn_consumer(
     app: AppHandle,
 ) -> tokio::sync::mpsc::UnboundedSender<(u16, u16, Vec<u8>)> {
@@ -150,8 +128,6 @@ pub(crate) async fn spawn_consumer(
     tx
 }
 
-/// Tauri command: the cached call log (so the page is populated instantly on
-/// open / after a daemon restart, before the next BLE sync).
 #[tauri::command]
 pub(crate) fn get_call_log() -> Vec<CallLogEntry> {
     cache_path()

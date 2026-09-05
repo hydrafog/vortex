@@ -64,13 +64,10 @@ function message(number: string) {
       </span>
     </header>
 
-    <!-- Search / manual dial (same block layout as ContactsPage) -->
     <div class="px-4 pt-3 pb-2">
       <SearchInput v-model="query" :placeholder="t('recents.search')" @enter="callTyped" />
     </div>
 
-    <!-- Manual dial: the typed query is a valid number → call it directly.
-         OUTSIDE the virtual scroll area so it never offsets the row math. -->
     <button
       v-if="dialable"
       class="mx-3 mb-1 flex items-center gap-3 rounded-lg pl-3 pr-2 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors"
@@ -82,9 +79,6 @@ function message(number: string) {
       </span>
     </button>
 
-    <!-- Virtualised list (only this scrolls; the header stays fixed). No
-         padding on the scroll container — useVirtualList maps scrollTop
-         straight to row offsets, so padding would shift/clip rows. -->
     <main v-bind="containerProps" class="flex-1 min-h-0 overflow-y-auto">
       <div v-bind="wrapperProps">
         <div

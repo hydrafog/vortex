@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { SolarMoon, SolarSun, SolarTranslation } from "@/lib/solarIcons";
+import { SolarMoon, SolarSun, SolarTranslation, SolarDevices } from "@/lib/solarIcons";
 import Modal from "./Modal.vue";
 import Button from "./Button.vue";
-import { theme } from "@/lib/theme";
+import { theme, themePreference, setThemePreference, type ThemePreference } from "@/lib/theme";
 import { setLocale, LOCALES, type LocaleCode } from "@/lib/i18n";
 
 defineProps<{ open: boolean }>();
@@ -13,41 +13,47 @@ const { t, locale } = useI18n();
 function pickLocale(code: LocaleCode) {
   setLocale(code);
 }
-function pickTheme(mode: "light" | "dark") {
-  theme.value = mode;
+function pickTheme(mode: ThemePreference) {
+  setThemePreference(mode);
 }
 </script>
 
 <template>
   <Modal :open="open" :title="t('settings.title')" @dismiss="emit('dismiss')">
     <div class="space-y-5">
-      <!-- Theme -->
       <div>
         <div class="flex items-center gap-2 mb-2 text-sm font-medium">
-          <SolarMoon class="h-4 w-4" />
+          <component :is="theme === 'dark' ? SolarMoon : SolarSun" class="h-4 w-4" />
           {{ t("settings.theme") }}
         </div>
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-3 gap-2">
           <button
-            class="flex items-center justify-center gap-2 h-9 rounded-md border border-border text-sm transition-colors"
-            :class="theme === 'dark' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-accent'"
+            class="flex items-center justify-center gap-1.5 h-9 rounded-md border border-border text-xs font-medium transition-colors"
+            :class="themePreference === 'system' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-accent'"
+            @click="pickTheme('system')"
+          >
+            <SolarDevices class="h-3.5 w-3.5" />
+            {{ t("settings.theme_system") }}
+          </button>
+          <button
+            class="flex items-center justify-center gap-1.5 h-9 rounded-md border border-border text-xs font-medium transition-colors"
+            :class="themePreference === 'dark' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-accent'"
             @click="pickTheme('dark')"
           >
-            <SolarMoon class="h-4 w-4" />
+            <SolarMoon class="h-3.5 w-3.5" />
             {{ t("settings.theme_dark") }}
           </button>
           <button
-            class="flex items-center justify-center gap-2 h-9 rounded-md border border-border text-sm transition-colors"
-            :class="theme === 'light' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-accent'"
+            class="flex items-center justify-center gap-1.5 h-9 rounded-md border border-border text-xs font-medium transition-colors"
+            :class="themePreference === 'light' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-accent'"
             @click="pickTheme('light')"
           >
-            <SolarSun class="h-4 w-4" />
+            <SolarSun class="h-3.5 w-3.5" />
             {{ t("settings.theme_light") }}
           </button>
         </div>
       </div>
 
-      <!-- Language -->
       <div>
         <div class="flex items-center gap-2 mb-2 text-sm font-medium">
           <SolarTranslation class="h-4 w-4" />

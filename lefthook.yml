@@ -20,6 +20,7 @@ pre-commit:
     strip-comments:
       glob:
         - "linux/ui-tauri/src/**/*.{ts,vue,css}"
+        - "linux/ui-tauri/src-tauri/**/*.rs"
         - "linux/daemon/src/**/*.rs"
         - "android/app/src/**/*.{kt,java}"
         - "scripts/**/*.{sh,py}"

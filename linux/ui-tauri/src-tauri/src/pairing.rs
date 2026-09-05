@@ -1,5 +1,3 @@
-//! Pairing: the trust-establishment handshake (do_pair), trust revocation
-//! (send_revoke_to_peer), and the SAS redaction helper. Split out of lib.rs.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -15,9 +13,6 @@ use vortex_l3_daemon::core::storage::peers::{PeerStore, TrustedPeer};
 
 use crate::{emit_peers, CmdChannel, PairDecisionState, UiCmd};
 
-/// Redact a SAS string for logging: show first 3 + last 3 chars.
-/// Full SAS is fine to display in the user-controlled UI but should
-/// never persist in disk logs that may be shared with support.
 pub(crate) fn redact_sas(sas: &str) -> String {
     let chars: Vec<char> = sas.chars().collect();
     if chars.len() <= 6 {
@@ -37,12 +32,8 @@ pub(crate) async fn do_pair(
 ) -> Result<(), String> {
     let addr: bluer::Address = addr_str.parse().map_err(|e| format!("bad BD_ADDR: {e}"))?;
 
-    // Pair-modal latency instrumentation: split the user-perceived
-    // "click Pair on Linux → modal appears on Android" delay into its
-    // stages (BlueZ hygiene, GATT connect+discovery, Noise XX → SAS).
     let t_pair = std::time::Instant::now();
 
-    // BlueZ hygiene before re-connect (see daemon/src/main.rs note).
     if let Ok(device) = adapter.device(addr) {
         if device.is_connected().await.unwrap_or(false) {
             let _ = device.disconnect().await;
@@ -66,24 +57,13 @@ pub(crate) async fn do_pair(
         &identity.static_priv.0,
         Duration::from_secs(60),
         move |sas: &str| {
-            // Real dual-approval: emit the SAS, install a oneshot
-            // sender into Tauri state, then await the user's click.
-            // The UI calls `pair_decision(approve/reject)` to fire
-            // the channel. A 60s timeout matches the V1 pairing window
-            // — if the user walks away mid-SAS we count it as Reject
-            // rather than hanging the handshake.
             let sas_string = sas.to_string();
             let app = app_for_sas.clone();
             async move {
                 info!(sas.redacted = %redact_sas(&sas_string), "Linux awaiting user approval");
                 let (tx, rx) = oneshot::channel::<LocalDecision>();
-                // Install sender BEFORE emitting the SAS event so a
-                // very-fast UI cannot race and fire pair_decision
-                // before the slot is populated.
                 if let Some(decision_state) = app.try_state::<PairDecisionState>() {
                     if let Ok(mut slot) = decision_state.0.lock() {
-                        // Replace any stale sender from a previous
-                        // pair attempt that bailed without clearing.
                         *slot = Some(tx);
                     } else {
                         warn!("PairDecisionState lock poisoned; defaulting to Reject");
@@ -106,8 +86,6 @@ pub(crate) async fn do_pair(
                     }
                     Err(_) => {
                         warn!("pairing SAS approval timed out after 60s; treating as Reject");
-                        // Clear the now-stale slot so a late click
-                        // doesn't try to fire a closed channel.
                         if let Some(decision_state) = app.try_state::<PairDecisionState>() {
                             if let Ok(mut slot) = decision_state.0.lock() {
                                 *slot = None;
@@ -137,31 +115,12 @@ pub(crate) async fn do_pair(
         .save(&trusted)
         .map_err(|e| format!("save trust: {e}"))?;
 
-    // Push the freshly-trusted peer to the UI immediately. Without this
-    // the Vue `peers` list stays empty until some other event happens to
-    // call emit_peers — the device just doesn't show up after pairing.
     emit_peers(app, peer_store.clone()).await;
 
     // NOTE: no BT bond here. We investigated LE bonding to resolve the
-    // phone's rotating RPA (2026-06-02) and hit a hard platform wall: on this
-    // dual-mode phone BlueZ routes every bond — `Device::pair()`, an
-    // encryption-required GATT read, AND Android `createBond(TRANSPORT_LE)` —
-    // over BR/EDR (shared public address → Android treats us as dual), which
-    // fails the Just-Works negotiation and yields no IRK anyway. A prior
-    // session also found BlueZ doesn't reliably resolve the RPA even when a
-    // bond was somehow established. So the persistent loop reconnects via
-    // presence-scan + Noise IK instead (see run_ble_persistent_loop); the
-    // optimisation effort goes into making that reconnect fast and stable.
     Ok(())
 }
 
-/// Send a one-shot LAN reconnect whose AppState carries
-/// `revoked=true`, so the peer drops their trust record for us.
-/// Best-effort: any error here just means the caller retries (or gives
-/// up after its deadline). Takes the trust record and counter directly
-/// so the caller can capture them before local forget — once forget
-/// runs, the secret-service entries are gone and we'd otherwise have
-/// nothing to authenticate with.
 pub(crate) async fn send_revoke_to_peer(
     identity: &IdentityRecord,
     peer: &TrustedPeer,
@@ -192,7 +151,7 @@ pub(crate) async fn send_revoke_to_peer(
         local_counter,
         state,
         Duration::from_secs(4),
-        None, // revoke notification only — no bulk-sync
+        None,
     )
     .await
     .map_err(|e| format!("revoke send: {e}"))?;
@@ -208,19 +167,11 @@ pub fn start_pair(addr: String, state: State<'_, CmdChannel>) -> Result<(), Stri
 
 #[tauri::command]
 pub fn pair_decision(approve: bool, state: State<'_, PairDecisionState>) -> Result<(), String> {
-    // Take() rather than peek — the channel is single-use, and after
-    // delivering the decision we must clear the slot so a stale second
-    // click doesn't keep a dead sender around.
     let maybe = state.0.lock().map_err(|e| e.to_string())?.take();
     let Some(sender) = maybe else {
-        // No pairing in flight, or decision already delivered. UI may
-        // have double-clicked; ignoring is the right behaviour — we
-        // do NOT want the second click to flip a successful Approve.
         return Ok(());
     };
     let decision = if approve { LocalDecision::Approve } else { LocalDecision::Reject };
-    // Receiver was dropped (do_pair bailed via timeout or error path).
-    // Same disposition as no-slot: best-effort, ignore.
     let _ = sender.send(decision);
     Ok(())
 }

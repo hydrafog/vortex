@@ -5,7 +5,6 @@ const bars = [0, 1, 2, 3];
 <template>
   <div class="vxo-stage">
     <div class="vxo-row">
-      <!-- phone -->
       <div class="vxo-tile">
         <div class="vxo-tile-ic">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C9CCD2" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -16,7 +15,6 @@ const bars = [0, 1, 2, 3];
           <span v-for="i in bars" :key="i" :style="{ animation: `vxo-eqb ${0.55 + i * 0.12}s ease-in-out ${i * 0.07}s infinite alternate` }" />
         </div>
       </div>
-      <!-- laptop -->
       <div class="vxo-tile">
         <div class="vxo-tile-ic">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#C9CCD2" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -28,7 +26,6 @@ const bars = [0, 1, 2, 3];
         </div>
       </div>
     </div>
-    <!-- the hopping earbud -->
     <div class="vxo-bud" style="animation:vxo-hopBud 3.6s ease-in-out infinite;">
       <span class="vxo-sonar" />
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#07120D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

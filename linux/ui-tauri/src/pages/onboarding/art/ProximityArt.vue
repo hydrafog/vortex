@@ -3,13 +3,11 @@
 
 <template>
   <div class="vxo-stage">
-    <!-- the phone moving in and out of range -->
     <div class="vxo-mover" style="animation:vxo-proxMove 2.8s ease-in-out infinite;">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C9CCD2" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
         <rect x="6" y="2" width="12" height="20" rx="3" /><path d="M10.5 5h3" /><path d="M12 18h.01" />
       </svg>
     </div>
-    <!-- laptop with its lock badge -->
     <div class="vxo-tile">
       <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#C9CCD2" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
         <path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9" /><path d="M2 20h20l-1.3-2.55a1 1 0 0 0-.9-.55H4.2a1 1 0 0 0-.9.55z" />

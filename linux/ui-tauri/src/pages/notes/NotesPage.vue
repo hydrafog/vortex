@@ -94,7 +94,6 @@ onMounted(() => {
 
 <template>
   <div class="h-full flex min-h-0">
-    <!-- ░░ LEFT COLUMN — list ░░ -->
     <div class="w-80 shrink-0 border-r border-border flex flex-col min-w-0">
       <div class="px-4 pt-5 pb-3">
         <div class="flex items-center justify-between h-8">
@@ -110,8 +109,6 @@ onMounted(() => {
             <SolarAdd class="h-[17px] w-[17px]" :stroke-width="2" />
           </button>
         </div>
-        <!-- segment — a sliding highlight pill (sidebar-style) glides between
-             the two tabs instead of snapping. -->
         <div class="relative mt-3.5 grid grid-cols-2 rounded-xl bg-muted/40 border border-border p-1">
           <span
             class="pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-lg bg-foreground/[0.08] transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]"
@@ -134,7 +131,6 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- NOTES list -->
       <div v-if="mode === 'notes'" class="flex-1 overflow-y-auto px-3 pb-4 flex flex-col gap-0.5">
         <p v-if="!visibleNotes.length" class="px-3 py-8 text-center text-xs text-muted-foreground">
           {{ t("notes.empty") }}
@@ -153,7 +149,6 @@ onMounted(() => {
         </button>
       </div>
 
-      <!-- TODOS list + add bar -->
       <template v-else>
         <div class="flex-1 overflow-y-auto px-2.5 pb-2 flex flex-col">
           <p v-if="!visibleNotes.length" class="px-3 py-8 text-center text-xs text-muted-foreground">
@@ -185,7 +180,6 @@ onMounted(() => {
             </button>
           </div>
         </div>
-        <!-- add bar -->
         <div class="px-3.5 pb-[18px] pt-2.5">
           <div class="flex items-center gap-2 rounded-full border border-border bg-muted/40 py-1.5 pl-4 pr-1.5">
             <input
@@ -206,8 +200,6 @@ onMounted(() => {
       </template>
     </div>
 
-    <!-- ░░ RIGHT PANE ░░ -->
-    <!-- Notes editor -->
     <div v-if="mode === 'notes'" class="flex-1 flex flex-col min-w-0">
       <div v-if="editing" class="flex h-full flex-col">
         <div class="flex items-center justify-between px-7 pb-3 pt-5">
@@ -239,7 +231,6 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- To-dos progress ring -->
     <div v-else class="flex flex-1 flex-col items-center justify-center gap-2 min-w-0">
       <div class="relative h-40 w-40">
         <svg width="160" height="160" viewBox="0 0 140 140">

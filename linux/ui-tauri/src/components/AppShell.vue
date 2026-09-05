@@ -46,12 +46,17 @@ onUnmounted(() => {
   <div class="flex h-screen overflow-hidden bg-background text-foreground">
     <Sidebar v-if="primaryPeer" />
 
-    <!-- Content — a faint emerald glow bleeds in from the top-right corner. -->
     <main
-      class="flex-1 min-w-0 overflow-y-auto scrollbar-thin"
+      class="flex-1 min-w-0 flex flex-col overflow-hidden relative h-full"
       style="background: radial-gradient(120% 80% at 100% -5%, hsl(var(--primary) / 0.05), transparent 50%)"
     >
-      <router-view />
+      <div
+        data-tauri-drag-region
+        class="h-3 w-full shrink-0 cursor-grab active:cursor-grabbing select-none z-10"
+      />
+      <div class="flex-1 min-h-0 overflow-hidden">
+        <router-view />
+      </div>
     </main>
   </div>
 </template>

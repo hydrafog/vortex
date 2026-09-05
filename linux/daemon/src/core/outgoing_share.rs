@@ -1,9 +1,9 @@
 use std::collections::VecDeque;
 use std::sync::{Mutex, OnceLock};
 
-pub const MAX_PUSH_BYTES: usize = 64 * 1024 * 1024;
+pub const MAX_PUSH_BYTES: usize = 2 * 1024 * 1024 * 1024;
 
-pub const MAX_BATCH_BYTES: usize = 256 * 1024 * 1024;
+pub const MAX_BATCH_BYTES: usize = 4 * 1024 * 1024 * 1024;
 
 pub const PUSH_CHUNK_BYTES: usize = 60 * 1024;
 

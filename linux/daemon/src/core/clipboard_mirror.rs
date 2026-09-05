@@ -4,7 +4,7 @@ pub const MAX_CLIPBOARD_TEXT_CHARS: usize = 65_536;
 
 pub const MAX_SINGLE_FRAME_TEXT_BYTES: usize = 400;
 
-pub const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
+pub const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ClipboardImageOffer {

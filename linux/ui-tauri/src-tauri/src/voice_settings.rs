@@ -1,7 +1,3 @@
-//! Bridge the user's chosen UI language to the standalone "Hey Vortex" voice
-//! assistant (a separate Python process). The voice listener reads
-//! `~/.local/share/vortex/voice/lang` at startup and watches it for changes, so
-//! writing the locale here makes the assistant follow the app's language.
 
 use std::fs;
 use std::io::Write;
@@ -12,8 +8,6 @@ fn bridge_path() -> Option<PathBuf> {
     Some(PathBuf::from(home).join(".local/share/vortex/voice/lang"))
 }
 
-/// Persist the active language (en/ru/uz) for the voice assistant. Written
-/// atomically (temp + rename) so the watcher never reads a half-written file.
 #[tauri::command]
 pub(crate) fn set_voice_lang(code: String) -> Result<(), String> {
     let code = code.trim().to_lowercase();

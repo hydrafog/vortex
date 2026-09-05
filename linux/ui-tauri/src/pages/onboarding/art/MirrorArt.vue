@@ -3,7 +3,6 @@
 
 <template>
   <div class="stage">
-    <!-- laptop showing the mirrored phone + a cursor controlling it -->
     <div class="laptop">
       <div class="lid">
         <div class="mirror">
@@ -18,13 +17,11 @@
       <div class="base" />
     </div>
 
-    <!-- control flowing to the phone -->
     <div class="link">
       <span class="chev" style="animation-delay:0s" />
       <span class="chev" style="animation-delay:.35s" />
     </div>
 
-    <!-- the real phone reacting in sync -->
     <div class="phone">
       <div class="pscreen">
         <span class="row w70" /><span class="row w50" />

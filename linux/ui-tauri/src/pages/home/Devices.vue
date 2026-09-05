@@ -11,6 +11,7 @@ import {
   SolarLoader,
   SolarAdd,
   SolarBellBing,
+  SolarSend,
 } from "@/lib/solarIcons";
 import {
   activeEarbuds,
@@ -62,11 +63,23 @@ const earbudsStatus = computed(() => {
   if (!activeEarbuds.value) return t("earbuds.not_connected");
   return activeEarbuds.value.on === "local" ? t("earbuds.on_local") : t("earbuds.on_peer");
 });
+
+const sendingFiles = ref(false);
+async function pickAndSendFiles() {
+  if (sendingFiles.value) return;
+  sendingFiles.value = true;
+  try {
+    await invoke("pick_and_send_files");
+  } catch (e) {
+    console.error("Failed to send files:", e);
+  } finally {
+    sendingFiles.value = false;
+  }
+}
 </script>
 
 <template>
-  <div class="flex flex-col gap-[22px] px-8 py-7">
-    <!-- Header -->
+  <div class="h-full flex flex-col gap-[22px] px-8 py-7 overflow-y-auto scrollbar-thin">
     <header>
       <h1 class="text-2xl font-semibold tracking-[-0.5px]">{{ t("nav.home") }}</h1>
       <p class="mt-0.5 text-[13.5px] text-muted-foreground">
@@ -74,9 +87,7 @@ const earbudsStatus = computed(() => {
       </p>
     </header>
 
-    <!-- Device grid -->
     <div class="grid grid-cols-2 gap-4">
-      <!-- THIS LAPTOP (full width) -->
       <div class="vx-card col-span-2 flex items-center gap-4">
         <span class="vx-icon"><SolarLaptop class="h-6 w-6" /></span>
         <div class="shrink-0">
@@ -93,7 +104,6 @@ const earbudsStatus = computed(() => {
         </div>
       </div>
 
-      <!-- PHONE -->
       <button
         v-if="!primaryPeer"
         class="vx-card flex flex-col items-center justify-center gap-2 py-7 text-center hover:border-primary/40"
@@ -117,7 +127,6 @@ const earbudsStatus = computed(() => {
             </div>
             <div class="mt-px text-xs text-muted-foreground">{{ t("device.android") }}</div>
           </div>
-          <!-- Find-My: ring the phone to locate it (only when it's reachable). -->
           <button
             v-if="phoneOnline"
             class="vx-ring"
@@ -151,12 +160,7 @@ const earbudsStatus = computed(() => {
           </div>
           <span v-if="primaryPeerState?.charging" class="text-xs text-muted-foreground">Charging</span>
         </div>
-        <!-- mt gives the absolute "Experimental" corner badges headroom above -->
         <div v-if="phoneOnline" class="mt-1.5 flex flex-wrap items-center gap-3">
-          <!-- Always "Share screen", never a stop toggle: the mirror window now
-               carries its own close button, and it tears the whole session down.
-               This used to flip to "Stop sharing" because the old native window
-               had no working X of its own. -->
           <button
             class="vx-chip relative"
             :class="{ 'vx-chip--live': mirrorActive }"
@@ -166,19 +170,25 @@ const earbudsStatus = computed(() => {
             <SolarLoader v-if="mirrorStarting" class="h-3.5 w-3.5 animate-spin" />
             <SolarMonitorShare v-else class="h-3.5 w-3.5" />
             {{ t("mirror.share_screen") }}
-            <!-- Screen mirror ships Experimental in v1 (heavy GStreamer deps). -->
             <span class="vx-tag absolute -top-1.5 right-2">{{ t("mirror.experimental") }}</span>
           </button>
           <button class="vx-chip relative" :class="{ 'vx-chip--live': cameraOn }" @click="toggleCamera">
             <SolarVideocamera class="h-3.5 w-3.5" />
             {{ t("mirror.use_as_webcam") }}
-            <!-- Continuity camera ships Experimental in v1 (v4l2loopback dep). -->
             <span class="vx-tag absolute -top-1.5 right-2">{{ t("mirror.experimental") }}</span>
+          </button>
+          <button
+            class="vx-chip"
+            :disabled="sendingFiles"
+            @click="pickAndSendFiles"
+          >
+            <SolarLoader v-if="sendingFiles" class="h-3.5 w-3.5 animate-spin" />
+            <SolarSend v-else class="h-3.5 w-3.5" />
+            {{ sendingFiles ? t("share.sending") : t("share.send_files") }}
           </button>
         </div>
       </div>
 
-      <!-- EARBUDS -->
       <button
         v-if="!activeEarbuds"
         class="vx-card flex flex-col items-center justify-center gap-2 py-7 text-center hover:border-primary/40"

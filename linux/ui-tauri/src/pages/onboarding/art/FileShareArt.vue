@@ -3,14 +3,12 @@
 
 <template>
   <div class="stage">
-    <!-- phone holding files -->
     <div class="phone">
       <div class="pscreen">
         <span class="file" /><span class="file" /><span class="file hot" />
       </div>
     </div>
 
-    <!-- file flying across -->
     <div class="fly">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#07120D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="4" y="3" width="16" height="18" rx="2" fill="#07120D" stroke="none" />
@@ -19,13 +17,11 @@
       </svg>
     </div>
 
-    <!-- chevrons phone -> laptop -->
     <div class="link">
       <span class="chev" style="animation-delay:0s" />
       <span class="chev" style="animation-delay:.4s" />
     </div>
 
-    <!-- laptop receiving -->
     <div class="laptop">
       <div class="lid">
         <div class="tray">

@@ -1,24 +1,12 @@
-//! Wi-Fi Direct fast transfer (instant-share style) — split out of `lan.rs`. The phone
-//! makes a 5 GHz P2P group; the laptop joins it (nmcli), pulls pending files
-//! over the ~20 MB/s direct link, then restores its normal Wi-Fi (single adapter
-//! ⇒ briefly offline). `lan.rs`'s heartbeat reads `wd_active()` to target the GO
-//! IP, and calls `restore_wifi` once the pull drains.
 
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter};
 
-// --------------------------------------------------------------------------
-// Wi-Fi Direct fast transfer (instant-share style): the phone makes a 5 GHz P2P group;
-// the laptop joins it, pulls pending files over the direct link (~20 MB/s vs the
-// router path), then restores its normal Wi-Fi. Single adapter ⇒ briefly offline.
-// --------------------------------------------------------------------------
 
-/// Android always puts the P2P group owner here; `LanServer` binds all ifaces.
 pub(crate) const WIFI_DIRECT_GO_IP: [u8; 4] = [192, 168, 49, 1];
 
 pub(crate) struct WdState {
-    /// The Wi-Fi connection to restore after the transfer (None = unknown).
     saved_wifi: Option<String>,
 }
 
@@ -41,7 +29,6 @@ async fn nmcli(args: &[&str]) -> Option<String> {
     }
 }
 
-/// The active Wi-Fi connection name (to restore later).
 async fn current_wifi() -> Option<String> {
     let s = nmcli(&["-t", "-f", "TYPE,CONNECTION", "device", "status"]).await?;
     s.lines()
@@ -49,7 +36,6 @@ async fn current_wifi() -> Option<String> {
         .filter(|c| !c.is_empty() && c != "--")
 }
 
-/// nmcli that also returns stderr (for diagnosing a failed join).
 async fn nmcli_err(args: &[&str]) -> Result<(), String> {
     match tokio::process::Command::new("nmcli").args(args).output().await {
         Ok(out) if out.status.success() => Ok(()),
@@ -58,12 +44,8 @@ async fn nmcli_err(args: &[&str]) -> Result<(), String> {
     }
 }
 
-/// Join the phone's P2P group. A fresh 5 GHz GO isn't in the cached scan, so
-/// rescan before EACH attempt. A STALE NM profile for this SSID (left by a prior
-/// join) loses its security config → "key-mgmt property is missing"; delete it
-/// first so `dev wifi connect` recreates it cleanly from the live scan.
 async fn join_go(ssid: &str, pass: &str) -> bool {
-    let _ = nmcli(&["con", "delete", ssid]).await; // ignore "unknown connection"
+    let _ = nmcli(&["con", "delete", ssid]).await;
     for attempt in 1..=5 {
         let _ = nmcli(&["dev", "wifi", "rescan"]).await;
         tokio::time::sleep(Duration::from_secs(4)).await;
@@ -71,7 +53,6 @@ async fn join_go(ssid: &str, pass: &str) -> bool {
             Ok(()) => return true,
             Err(e) => {
                 tracing::warn!(attempt, "Wi-Fi Direct join attempt failed: {e}");
-                // Drop the half-made profile so the next attempt starts clean.
                 let _ = nmcli(&["con", "delete", ssid]).await;
             }
         }
@@ -79,7 +60,6 @@ async fn join_go(ssid: &str, pass: &str) -> bool {
     false
 }
 
-/// Restore the saved Wi-Fi and clear the Wi-Fi-Direct state. Idempotent.
 pub(crate) async fn restore_wifi(app: &AppHandle) {
     let saved = WIFI_DIRECT
         .lock()
@@ -90,11 +70,6 @@ pub(crate) async fn restore_wifi(app: &AppHandle) {
         let _ = nmcli(&["con", "up", &name]).await;
         tracing::info!(name = %name, "Wi-Fi Direct: Wi-Fi restored");
     } else {
-        // We never captured the pre-join Wi-Fi (current_wifi() failed at join
-        // time), so there's no specific connection to bring back. With a single
-        // adapter the laptop is otherwise stranded on the GO group — force the
-        // Wi-Fi radio to re-associate with the strongest known AP so it doesn't
-        // stay offline. Best-effort: a radio off/on triggers NM auto-connect.
         tracing::warn!("Wi-Fi Direct: no saved Wi-Fi to restore; cycling radio to auto-reconnect");
         let _ = nmcli(&["radio", "wifi", "off"]).await;
         let _ = nmcli(&["radio", "wifi", "on"]).await;
@@ -102,8 +77,6 @@ pub(crate) async fn restore_wifi(app: &AppHandle) {
     let _ = app.emit("vortex:wifi-direct", false);
 }
 
-/// Hook target (set in the worker): the phone offered a P2P group. If files are
-/// pending, switch onto it so the heartbeat pulls them over the fast link.
 pub(crate) fn on_wifi_direct_offer(app: AppHandle, ssid: String, pass: String) {
     let pending = crate::PENDING_FILE_OFFERS
         .get()
@@ -124,9 +97,8 @@ pub(crate) fn on_wifi_direct_offer(app: AppHandle, ssid: String, pass: String) {
         }
         let _ = app.emit("vortex:wifi-direct", true);
         if let Some(n) = crate::SYNC_NUDGE.get() {
-            n.notify_one(); // pull now over the GO
+            n.notify_one();
         }
-        // Watchdog: never strand the laptop on the GO (failed pull / lost link).
         let app2 = app.clone();
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_secs(60)).await;
