@@ -414,10 +414,10 @@ class ScreenMirrorService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Vortex screen mirroring")
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setSmallIcon(com.vortex.a3.R.drawable.ic_notification_mirror)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
-            .addAction(android.R.drawable.ic_media_pause, "Stop", stop)
+            .addAction(com.vortex.a3.R.drawable.ic_vortex_media_pause, "Stop", stop)
             .build()
     }
 

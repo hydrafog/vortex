@@ -45,7 +45,7 @@ object NoteReminderScheduler {
     fun fireNotification(context: Context, id: String, title: String) {
         ensureChannel(context)
         val n = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setSmallIcon(com.vortex.a3.R.drawable.ic_notification_note)
             .setContentTitle(title.ifBlank { "Reminder" })
             .setContentText(if (title.isBlank()) "Todo" else "Reminder")
             .setAutoCancel(true)

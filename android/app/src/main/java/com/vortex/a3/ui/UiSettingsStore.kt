@@ -22,6 +22,9 @@ class UiSettingsStore(context: Context) {
     private val _theme = MutableStateFlow(ThemeMode.Dark)
     val theme: StateFlow<ThemeMode> = _theme.asStateFlow()
 
+    private val _accent = MutableStateFlow(AccentColor.System)
+    val accent: StateFlow<AccentColor> = _accent.asStateFlow()
+
     fun load() {
         val code = prefs.getString("locale", null)
         _locale.value = when {
@@ -36,6 +39,7 @@ class UiSettingsStore(context: Context) {
             }
         }
         _theme.value = ThemeMode.fromCode(prefs.getString("theme", null))
+        _accent.value = AccentColor.fromCode(prefs.getString("accent", null))
     }
 
     fun setLocale(loc: VortexLocale) {
@@ -52,6 +56,14 @@ class UiSettingsStore(context: Context) {
             .putLong("theme_changed_at", nowSec())
             .apply()
         _theme.value = mode
+    }
+
+    fun setAccent(acc: AccentColor) {
+        prefs.edit()
+            .putString("accent", acc.code)
+            .putLong("accent_changed_at", nowSec())
+            .apply()
+        _accent.value = acc
     }
 
     private fun nowSec() = System.currentTimeMillis() / 1000L

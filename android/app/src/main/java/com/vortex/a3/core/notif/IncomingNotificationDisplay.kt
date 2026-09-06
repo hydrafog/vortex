@@ -28,7 +28,7 @@ object IncomingNotificationDisplay {
             android.app.PendingIntent.FLAG_IMMUTABLE
         val tapPi = android.app.PendingIntent.getBroadcast(ctx, id, tapIntent, piFlags)
         val n = NotificationCompat.Builder(ctx, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_notify_chat)
+            .setSmallIcon(com.vortex.a3.R.drawable.ic_notification_chat)
             .setContentTitle(title)
             .setContentText(m.text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(m.text))

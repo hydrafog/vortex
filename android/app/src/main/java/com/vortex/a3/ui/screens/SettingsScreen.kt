@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,12 +37,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight as FW
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vortex.a3.ui.AccentColor
 import com.vortex.a3.ui.ThemeMode
 import com.vortex.a3.ui.VortexLocale
 import com.vortex.a3.ui.components.VortexDivider
@@ -53,6 +57,8 @@ fun SettingsScreen(
     onSelect: (VortexLocale) -> Unit,
     currentTheme: ThemeMode,
     onSelectTheme: (ThemeMode) -> Unit,
+    currentAccent: AccentColor,
+    onSelectAccent: (AccentColor) -> Unit,
     smartSwitchOn: Boolean,
     onSmartSwitchChange: (Boolean) -> Unit,
     notifMirrorOn: Boolean,
@@ -133,6 +139,26 @@ fun SettingsScreen(
                             leadingIcon = SolarIcons.LightMode,
                             modifier = Modifier.weight(1f),
                         )
+                    }
+                }
+                RowDivider()
+                PickerRow(
+                    icon = SolarIcons.Settings,
+                    label = str("settings.accent_color"),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        for (acc in AccentColor.entries) {
+                            AccentChip(
+                                accent = acc,
+                                selected = acc == currentAccent,
+                                onClick = { onSelectAccent(acc) },
+                            )
+                        }
                     }
                 }
             }
@@ -390,5 +416,44 @@ private fun SegmentedButton(
             }
             Text(label, color = fg, style = MaterialTheme.typography.bodySmall, fontWeight = if (selected) FW.SemiBold else FW.Normal)
         }
+    }
+}
+
+@Composable
+private fun AccentChip(
+    accent: AccentColor,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+    val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(bg)
+            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(14.dp)
+                .clip(CircleShape)
+                .background(
+                    if (accent == AccentColor.System) {
+                        Brush.linearGradient(listOf(Color(0xFF3584E4), Color(0xFF2ECC71)))
+                    } else {
+                        SolidColor(accent.color)
+                    }
+                ),
+        )
+        Text(
+            text = accent.label,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (selected) FW.SemiBold else FW.Normal,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+        )
     }
 }

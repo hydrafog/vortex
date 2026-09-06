@@ -183,7 +183,7 @@ object RingController {
             flags,
         )
         val notif = Notification.Builder(ctx, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(com.vortex.a3.R.drawable.ic_notification_bell)
             .setContentTitle("Vortex is ringing this phone")
             .setContentText("Tap Stop to silence")
             .setOngoing(true)

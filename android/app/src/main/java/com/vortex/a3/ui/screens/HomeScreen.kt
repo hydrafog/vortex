@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight as FW
 import androidx.compose.ui.unit.dp
 import com.vortex.a3.R
 import com.vortex.a3.core.appstate.AppState
+import com.vortex.a3.ui.components.VortexLogo
 import com.vortex.a3.core.appstate.EarbudsInfo
 import com.vortex.a3.core.earbuds.BluetoothDeviceRow
 import com.vortex.a3.core.earbuds.SwitchState
@@ -91,6 +92,8 @@ fun HomeScreen(
     onClosePicker: () -> Unit,
     onRemoveSavedEarbuds: () -> Unit,
     onToggleLaptopLock: (Boolean) -> Unit,
+    onSuspendLaptop: () -> Unit,
+    onShutdownLaptop: () -> Unit,
     showAutostartHint: Boolean,
     showBatteryHint: Boolean,
     showBluetoothOff: Boolean,
@@ -105,6 +108,8 @@ fun HomeScreen(
         (now - lastSeen) < LAPTOP_STALE_MS
     var forgetTarget by remember { mutableStateOf<TrustedPeer?>(null) }
     var showScreenKind by remember { mutableStateOf(false) }
+    var showSuspendConfirm by remember { mutableStateOf(false) }
+    var showShutdownConfirm by remember { mutableStateOf(false) }
 
     data class ActiveEarbuds(val name: String, val battery: Int?, val onLocal: Boolean, val connected: Boolean)
     val peerBuds = primaryState?.earbuds
@@ -142,13 +147,9 @@ fun HomeScreen(
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Image(
-                painter = painterResource(R.drawable.vortex_logo),
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(8.dp)),
+            VortexLogo(
+                size = 36.dp,
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)),
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -230,6 +231,16 @@ fun HomeScreen(
                         },
                         onViewScreen = if (isLaptopOnline) {
                             { showScreenKind = true }
+                        } else {
+                            null
+                        },
+                        onSuspend = if (isLaptopOnline) {
+                            { showSuspendConfirm = true }
+                        } else {
+                            null
+                        },
+                        onShutdown = if (isLaptopOnline) {
+                            { showShutdownConfirm = true }
                         } else {
                             null
                         },
@@ -349,6 +360,80 @@ fun HomeScreen(
             dismissButton = {
                 TextButton(onClick = { forgetTarget = null }) {
                     Text(str("scan.close"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+        )
+    }
+
+    if (showShutdownConfirm) {
+        val laptopName = primaryState?.name?.takeIf { it.isNotBlank() }
+            ?: primaryPeer?.peerName?.takeIf { it.isNotBlank() }
+            ?: str("device.linux")
+        AlertDialog(
+            onDismissRequest = { showShutdownConfirm = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = {
+                Text(str("shutdown.confirm_title"), color = MaterialTheme.colorScheme.onSurface, fontWeight = FW.SemiBold)
+            },
+            text = {
+                Text(
+                    str("shutdown.confirm_body", laptopName),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showShutdownConfirm = false
+                        onShutdownLaptop()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
+                ) { Text(str("shutdown.confirm_button")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showShutdownConfirm = false }) {
+                    Text(str("switch.cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+        )
+    }
+
+    if (showSuspendConfirm) {
+        val laptopName = primaryState?.name?.takeIf { it.isNotBlank() }
+            ?: primaryPeer?.peerName?.takeIf { it.isNotBlank() }
+            ?: str("device.linux")
+        AlertDialog(
+            onDismissRequest = { showSuspendConfirm = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = {
+                Text(str("suspend.confirm_title"), color = MaterialTheme.colorScheme.onSurface, fontWeight = FW.SemiBold)
+            },
+            text = {
+                Text(
+                    str("suspend.confirm_body", laptopName),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSuspendConfirm = false
+                        onSuspendLaptop()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ) { Text(str("suspend.confirm_button")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSuspendConfirm = false }) {
+                    Text(str("switch.cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
         )

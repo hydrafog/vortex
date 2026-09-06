@@ -43,7 +43,7 @@ object MirrorRequestNotification {
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         val pi = PendingIntent.getActivity(ctx, NOTIF_ID, consent, flags)
         val notif = android.app.Notification.Builder(ctx, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_share)
+            .setSmallIcon(com.vortex.a3.R.drawable.ic_notification_mirror)
             .setContentTitle("Your laptop wants to view this screen")
             .setContentText("Tap to allow screen sharing")
             .setCategory(android.app.Notification.CATEGORY_CALL)

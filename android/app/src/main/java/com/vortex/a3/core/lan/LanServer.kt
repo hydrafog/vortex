@@ -663,76 +663,95 @@ class LanServer(
                             }
                             var saved = 0
                             var aborted = false
-                            for ((fi, name) in names.withIndex()) {
-                                if (aborted) break
-                                val extract = extracts.getOrElse(fi) { false }
-                                val sink = IncomingFileSink(context, name, extract)
-                                var finished = false
-                                try {
-                                    while (!finished) {
-                                        val chunkFrame = readFrame(input)
-                                        if (chunkFrame == null) {
-                                            aborted = true
-                                            break
-                                        }
-                                        if (chunkFrame.type != FrameType.FILE_PUSH) {
-                                            Log.w(TAG, "file-push: unexpected frame 0x${"%02x".format(chunkFrame.type)}; aborting")
-                                            pending = chunkFrame
-                                            aborted = true
-                                            break
-                                        }
-                                        val cplain = runCatching {
-                                            aeadOpen(pair.receiver, chunkFrame.payload)
-                                        }.getOrNull()
-                                        if (cplain == null) {
-                                            aborted = true
-                                            break
-                                        }
-                                        if (cplain.size < 4) {
-                                            aborted = true
-                                            break
-                                        }
-                                        val (totalChunks, chunkIdx, dataOffset) = if (
-                                            cplain.size >= 10 &&
-                                            cplain[0] == 0xFF.toByte() &&
-                                            cplain[1] == 0xFF.toByte()
-                                        ) {
-                                            val t = ((cplain[2].toLong() and 0xFF) shl 24) or
-                                                    ((cplain[3].toLong() and 0xFF) shl 16) or
-                                                    ((cplain[4].toLong() and 0xFF) shl 8) or
-                                                    (cplain[5].toLong() and 0xFF)
-                                            val idx = ((cplain[6].toLong() and 0xFF) shl 24) or
-                                                      ((cplain[7].toLong() and 0xFF) shl 16) or
-                                                      ((cplain[8].toLong() and 0xFF) shl 8) or
-                                                      (cplain[9].toLong() and 0xFF)
-                                            Triple(t, idx, 10)
-                                        } else {
-                                            val t = ((cplain[0].toInt() and 0xFF) shl 8) or (cplain[1].toInt() and 0xFF)
-                                            val idx = ((cplain[2].toInt() and 0xFF) shl 8) or (cplain[3].toInt() and 0xFF)
-                                            Triple(t.toLong(), idx.toLong(), 4)
-                                        }
+                            var totalBytesReceived = 0L
+                            var lastNotifAtMs = 0L
+                            try {
+                                for ((fi, name) in names.withIndex()) {
+                                    if (aborted) break
+                                    val extract = extracts.getOrElse(fi) { false }
+                                    val sink = IncomingFileSink(context, name, extract)
+                                    var finished = false
+                                    try {
+                                        while (!finished) {
+                                            val chunkFrame = readFrame(input)
+                                            if (chunkFrame == null) {
+                                                aborted = true
+                                                break
+                                            }
+                                            if (chunkFrame.type != FrameType.FILE_PUSH) {
+                                                Log.w(TAG, "file-push: unexpected frame 0x${"%02x".format(chunkFrame.type)}; aborting")
+                                                pending = chunkFrame
+                                                aborted = true
+                                                break
+                                            }
+                                            val cplain = runCatching {
+                                                aeadOpen(pair.receiver, chunkFrame.payload)
+                                            }.getOrNull()
+                                            if (cplain == null) {
+                                                aborted = true
+                                                break
+                                            }
+                                            if (cplain.size < 4) {
+                                                aborted = true
+                                                break
+                                            }
+                                            val (totalChunks, chunkIdx, dataOffset) = if (
+                                                cplain.size >= 10 &&
+                                                cplain[0] == 0xFF.toByte() &&
+                                                cplain[1] == 0xFF.toByte()
+                                            ) {
+                                                val t = ((cplain[2].toLong() and 0xFF) shl 24) or
+                                                        ((cplain[3].toLong() and 0xFF) shl 16) or
+                                                        ((cplain[4].toLong() and 0xFF) shl 8) or
+                                                        (cplain[5].toLong() and 0xFF)
+                                                val idx = ((cplain[6].toLong() and 0xFF) shl 24) or
+                                                          ((cplain[7].toLong() and 0xFF) shl 16) or
+                                                          ((cplain[8].toLong() and 0xFF) shl 8) or
+                                                          (cplain[9].toLong() and 0xFF)
+                                                Triple(t, idx, 10)
+                                            } else {
+                                                val t = ((cplain[0].toInt() and 0xFF) shl 8) or (cplain[1].toInt() and 0xFF)
+                                                val idx = ((cplain[2].toInt() and 0xFF) shl 8) or (cplain[3].toInt() and 0xFF)
+                                                Triple(t.toLong(), idx.toLong(), 4)
+                                            }
 
-                                        val chunkData = if (cplain.size > dataOffset) {
-                                            cplain.copyOfRange(dataOffset, cplain.size)
+                                            val chunkData = if (cplain.size > dataOffset) {
+                                                cplain.copyOfRange(dataOffset, cplain.size)
+                                            } else {
+                                                ByteArray(0)
+                                            }
+                                            if (!sink.writeChunk(chunkData)) {
+                                                aborted = true
+                                                break
+                                            }
+                                            totalBytesReceived += chunkData.size
+                                            val now = System.currentTimeMillis()
+                                            if (chunkIdx + 1 >= totalChunks) {
+                                                finished = true
+                                            }
+                                            if (now - lastNotifAtMs >= 250L || finished) {
+                                                lastNotifAtMs = now
+                                                IncomingFile.notifyProgress(
+                                                    context,
+                                                    name,
+                                                    fi + 1,
+                                                    names.size,
+                                                    totalBytesReceived,
+                                                    total
+                                                )
+                                            }
+                                        }
+                                        if (finished && sink.finish()) {
+                                            saved++
                                         } else {
-                                            ByteArray(0)
+                                            Log.w(TAG, "file-push '$name' incomplete; discarded")
                                         }
-                                        if (!sink.writeChunk(chunkData)) {
-                                            aborted = true
-                                            break
-                                        }
-                                        if (chunkIdx + 1 >= totalChunks) {
-                                            finished = true
-                                        }
+                                    } finally {
+                                        sink.close()
                                     }
-                                    if (finished && sink.finish()) {
-                                        saved++
-                                    } else {
-                                        Log.w(TAG, "file-push '$name' incomplete; discarded")
-                                    }
-                                } finally {
-                                    sink.close()
                                 }
+                            } finally {
+                                IncomingFile.cancelProgress(context)
                             }
                             if (saved > 0) {
                                 IncomingFile.notifyReceived(context, label, saved)

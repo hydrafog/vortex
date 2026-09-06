@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
 import { SolarArrowRightLeft } from "@/lib/solarIcons";
-import logo from "@/assets/vortex_logo.png";
+import VortexLogo from "@/components/VortexLogo.vue";
 
 const { t } = useI18n();
 </script>
 
 <template>
   <header class="flex items-center gap-3 px-5 py-4 border-b border-border bg-card/30 backdrop-blur">
-    <img :src="logo" alt="Vortex" class="h-9 w-9 rounded-md" />
+    <VortexLogo class="h-9 w-9 text-primary" />
     <div class="flex-1">
       <h1 class="text-base font-semibold leading-tight flex items-center gap-2">
         {{ t("app.title") }}

@@ -253,6 +253,14 @@ class VortexService : Service() {
             }
         }
 
+        fun requestLaptopShutdown(context: Context) {
+            requestLaptopLock(context, "poweroff")
+        }
+
+        fun requestLaptopSuspend(context: Context) {
+            requestLaptopLock(context, "suspend")
+        }
+
         data class PendingMediaControl(val op: String, val seq: Long, val expiresAtMs: Long)
 
         val pendingMediaControl =

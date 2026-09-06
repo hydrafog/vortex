@@ -273,6 +273,8 @@ class MainActivity : ComponentActivity() {
         onClosePicker = ::closeEarbudsPicker,
         onRemoveSavedEarbuds = ::removeSavedEarbuds,
         onToggleLaptopLock = ::toggleLaptopLock,
+        onSuspendLaptop = ::suspendLaptop,
+        onShutdownLaptop = ::shutdownLaptop,
         onApprove = ::onApproveClicked,
         onReject = ::onRejectClicked,
         onOpenNotificationAccess = ::onOpenNotificationAccess,

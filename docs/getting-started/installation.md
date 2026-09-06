@@ -90,4 +90,4 @@ Import the module and enable the service:
    ./gradlew assembleDebug
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
-3. Grant notification access and background permissions when prompted in the app. Notification plus status bar glyphs use simplified Solar Linear silhouettes (white fill, viewport 24) for legibility at small sizes; no setup step changes.
+3. Grant notification access and background permissions when prompted in the app. Notification plus status bar glyphs use simplified Solar Linear silhouettes (white fill, viewport 24) for legibility at small sizes; launcher icons use the current Solar brand mark across all densities; no setup step changes.

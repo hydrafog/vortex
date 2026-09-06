@@ -68,6 +68,8 @@ class VortexActions(
     val onClosePicker: () -> Unit,
     val onRemoveSavedEarbuds: () -> Unit,
     val onToggleLaptopLock: (Boolean) -> Unit,
+    val onSuspendLaptop: () -> Unit,
+    val onShutdownLaptop: () -> Unit,
     val onApprove: (PairingOrchestrator.HandshakeOutcome) -> Unit,
     val onReject: (PairingOrchestrator.HandshakeOutcome) -> Unit,
     val onOpenNotificationAccess: () -> Unit,
@@ -86,8 +88,10 @@ fun VortexRoot(
 ) {
     val activeLocale = settings.locale.collectAsState().value
     val activeTheme = settings.theme.collectAsState().value
-    val colorScheme =
-        if (activeTheme == ThemeMode.Light) VortexLightColors else VortexDarkColors
+    val activeAccent = settings.accent.collectAsState().value
+    val colorScheme = remember(activeTheme, activeAccent, activity) {
+        buildVortexColorScheme(activeTheme, activeAccent, activity)
+    }
     SideEffect {
         val window = activity.window
         val isLight = activeTheme == ThemeMode.Light
@@ -131,6 +135,8 @@ fun VortexRoot(
                         onSelect = { settings.setLocale(it) },
                         currentTheme = activeTheme,
                         onSelectTheme = { settings.setTheme(it) },
+                        currentAccent = activeAccent,
+                        onSelectAccent = { settings.setAccent(it) },
                         smartSwitchOn = smartSwitchOn,
                         onSmartSwitchChange = {
                             SmartSwitchSetting.setLocal(it)
@@ -177,6 +183,8 @@ fun VortexRoot(
                         onClosePicker = actions.onClosePicker,
                         onRemoveSavedEarbuds = actions.onRemoveSavedEarbuds,
                         onToggleLaptopLock = actions.onToggleLaptopLock,
+                        onSuspendLaptop = actions.onSuspendLaptop,
+                        onShutdownLaptop = actions.onShutdownLaptop,
                         showAutostartHint = actions.isAggressiveOem &&
                             !ui.autostartHintDismissed.collectAsState().value,
                         showBatteryHint = !actions.isIgnoringBatteryOptimizations(),

@@ -14,6 +14,14 @@ internal fun MainActivity.toggleLaptopLock(currentlyLocked: Boolean) {
     VortexService.requestLaptopLock(applicationContext, op)
 }
 
+internal fun MainActivity.shutdownLaptop() {
+    VortexService.requestLaptopShutdown(applicationContext)
+}
+
+internal fun MainActivity.suspendLaptop() {
+    VortexService.requestLaptopSuspend(applicationContext)
+}
+
 internal fun MainActivity.onRequestBatteryWhitelist() {
     try {
         startActivity(

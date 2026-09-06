@@ -95,7 +95,7 @@ object FileConsent {
             val title = if (count > 1) "Laptop wants to send $count files" else "Laptop wants to send a file"
             val text = "$label · ${fmtBytes(totalBytes)}"
             val n = NotificationCompat.Builder(app, CHANNEL)
-                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setSmallIcon(com.vortex.a3.R.drawable.ic_notification_download)
                 .setContentTitle(title)
                 .setContentText(text)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)

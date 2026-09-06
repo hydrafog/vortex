@@ -224,7 +224,68 @@ object IncomingFile {
         }
     }
 
+    const val PROGRESS_NOTIFICATION_ID = 90210
+
+    fun notifyProgress(
+        ctx: Context,
+        currentName: String,
+        fileIndex: Int,
+        totalFiles: Int,
+        bytesReceived: Long,
+        totalBytes: Long,
+    ) {
+        try {
+            val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                nm.createNotificationChannel(
+                    NotificationChannel(CHANNEL, "File transfers", NotificationManager.IMPORTANCE_LOW).apply {
+                        description = "Ongoing file transfer progress and received files"
+                    },
+                )
+            }
+            val percent = if (totalBytes > 0) ((bytesReceived * 100) / totalBytes).toInt().coerceIn(0, 100) else 0
+            val title = if (totalFiles > 1) {
+                "Receiving file $fileIndex of $totalFiles ($percent%)"
+            } else {
+                "Receiving $currentName ($percent%)"
+            }
+            val receivedFormatted = formatBytes(bytesReceived)
+            val totalFormatted = formatBytes(totalBytes)
+            val text = "$currentName • $receivedFormatted / $totalFormatted"
+
+            val n = androidx.core.app.NotificationCompat.Builder(ctx, CHANNEL)
+                .setSmallIcon(com.vortex.a3.R.drawable.ic_notification_download)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setProgress(100, percent, totalBytes <= 0)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .build()
+            nm.notify(PROGRESS_NOTIFICATION_ID, n)
+        } catch (e: Exception) {
+            Log.w(TAG, "notifyProgress failed: ${e.message}")
+        }
+    }
+
+    fun cancelProgress(ctx: Context) {
+        try {
+            val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.cancel(PROGRESS_NOTIFICATION_ID)
+        } catch (e: Exception) {
+            Log.w(TAG, "cancelProgress failed: ${e.message}")
+        }
+    }
+
+    private fun formatBytes(bytes: Long): String {
+        if (bytes <= 0) return "0 B"
+        val units = arrayOf("B", "KB", "MB", "GB", "TB")
+        val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt().coerceIn(0, units.size - 1)
+        val value = bytes / Math.pow(1024.0, digitGroups.toDouble())
+        return String.format(java.util.Locale.US, "%.1f %s", value, units[digitGroups])
+    }
+
     fun notifyReceived(ctx: Context, label: String, count: Int) {
+        cancelProgress(ctx)
         try {
             val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -234,7 +295,7 @@ object IncomingFile {
             }
             val title = if (count > 1) "$count files received" else "File received"
             val n = androidx.core.app.NotificationCompat.Builder(ctx, CHANNEL)
-                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setSmallIcon(com.vortex.a3.R.drawable.ic_notification_download_done)
                 .setContentTitle(title)
                 .setContentText("$label: saved to Downloads")
                 .setAutoCancel(true)

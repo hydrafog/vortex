@@ -34,13 +34,23 @@ export const ACCENT_PRESETS: { code: AccentColor; name: string; hex: string }[] 
 const STORAGE_KEY = "vortex.theme";
 const ACCENT_STORAGE_KEY = "vortex.accent";
 
-interface ColorToken {
+interface BaseToken {
   primary: string;
   foreground: string;
   ring: string;
 }
 
-const PALETTES: Record<string, { light: ColorToken; dark: ColorToken }> = {
+export interface ColorToken extends BaseToken {
+  background: string;
+  card: string;
+  secondary: string;
+  muted: string;
+  accent: string;
+  border: string;
+  input: string;
+}
+
+const PALETTES: Record<string, { light: BaseToken; dark: BaseToken }> = {
   vortex: {
     light: { primary: "152 76% 36%", foreground: "0 0% 100%", ring: "152 76% 36%" },
     dark: { primary: "145 63% 49%", foreground: "150 42% 7%", ring: "145 63% 49%" },
@@ -198,7 +208,44 @@ if (mediaQuery) {
   });
 }
 
+function computeThemeTokens(
+  h: number,
+  base: BaseToken,
+  isDark: boolean,
+  isSlate = false,
+): ColorToken {
+  const sat = isSlate ? 4 : 10;
+  if (isDark) {
+    return {
+      primary: base.primary,
+      foreground: base.foreground,
+      ring: base.ring,
+      background: `${h} ${sat}% 9%`,
+      card: `${h} ${sat + 1}% 11%`,
+      secondary: `${h} ${sat}% 14%`,
+      muted: `${h} ${sat}% 14%`,
+      accent: `${h} ${sat}% 17%`,
+      border: `${h} ${sat - 1}% 19%`,
+      input: `${h} ${sat - 1}% 17%`,
+    };
+  } else {
+    return {
+      primary: base.primary,
+      foreground: base.foreground,
+      ring: base.ring,
+      background: `${h} ${sat + 2}% 98%`,
+      card: "0 0% 100%",
+      secondary: `${h} ${sat}% 95%`,
+      muted: `${h} ${sat}% 95%`,
+      accent: `${h} ${sat + 2}% 93%`,
+      border: `${h} ${sat}% 89%`,
+      input: `${h} ${sat}% 91%`,
+    };
+  }
+}
+
 function resolveAccentTokens(themeMode: Theme): ColorToken {
+  const isDark = themeMode === "dark";
   let target = accentPreference.value;
   if (target === "system") {
     const sys = detectedSystemAccent.value;
@@ -207,20 +254,22 @@ function resolveAccentTokens(themeMode: Theme): ColorToken {
     } else if (sys) {
       const parsed = parseHexOrRgb(sys);
       if (parsed) {
-        if (themeMode === "light") {
+        if (!isDark) {
           const l = Math.min(parsed.l, 48);
-          return {
+          const base: BaseToken = {
             primary: `${parsed.h} ${parsed.s}% ${l}%`,
             foreground: "0 0% 100%",
             ring: `${parsed.h} ${parsed.s}% ${l}%`,
           };
+          return computeThemeTokens(parsed.h, base, false);
         } else {
           const l = Math.max(parsed.l, 55);
-          return {
+          const base: BaseToken = {
             primary: `${parsed.h} ${parsed.s}% ${l}%`,
             foreground: `${parsed.h} ${parsed.s}% 10%`,
             ring: `${parsed.h} ${parsed.s}% ${l}%`,
           };
+          return computeThemeTokens(parsed.h, base, true);
         }
       }
       target = "blue";
@@ -230,7 +279,9 @@ function resolveAccentTokens(themeMode: Theme): ColorToken {
   }
 
   const palette = PALETTES[target] ?? PALETTES.vortex;
-  return palette[themeMode];
+  const base = palette[themeMode];
+  const h = parseInt(base.primary.split(" ")[0], 10) || 150;
+  return computeThemeTokens(h, base, isDark, target === "slate");
 }
 
 watchEffect(() => {
@@ -245,6 +296,13 @@ watchEffect(() => {
     root.style.setProperty("--primary", tokens.primary);
     root.style.setProperty("--primary-foreground", tokens.foreground);
     root.style.setProperty("--ring", tokens.ring);
+    root.style.setProperty("--background", tokens.background);
+    root.style.setProperty("--card", tokens.card);
+    root.style.setProperty("--secondary", tokens.secondary);
+    root.style.setProperty("--muted", tokens.muted);
+    root.style.setProperty("--accent", tokens.accent);
+    root.style.setProperty("--border", tokens.border);
+    root.style.setProperty("--input", tokens.input);
   }
   if (typeof localStorage !== "undefined") {
     localStorage.setItem(STORAGE_KEY, themePreference.value);

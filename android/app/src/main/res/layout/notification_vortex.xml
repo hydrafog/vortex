@@ -4,21 +4,27 @@
     android:layout_height="wrap_content"
     android:gravity="center_vertical"
     android:orientation="horizontal"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp"
     android:paddingStart="4dp"
-    android:paddingEnd="0dp">
+    android:paddingEnd="4dp">
 
+    <!-- Laptop Status Chip -->
     <LinearLayout
+        android:id="@+id/notification_laptop_group"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
+        android:layout_height="32dp"
+        android:background="@drawable/bg_notification_chip"
         android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp">
 
         <ImageView
             android:id="@+id/notification_laptop_icon"
             android:layout_width="18dp"
             android:layout_height="18dp"
-            android:layout_marginEnd="5dp"
+            android:layout_marginEnd="6dp"
             android:src="@drawable/ic_notification_laptop"
             android:tint="@android:color/white" />
 
@@ -28,27 +34,29 @@
             android:layout_height="wrap_content"
             android:text="--"
             android:textColor="@android:color/white"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Earbuds: tap anywhere (icon OR battery text) to switch. -->
+    <!-- Earbuds Audio Switch Chip -->
     <LinearLayout
         android:id="@+id/notification_audio_group"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="32dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/bg_notification_button"
         android:clickable="true"
         android:focusable="false"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="6dp"
-        android:paddingEnd="6dp">
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp">
 
         <ImageView
             android:id="@+id/notification_audio_icon"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_marginEnd="5dp"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginEnd="6dp"
             android:src="@drawable/ic_notification_earbuds"
             android:tint="@android:color/white" />
 
@@ -58,53 +66,52 @@
             android:layout_height="wrap_content"
             android:text="--"
             android:textColor="@android:color/white"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>
 
+    <!-- Lock / Unlock Action Button -->
     <FrameLayout
         android:id="@+id/notification_lock_group"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/bg_notification_button"
         android:clickable="true"
         android:focusable="false"
-        android:paddingStart="6dp"
-        android:paddingEnd="6dp"
         android:visibility="gone">
 
         <ImageView
             android:id="@+id/notification_lock_icon"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_gravity="center"
             android:src="@drawable/ic_notification_lock_open"
             android:tint="@android:color/white" />
     </FrameLayout>
 
-    <!-- Spacer: pushes the clipboard-send button to the far right edge.
-         RemoteViews can't inflate a plain <View>, so use a weighted
-         empty TextView. -->
+    <!-- Spacer: pushes clipboard quick-send button to far right -->
     <TextView
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1" />
 
-    <!-- Send-clipboard button (top-right). Always visible while sync is on. -->
+    <!-- Send Clipboard Action Button -->
     <FrameLayout
         android:id="@+id/notification_clipboard_group"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/bg_notification_button"
         android:clickable="true"
         android:focusable="false"
-        android:paddingStart="10dp"
-        android:paddingEnd="2dp"
         android:visibility="gone">
 
         <ImageView
             android:id="@+id/notification_clipboard_icon"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_gravity="center"
             android:src="@drawable/ic_notification_clipboard"
             android:tint="@android:color/white" />
     </FrameLayout>

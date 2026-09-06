@@ -286,7 +286,7 @@ class CameraStreamService : Service() {
         val notif = NotificationCompat.Builder(this, CHANNEL)
             .setContentTitle("Camera in use")
             .setContentText("Streaming to laptop as a webcam")
-            .setSmallIcon(android.R.drawable.presence_video_online)
+            .setSmallIcon(com.vortex.a3.R.drawable.ic_notification_camera)
             .setOngoing(true)
             .build()
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

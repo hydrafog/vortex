@@ -50,82 +50,120 @@ fun PeerDeviceCard(
     locked: Boolean? = null,
     onToggleLock: (() -> Unit)? = null,
     onViewScreen: (() -> Unit)? = null,
+    onSuspend: (() -> Unit)? = null,
+    onShutdown: (() -> Unit)? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.97f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
-        label = "card-press",
+        targetValue = if (pressed) 0.985f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "peer_press_scale",
     )
-
-    Column(
+    Box(
         modifier = modifier
             .scale(scale)
-            .height(CardHeight)
-            .shadow(elevation = 6.dp, shape = CardCorner, clip = false)
-            .clip(CardCorner)
-            .background(MaterialTheme.colorScheme.surface)
+            .shadow(
+                elevation = 6.dp,
+                shape = RoundedCornerShape(22.dp),
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                ambientColor = Color.Black.copy(alpha = 0.04f),
+            )
+            .clip(RoundedCornerShape(22.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .combinedClickable(
                 interactionSource = interaction,
-                indication = ripple(bounded = true, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
-                onClick = {},
+                indication = ripple(color = MaterialTheme.colorScheme.primary),
                 onLongClick = onLongPress,
+                onClick = {},
             )
-            .border(width = 1.dp, color = MaterialTheme.colorScheme.outline, shape = CardCorner)
-            .padding(16.dp),
+            .padding(18.dp)
+            .fillMaxWidth()
+            .height(180.dp),
     ) {
-        CardHeader(
-            icon = icon,
-            iconTint = MaterialTheme.colorScheme.primary,
-            iconBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-            statusDot = statusDotColor,
-        )
-        Spacer(modifier = Modifier.height(14.dp))
-        Text(name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FW.SemiBold, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
-        Text(caption, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-        Spacer(modifier = Modifier.weight(1f))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.weight(1f)) {
-                BatteryRow(battery, charging = charging)
-            }
-            if (onViewScreen != null) {
-                Box(contentAlignment = Alignment.TopEnd) {
+        Column {
+            IconTile(
+                icon = icon,
+                iconTint = MaterialTheme.colorScheme.primary,
+                iconBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                statusDot = statusDotColor,
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            Text(name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FW.SemiBold, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+            Text(caption, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Spacer(modifier = Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.weight(1f)) {
+                    BatteryRow(battery, charging = charging)
+                }
+                if (onViewScreen != null) {
+                    Box(contentAlignment = Alignment.TopEnd) {
+                        Icon(
+                            imageVector = SolarIcons.Cast,
+                            contentDescription = "View laptop screen (experimental)",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(onClick = onViewScreen)
+                                .padding(4.dp)
+                                .size(20.dp),
+                        )
+                        Box(
+                            Modifier
+                                .padding(top = 3.dp, end = 2.dp)
+                                .size(7.dp)
+                                .clip(RoundedCornerShape(percent = 50))
+                                .background(Color(0xFFF0B43C)),
+                        )
+                    }
+                    Spacer(modifier = Modifier.size(8.dp))
+                }
+                if (locked != null && onToggleLock != null) {
                     Icon(
-                        imageVector = SolarIcons.Cast,
-                        contentDescription = "View laptop screen (experimental)",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        imageVector = SolarIcons.lockIconFor(locked),
+                        contentDescription = null,
+                        tint = if (locked) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onViewScreen)
+                            .clickable(onClick = onToggleLock)
                             .padding(4.dp)
                             .size(20.dp),
                     )
-                    Box(
-                        Modifier
-                            .padding(top = 3.dp, end = 2.dp)
-                            .size(7.dp)
-                            .clip(RoundedCornerShape(percent = 50))
-                            .background(Color(0xFFF0B43C)),
+                }
+                if (onSuspend != null) {
+                    if (locked != null && onToggleLock != null) {
+                        Spacer(modifier = Modifier.size(8.dp))
+                    }
+                    Icon(
+                        imageVector = SolarIcons.Suspend,
+                        contentDescription = "Suspend laptop",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onSuspend)
+                            .padding(4.dp)
+                            .size(20.dp),
                     )
                 }
-                Spacer(modifier = Modifier.size(8.dp))
-            }
-            if (locked != null && onToggleLock != null) {
-                Icon(
-                    imageVector = SolarIcons.lockIconFor(locked),
-                    contentDescription = null,
-                    tint = if (locked) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable(onClick = onToggleLock)
-                        .padding(4.dp)
-                        .size(20.dp),
-                )
+                if (onShutdown != null) {
+                    if ((locked != null && onToggleLock != null) || onSuspend != null) {
+                        Spacer(modifier = Modifier.size(8.dp))
+                    }
+                    Icon(
+                        imageVector = SolarIcons.Power,
+                        contentDescription = "Shut down laptop",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onShutdown)
+                            .padding(4.dp)
+                            .size(20.dp),
+                    )
+                }
             }
         }
     }

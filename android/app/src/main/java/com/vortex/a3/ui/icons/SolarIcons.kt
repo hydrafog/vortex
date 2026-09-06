@@ -20,7 +20,7 @@ val SOLAR_ICON_ALLOWLIST: Set<String> = setOf(
     "Add", "StickyNote2", "Close", "Check", "Delete",
     "Settings", "Laptop", "Smartphone", "Headphones",
     "BatteryChargingFull", "BatteryStd", "BatteryFull", "Battery2Bar", "BatteryAlert",
-    "Cast", "Lock", "LockOpen",
+    "Cast", "Lock", "LockOpen", "Power", "Suspend",
 )
 
 fun assertSolarIconName(name: String) {
@@ -507,6 +507,18 @@ internal object SolarIcons {
             ),
         )
     }
+    val Power: ImageVector by lazy {
+        solarVector(
+            "Power",
+            addPathNodes("M12 3v7m6.364-3.636a9 9 0 1 1-12.728 0"),
+        )
+    }
+    val Suspend: ImageVector by lazy {
+        solarVector(
+            "Suspend",
+            addPathNodes("M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z"),
+        )
+    }
 
     fun batteryIconFor(pct: Int?, charging: Boolean): ImageVector {
         return try {
@@ -563,6 +575,8 @@ internal object SolarIcons {
                 "Cast" -> Cast
                 "Lock" -> Lock
                 "LockOpen" -> LockOpen
+                "Power" -> Power
+                "Suspend" -> Suspend
                 else -> throw IconLoadFailure(name)
             }
         } catch (e: Exception) {

@@ -55,6 +55,66 @@ pub async fn unlock() -> Result<(), String> {
     })
 }
 
+pub async fn poweroff() -> Result<(), String> {
+    if let Ok(conn) = Connection::system().await {
+        if let Ok(mgr) =
+            Proxy::new(&conn, LOGIN1, "/org/freedesktop/login1", "org.freedesktop.login1.Manager")
+                .await
+        {
+            if mgr.call::<_, _, ()>("PowerOff", &(true)).await.is_ok() {
+                return Ok(());
+            }
+        }
+    }
+    tokio::task::spawn_blocking(|| {
+        let out = std::process::Command::new("systemctl")
+            .arg("poweroff")
+            .output()
+            .map_err(|e| format!("spawn systemctl poweroff: {e}"))?;
+        if out.status.success() {
+            Ok(())
+        } else {
+            Err(format!(
+                "systemctl poweroff exit {}: {}",
+                out.status,
+                String::from_utf8_lossy(&out.stderr)
+            ))
+        }
+    })
+    .await
+    .map_err(|e| format!("spawn_blocking error: {e}"))?
+}
+
+pub async fn suspend() -> Result<(), String> {
+    if let Ok(conn) = Connection::system().await {
+        if let Ok(mgr) =
+            Proxy::new(&conn, LOGIN1, "/org/freedesktop/login1", "org.freedesktop.login1.Manager")
+                .await
+        {
+            if mgr.call::<_, _, ()>("Suspend", &(true)).await.is_ok() {
+                return Ok(());
+            }
+        }
+    }
+    tokio::task::spawn_blocking(|| {
+        let out = std::process::Command::new("systemctl")
+            .arg("suspend")
+            .output()
+            .map_err(|e| format!("spawn systemctl suspend: {e}"))?;
+        if out.status.success() {
+            Ok(())
+        } else {
+            Err(format!(
+                "systemctl suspend exit {}: {}",
+                out.status,
+                String::from_utf8_lossy(&out.stderr)
+            ))
+        }
+    })
+    .await
+    .map_err(|e| format!("spawn_blocking error: {e}"))?
+}
+
 pub async fn locked_hint() -> Option<bool> {
     let conn = Connection::system().await.ok()?;
     let session = session_proxy(&conn).await.ok()?;

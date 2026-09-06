@@ -25,6 +25,8 @@ pub(crate) fn dispatch_lock_command(state: &vortex_l3_daemon::core::appstate::Ap
         let res = match cmd.as_str() {
             "lock" => vortex_l3_daemon::core::session_lock::lock().await,
             "unlock" => vortex_l3_daemon::core::session_lock::unlock().await,
+            "suspend" | "sleep" => vortex_l3_daemon::core::session_lock::suspend().await,
+            "poweroff" | "shutdown" => vortex_l3_daemon::core::session_lock::poweroff().await,
             other => Err(format!("unknown lock command {other:?}")),
         };
         match res {

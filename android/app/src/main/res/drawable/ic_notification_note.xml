@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Solar Headphones Linear for status bar and notifications (viewport 24, stroke 1.7). -->
+<!-- Solar Notebook Linear for status bar and notifications (viewport 24, stroke 1.7). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -11,5 +11,5 @@
         android:strokeWidth="1.7"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M4,15v-2a8,8 0 0,1 16,0v2M4.5,14h1a1.5,1.5 0 0,1 1.5,1.5v3a1.5,1.5 0 0,1 -1.5,1.5h-1a1.5,1.5 0 0,1 -1.5,-1.5v-3a1.5,1.5 0 0,1 1.5,-1.5zM18.5,14h1a1.5,1.5 0 0,1 1.5,1.5v3a1.5,1.5 0 0,1 -1.5,1.5h-1a1.5,1.5 0 0,1 -1.5,-1.5v-3a1.5,1.5 0 0,1 1.5,-1.5z" />
+        android:pathData="M6,3.5h11a1.5,1.5 0 0,1 1.5,1.5v14a1.5,1.5 0 0,1 -1.5,1.5H6a1.5,1.5 0 0,1 -1.5,-1.5V5A1.5,1.5 0 0,1 6,3.5ZM9,8.5h6M9,12h6M9,15.5h4" />
 </vector>

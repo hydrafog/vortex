@@ -11,7 +11,7 @@ import {
   SolarSettings,
   SolarChevronsLeft,
 } from "@/lib/solarIcons";
-import logo from "@/assets/vortex_logo.png";
+import VortexLogo from "@/components/VortexLogo.vue";
 import { unreadConversations } from "@/composables/useMessages";
 
 const route = useRoute();
@@ -54,10 +54,8 @@ function go(to: string) {
       data-tauri-drag-region
       class="flex items-center justify-start gap-[11px] px-2 pt-1 cursor-grab select-none"
     >
-      <img
-        :src="logo"
-        alt="Vortex"
-        class="h-[30px] w-[30px] shrink-0 rounded-md object-cover"
+      <VortexLogo
+        class="h-[30px] w-[30px] text-primary"
         style="filter: drop-shadow(0 0 5px hsl(var(--primary) / 0.45))"
       />
       <span

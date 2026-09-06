@@ -49,6 +49,14 @@ for f in \
   android/app/src/main/res/drawable/ic_notification_clipboard.xml \
   android/app/src/main/res/drawable/ic_notification_lock.xml \
   android/app/src/main/res/drawable/ic_notification_lock_open.xml \
+  android/app/src/main/res/drawable/ic_notification_bell.xml \
+  android/app/src/main/res/drawable/ic_notification_mirror.xml \
+  android/app/src/main/res/drawable/ic_notification_note.xml \
+  android/app/src/main/res/drawable/ic_notification_download.xml \
+  android/app/src/main/res/drawable/ic_notification_download_done.xml \
+  android/app/src/main/res/drawable/ic_notification_chat.xml \
+  android/app/src/main/res/drawable/ic_notification_camera.xml \
+  android/app/src/main/res/drawable/ic_vortex_logo_vector.xml \
   android/app/src/main/res/drawable/ic_vortex_media_prev.xml \
   android/app/src/main/res/drawable/ic_vortex_media_play.xml \
   android/app/src/main/res/drawable/ic_vortex_media_pause.xml \
@@ -58,6 +66,12 @@ for f in \
   rg -q 'fill' "$f" || fail "missing fill in $f"
 done
 echo "ok: Android drawables present with viewport 24"
+
+# No android.R.drawable remnants in Android java sources.
+if rg -q 'android\.R\.drawable' android/app/src/main/java; then
+  fail "android.R.drawable remnants found in android/app/src/main/java"
+fi
+echo "ok: zero android.R.drawable remnants in Android sources"
 
 # Brand source plus exports present.
 test -f assets/vortex_solar_source.svg || fail "missing assets/vortex_solar_source.svg"
@@ -86,16 +100,26 @@ done
 python3 -c "import xml.etree.ElementTree as ET; ET.parse('linux/ui-tauri/public/favicon.svg')" || fail "favicon parse failed"
 echo "ok: Tauri bundle artwork present"
 
-# Mipmap foregrounds present.
+# Mipmap launcher icons and foregrounds present.
 for f in \
   android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png \
   android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png \
   android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png \
   android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png \
-  android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png; do
+  android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png \
+  android/app/src/main/res/mipmap-mdpi/ic_launcher.png \
+  android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png \
+  android/app/src/main/res/mipmap-hdpi/ic_launcher.png \
+  android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png \
+  android/app/src/main/res/mipmap-xhdpi/ic_launcher.png \
+  android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png \
+  android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png \
+  android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png \
+  android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png \
+  android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png; do
   test -f "$f" || fail "missing $f"
 done
-echo "ok: mipmap foregrounds present"
+echo "ok: mipmap launcher icons and foregrounds present"
 
 # Helper binary and runtime mirroring unchanged.
 rg -q 'vortex_inject' linux/ui-tauri/src-tauri/src/mirror_inject.rs || fail "vortex_inject reference missing"
