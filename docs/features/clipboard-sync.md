@@ -1,20 +1,18 @@
-# Universal Clipboard
+# Universal clipboard
 
-Vortex provides bidirectional, real-time clipboard synchronization for text and images between Linux and Android devices.
+Copied text and images travel both ways between Linux and Android as you copy.
 
-## Wayland and X11 Integration
+## Wayland and X11 integration
 
-On Linux, clipboard synchronization commonly breaks on Wayland sessions when using generic X11-only libraries. Vortex handles this robustly:
-- Utilizes `arboard` built with the `wayland-data-control` feature.
-- Communicates directly with Wayland compositors supporting the `wlr-data-control` protocol (wlroots, Sway, Hyprland) or falls back to X11 on GNOME/KDE.
-- Integrates `wl-clipboard-rs` for zero-delay selection updates.
+X11-only clipboard libraries miss updates on Wayland. Vortex reads the selection directly:
+- It builds `arboard` with the `wayland-data-control` feature.
+- On wlroots, Sway, and Hyprland it talks `wlr-data-control`. On GNOME and KDE it falls back to X11.
+- It uses `wl-clipboard-rs` for selection updates without polling delay.
 
-## Privacy & Password Manager Protection
+## Privacy and password manager protection
 
-To prevent sensitive passwords, credit card numbers, and 2FA tokens from inadvertently syncing over the network:
-1. When a clipboard change occurs, Vortex inspects MIME selection targets before reading data.
-2. Checks for privacy hints:
-   - `x-kde-passwordManagerHint` (KeePassXC, Bitwarden, 1Password)
-   - `application/x-password`
-3. If a password manager hint is present, Vortex silently drops synchronization for that item.
-4. Transient SMS login codes received on the phone bypass the block and paste automatically to the desktop clipboard.
+Passwords stay off the network:
+1. On each clipboard change, Vortex looks at MIME targets before it reads data.
+2. It looks for `x-kde-passwordManagerHint` (KeePassXC, Bitwarden, 1Password) and `application/x-password`.
+3. With either hint present, Vortex skips that item.
+4. SMS login codes from the phone still pass through and land in the desktop clipboard.

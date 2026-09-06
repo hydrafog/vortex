@@ -1,6 +1,6 @@
-# Universal Control
+# Universal control
 
-Universal Control lets you move your desktop mouse pointer seamlessly across the screen barrier and control your Android tablet or phone using your laptop keyboard and trackpad.
+Move the desktop pointer past the assigned screen edge and it types and clicks on the Android phone. Move it back and control returns to the laptop.
 
 ## Architecture
 
@@ -20,29 +20,28 @@ Universal Control lets you move your desktop mouse pointer seamlessly across the
                                               [/dev/uinput]
 ```
 
-## Desktop Input Capture (Wayland)
-On Wayland sessions (GNOME, Hyprland, Sway), pointer grab cannot be achieved via X11 root window polling. Vortex utilizes:
-- **`xdg-desktop-portal` InputCapture portal**: Employs `reis` (Rust libei client) to register edge barriers.
-- When the cursor hits the screen border assigned to the phone (left, right, top, or bottom), the portal traps input events and routes relative pointer movements and scancodes to Vortex.
-- While captured, the desktop cursor is inhibited via the GNOME Shell extension / compositor hook.
+## Desktop input capture (Wayland)
 
-## Android Input Injection (`vortex_inject`)
-Android restricts raw input injection from non-system apps. Vortex solves this without rooting or vendor-specific Mi account bypasses:
-1. Pushes a standalone 20 KB native binary `vortex_inject` to `/data/local/tmp/`.
-2. Spawns the binary under the `shell` user privilege via ADB.
-3. `vortex_inject` opens `/dev/uinput` to register:
-   - A virtual multitouch screen
-   - A virtual mouse
-   - A virtual hardware keyboard
-4. Relative desktop trackpad movements and key events translate to native kernel input events on Android with sub-10ms latency.
+X11 root polling does not work on Wayland, so Vortex registers edge barriers through the InputCapture portal:
+- The portal comes from `xdg-desktop-portal`. Vortex talks to it with `reis`, the Rust libei client.
+- When the pointer hits the edge assigned to the phone, the portal holds input and sends relative moves and key codes to Vortex.
+- While held, the desktop cursor stays hidden through the GNOME Shell extension or compositor hook.
 
-## Prerequisites & Setup
+## Android input injection (`vortex_inject`)
 
-Universal Control operates with two system components:
-1. **Wayland InputCapture Portal**: A Wayland compositor supporting `xdg-desktop-portal` with the `InputCapture` portal interface (GNOME 45+, KDE Plasma 6.1+, Hyprland, or Sway).
-2. **Android ADB Debugging**: USB debugging or wireless ADB authorized on the Android device. The desktop client communicates with the `vortex_inject` helper process deployed to `/data/local/tmp/vortex_inject` over an ADB port-forwarded socket.
+Android does not let normal apps inject input. Vortex ships a small helper instead:
+1. Vortex copies the 20 KB `vortex_inject` binary to `/data/local/tmp/`.
+2. It starts the binary as the `shell` user over ADB.
+3. The binary opens `/dev/uinput` and registers a virtual touch screen, a virtual mouse, and a virtual keyboard.
+4. Trackpad moves and key events from the desktop arrive as kernel input on Android, usually under 10 ms.
 
-### Declarative Configuration (Home Manager)
+## Prerequisites and setup
+
+Universal Control needs:
+1. A Wayland compositor with the InputCapture portal (`xdg-desktop-portal` with InputCapture on GNOME 45+, KDE Plasma 6.1+, Hyprland, or Sway).
+2. ADB access to the phone over USB or Wi-Fi. The desktop reaches the helper at `/data/local/tmp/vortex_inject` through an ADB forwarded socket.
+
+### Declarative configuration (Home Manager)
 
 Universal Control can be declared in Home Manager configuration:
 

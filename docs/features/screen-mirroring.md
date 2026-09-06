@@ -1,23 +1,21 @@
-# Screen Mirroring & Casting
+# Screen mirroring and casting
 
-Vortex supports low-latency video streaming in both directions: mirroring your Android screen onto your Linux desktop and casting your Linux desktop display onto an Android device as a secondary monitor.
+Video goes both ways. The phone screen can appear on the laptop, and the laptop desktop can extend onto the phone.
 
-## Phone to Laptop (Receiver Pipeline)
+## Phone to laptop
 
-When viewing your phone screen on your laptop:
-1. **Android Screen Capture**: The Android app records the display via `MediaProjection` and hardware-encodes video frames using `MediaCodec` into H.264 NAL units.
-2. **Encrypted Transport**: Frames are sealed with ChaCha20-Poly1305 and streamed over local Wi-Fi.
-3. **Desktop Rendering Pipeline**:
-   - The desktop client relies on GStreamer (`gstreamer-app`, `gst-plugins-good`, `gst-plugins-bad`).
-   - Pipeline:
-     ```
-     appsrc -> h264parse -> avdec_h264 -> videoconvert -> gtksink
-     ```
-   - Frames render into a GTK3 window managed by Tauri, providing native window controls and sub-frame latency.
+To show the phone on the laptop:
+1. The Android app captures the display with `MediaProjection` and encodes with `MediaCodec` to H.264 NAL units.
+2. Each frame is encrypted with ChaCha20-Poly1305 and sent over local Wi-Fi.
+3. The desktop decodes with GStreamer (`gstreamer-app`, `gst-plugins-good`, `gst-plugins-bad`) through this pipeline:
+   ```
+   appsrc -> h264parse -> avdec_h264 -> videoconvert -> gtksink
+   ```
+   Frames appear in a GTK3 window owned by Tauri. Window controls stay native.
 
-## Laptop to Phone (Virtual Display / Second Screen)
+## Laptop to phone
 
-When using your phone or tablet as a secondary Linux monitor:
-1. The desktop initiates a Wayland screencast session via `ashpd` talking to `org.freedesktop.portal.ScreenCast`.
-2. Captured desktop buffers are encoded into H.264 using GStreamer hardware acceleration (VA-API / NVENC).
-3. The video stream is transmitted to the Android device, which decodes it onto a `SurfaceView`.
+To use the phone as a second Linux monitor:
+1. The desktop opens a Wayland screencast through `ashpd` and `org.freedesktop.portal.ScreenCast`.
+2. GStreamer encodes captured buffers to H.264, with VA-API or NVENC when present.
+3. Android decodes the stream onto a `SurfaceView`.

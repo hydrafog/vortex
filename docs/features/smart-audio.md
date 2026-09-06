@@ -1,15 +1,9 @@
-# Smart Audio Handoff
+# Smart audio handoff
 
-Smart Audio Handoff coordinates media playback and phone call state across your devices.
+Playback pauses on the laptop when a call takes the earbuds, and resumes when the call ends.
 
-## How It Works
+## During a call
 
-1. **Bluetooth Audio Tracking**:
-   - Vortex monitors connected audio sink devices via PipeWire / PulseAudio and BlueZ D-Bus APIs.
-   - When wireless earbuds switch connection to your phone for an incoming phone call, Vortex detects the sink transition.
-
-2. **MPRIS Media Orchestration**:
-   - Through direct D-Bus calls via `zbus` to `org.mpris.MediaPlayer2.*`, Vortex automatically issues `Pause` commands to active desktop media players (Spotify, Firefox, mpv, VLC).
-
-3. **Call Resolution & Resume**:
-   - When the phone call ends and your earbuds reconnect to the laptop, Vortex automatically restores playback on your active media player.
+- Vortex watches audio sinks through PipeWire or PulseAudio and BlueZ D-Bus. When the earbuds move to the phone for an incoming call, it sees the sink change.
+- It pauses desktop players (Spotify, Firefox, mpv, VLC) with `Pause` over D-Bus through `zbus` to `org.mpris.MediaPlayer2.*`.
+- When the call ends and the earbuds return to the laptop, Vortex resumes the paused player.

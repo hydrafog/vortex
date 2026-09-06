@@ -1,8 +1,8 @@
-# Architecture Overview
+# Architecture overview
 
-Vortex connects Linux desktops and Android mobile devices with low-latency local communication.
+Vortex links a Linux desktop and an Android phone over Bluetooth Low Energy and local Wi-Fi.
 
-## Core Components
+## Core components
 
 ```mermaid
 graph TD
@@ -24,29 +24,29 @@ graph TD
     Desktop <== Wi-Fi / P2P (Bulk Data & Video) ==> Mobile
 ```
 
-### 1. Rust Daemon (`vortex-l3d`)
+### 1. Rust daemon (`vortex-l3d`)
 Located in `linux/daemon/`.
-- Handles cryptographic session establishment (`snow`, `chacha20poly1305`, `x25519-dalek`).
-- Manages Bluetooth Low Energy state via `bluer` and BlueZ D-Bus APIs.
-- Controls local audio state via MPRIS D-Bus interfaces.
-- Integrates with Secret Service (`secret-service`) to protect pairing identities.
-- Manages session locking, remote suspend, and remote poweroff via `org.freedesktop.login1` and systemctl fallbacks.
+- Establishes encrypted sessions with `snow`, `chacha20poly1305`, and `x25519-dalek`.
+- Talks to BlueZ over D-Bus through `bluer` for Bluetooth Low Energy state.
+- Reads local audio state through MPRIS D-Bus interfaces.
+- Stores pairing identities in Secret Service through `secret-service`.
+- Locks the session and triggers remote suspend or poweroff through `org.freedesktop.login1`, with systemctl as fallback.
 
 ### 2. Desktop UI (`vortex-ui-tauri`)
 Located in `linux/ui-tauri/`.
-- Frontend built with Vue 3, TypeScript, and Vite.
-- Backend implemented with Tauri v2.
-- Handles system tray icon, notifications, clipboard listening (`arboard` and `wl-clipboard-rs`), and GStreamer screen rendering.
-- Artwork uses the Solar family: UI screens stay Linear locked at stroke 1.5-1.8 via `src/lib/solarIcons.ts`, while the brand mark is Solar Black Hole Bold Duotone sourced from `assets/vortex_solar_source.svg` (see `assets/SOLAR_LICENSE.txt`). Tauri tray plus bundle icons are regenerated from that source with monochrome simplification for status targets. Surfaces, cards, and borders map dynamically to the active accent hue, and the desktop logo dynamically tracks the active theme accent.
+- Frontend uses Vue 3, TypeScript, and Vite.
+- Backend uses Tauri v2.
+- Listens for clipboard changes with `arboard` and `wl-clipboard-rs`, shows the tray icon and notifications, and renders screen video with GStreamer.
+- Icons follow the Solar set. UI screens use Linear at stroke 1.5-1.8 from `src/lib/solarIcons.ts`. The brand mark uses Solar Black Hole Bold Duotone from `assets/vortex_solar_source.svg` (see `assets/SOLAR_LICENSE.txt`). Tray and bundle icons are simplified copies of that source for small sizes. Surfaces and borders follow the active accent color, and the desktop logo follows the theme accent.
 
-### 3. Android Application
+### 3. Android application
 Located in `android/app/`.
-- Native Kotlin application utilizing Android Jetpack, Coroutines, and BLE APIs.
-- Communicates with the native helper binary to inject touch, mouse, and keyboard input.
-- Artwork uses the Solar Linear family via `ui/icons/SolarIcons.kt` with `batteryIconFor` plus `lockIconFor` state mapping. Notification plus media `drawable` vectors are redrawn from Solar paths on viewport 24 with white fill, and launcher foregrounds and mipmap icons are regenerated from the Solar brand source. All background services use dedicated Solar drawables rather than system fallbacks, and the app supports dynamic accent color theming with a themable brand logo.
-- Supports remote lock toggle, remote computer suspend, and remote computer shutdown with confirmation protection.
+- Kotlin app built on Android Jetpack, Coroutines, and BLE APIs.
+- Sends touch, mouse, and keyboard events through the native helper binary.
+- Icons follow the Solar Linear set through `ui/icons/SolarIcons.kt`, with `batteryIconFor` and `lockIconFor` mapping state. Notification and media drawables are redrawn Solar paths on viewport 24 with white fill. Launcher and mipmap icons come from the Solar brand source. Background services use their own Solar drawables instead of system fallbacks, and the app tints the brand logo with the accent color.
+- Includes toggles for remote lock, remote suspend, and remote shutdown, each asking for confirmation.
 
-### 4. Input Injection Helper (`vortex_inject`)
+### 4. Input helper (`vortex_inject`)
 Located in `android/inject/`.
-- Compact 20 KB native binary executing under Android's `shell` user context via ADB.
-- Interfaces directly with `/dev/uinput` to provide low-latency virtual input without requiring root or vendor accounts.
+- Small 20 KB native binary that runs as the Android `shell` user over ADB.
+- Opens `/dev/uinput` to expose a virtual touch screen, mouse, and keyboard. No root and no vendor account is needed.

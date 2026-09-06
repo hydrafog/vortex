@@ -1,31 +1,31 @@
-# Installation Guide
+# Installation guide
 
-Vortex provides reproducible setup via Nix Flake and Direnv, as well as native scripts for traditional environments.
+You can run Vortex from the Nix flake with Direnv, or build it with native scripts.
 
-## Nix Flake & Direnv (Recommended)
+## Nix flake and Direnv (recommended)
 
-Vortex is fully packaged with a Nix flake providing all Rust, Tauri, Node.js, Protobuf, GStreamer, and Android dependencies.
+The flake pins Rust, Tauri, Node.js, Protobuf, GStreamer, and Android dependencies.
 
-### 1. Enable Environment via Direnv
+### 1. Enable the environment with Direnv
 In the repository root:
 ```bash
 direnv allow
 ```
-Or manually enter the dev shell:
+Or enter the shell directly:
 ```bash
 nix develop
 ```
 
-This ensures all required development libraries (`webkitgtk_4_1`, `gtk3`, `gst_all_1`, `libayatana-appindicator`, `protobuf`, `android-tools`) and environment variables (`LD_LIBRARY_PATH`, `PKG_CONFIG_PATH`) are loaded.
+Direnv loads development libraries (`webkitgtk_4_1`, `gtk3`, `gst_all_1`, `libayatana-appindicator`, `protobuf`, `android-tools`) and sets `LD_LIBRARY_PATH` and `PKG_CONFIG_PATH`.
 
-### 2. Frontend Dependencies
+### 2. Frontend dependencies
 Install frontend packages using `pnpm`:
 ```bash
 cd linux/ui-tauri
 pnpm install
 ```
 
-### 3. Build & Run Desktop Client
+### 3. Build and run the desktop client
 From the project root:
 ```bash
 ./linux/run.sh
@@ -35,8 +35,8 @@ Or run the daemon directly:
 cargo run --manifest-path linux/daemon/Cargo.toml
 ```
 
-### 4. Binary Cache (Instant Pre-built Binaries)
-To avoid compiling Rust and WebKitGTK locally, configure the Cachix binary cache:
+### 4. Binary cache
+To skip local builds of Rust and WebKitGTK, point Nix at the Cachix cache:
 
 In NixOS (`/etc/nixos/configuration.nix` or flake):
 ```nix
@@ -48,7 +48,7 @@ nix.settings = {
 };
 ```
 
-### 5. NixOS & Home Manager Module Integration
+### 5. NixOS and Home Manager module
 Add Vortex to your flake inputs:
 ```nix
 inputs.vortex.url = "github:hydrafog/vortex";
@@ -80,8 +80,7 @@ Import the module and enable the service:
 
 ---
 
-
-## Android Client Setup
+## Android client setup
 
 1. Enable **Developer options** and **USB debugging** on your Android device.
 2. Build and install the APK via Gradle:
@@ -90,4 +89,4 @@ Import the module and enable the service:
    ./gradlew assembleDebug
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
-3. Grant notification access and background permissions when prompted in the app. Notification plus status bar glyphs use simplified Solar Linear silhouettes (white fill, viewport 24) for legibility at small sizes; launcher icons use the current Solar brand mark across all densities; no setup step changes.
+3. Grant notification access and background permissions when prompted in the app. Notification and status bar glyphs use simplified Solar Linear shapes with white fill on viewport 24, so they stay legible at small sizes. Launcher icons use the Solar brand mark at each density.

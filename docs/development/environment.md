@@ -1,44 +1,29 @@
-# Development Environment & Standards
+# Development environment and standards
 
-This project uses modern Nix, Direnv, and Lefthook workflows to maintain strict code hygiene, reproducible toolchains, and fast feedback loops.
+Nix pins the toolchain. Direnv loads it. Lefthook runs checks before commit.
 
-## Toolchain & Shell
+## Toolchain and shell
 
-Enter the development environment:
+To enter the shell:
 ```bash
 direnv allow
 # or
 nix develop
 ```
 
-The shell provides:
-- Rust (>= 1.77) with `cargo`, `rustc`, `rustfmt`, `clippy`, and `cargo-tauri`.
-- Node.js 22 with `pnpm`.
-- Protocol Buffers compiler (`protoc`).
-- System GTK3, WebKitGTK 4.1, GStreamer, and D-Bus headers.
-- Python 3 with maintenance utilities.
-- Android platform tools (`adb`).
+The shell includes Rust 1.77 or later with `cargo`, `rustc`, `rustfmt`, `clippy`, and `cargo-tauri`. It also includes Node.js 22 with `pnpm`, `protoc`, GTK3, WebKitGTK 4.1, GStreamer, D-Bus headers, Python 3 utilities, and `adb`.
 
-## Pre-Commit Hooks & Lefthook
+## Pre-commit hooks and Lefthook
 
-Hooks are managed via `lefthook.yml`. To install them into your local Git repository:
+Hooks live in `lefthook.yml`. To install them:
 ```bash
 lefthook install
 ```
 
-### Checks Enforced on Commit:
-1. **Pre-commit Guard**: Scans for accidental merge conflict markers, potential hardcoded secrets, and files over 5 MB.
-2. **Line Limit Check**: Enforces a 600 production-line limit per file (`scripts/maintenance/check-line-limit`) to preserve component modularity.
-3. **Format & Syntax**:
-   - `cargo fmt` on Rust crates
-   - `vue-tsc -b` on frontend code
-   - `bash -n` on shell scripts
-   - `protoc` syntax validation on `shared/proto`
-   - JSON parsing check on configuration files
-4. **Conventional Commits**: Enforces lowercase prefix format (`feat`, `fix`, `chore`, `docs`, `refactor`, etc.) and a 72-character subject limit via `scripts/hooks/commit-msg`.
+On commit, Lefthook runs:
+1. Guard for merge markers, possible hardcoded secrets, and files over 5 MB.
+2. Line limit check at 600 production lines per file (`scripts/maintenance/check-line-limit`).
+3. Format and syntax checks with `cargo fmt` for Rust, `vue-tsc -b` for the frontend, `bash -n` for shell, `protoc` for `shared/proto`, and a JSON parse for config files.
+4. Commit message check for a lowercase prefix (`feat`, `fix`, `chore`, `docs`, `refactor`) and a subject within 72 characters (`scripts/hooks/commit-msg`).
 
-### Checks Enforced on Push:
-- `cargo clippy --locked --all-targets -- -D warnings`
-- `cargo test --locked`
-- Frontend build (`pnpm run build`)
-- Android unit tests and crypto parity tests (`shared/vectors`)
+On push, it runs `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked`, the frontend build (`pnpm run build`), and Android unit plus crypto parity tests (`shared/vectors`).

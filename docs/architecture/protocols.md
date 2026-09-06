@@ -1,22 +1,21 @@
-# Wire & Encryption Protocols
+# Wire and encryption protocols
 
-Vortex relies on strict protocol specifications to guarantee security, cross-language interoperability, and binary compatibility between Rust and Kotlin.
+Vortex pins the exact bytes Rust and Kotlin exchange, so a message built on one side parses on the other.
 
-## 1. Protobuf Contract
-All messages exchanged over the wire are serialized using Protocol Buffers version 3.
-The canonical definitions reside in `shared/proto/`:
-- `vortex.proto`: Envelope definitions, command types, and payload wrappers.
-- `pairing.proto`: Cryptographic parameters and SAS exchange.
-- `input.proto`: Pointer moves, button presses, touch events, and key events for Universal Control.
-- `file.proto`: File transfer manifests, chunk headers, and checksums.
+## Protobuf contract
+All wire messages use Protocol Buffers version 3. The canonical files live in `shared/proto/`:
+- `vortex.proto` holds envelopes, command types, and payload wrappers.
+- `pairing.proto` holds cryptographic parameters and SAS exchange.
+- `input.proto` holds pointer moves, button presses, touch events, and key events for Universal Control.
+- `file.proto` holds transfer manifests, chunk headers, and checksums.
 
-The schema is enforced in CI (`proto-syntax` in `lefthook.yml`) to guarantee zero contract divergence between Rust and Android.
+CI checks the schema (`proto-syntax` in `lefthook.yml`) to keep Rust and Android in agreement.
 
-## 2. Transport Security
-- **Handshake**: Noise Protocol framework with `25519` key exchange.
-- **Payload Encryption**: ChaCha20-Poly1305 authenticated encryption with unique per-message nonces.
-- **Integrity**: MAC tags verified before parsing any inner protobuf frame.
+## Transport security
+- Handshake runs Noise XX with 25519 key exchange.
+- Payloads use ChaCha20-Poly1305 with a fresh nonce per message.
+- The receiver checks the MAC tag before it parses the inner protobuf frame.
 
-## 3. Physical Transports
-- **Control Channel (BLE)**: Used for discovery, proximity estimation, initial handshake, small metadata packets, and session maintenance.
-- **Data Channel (Wi-Fi Direct / Local TCP)**: Spun up on demand for high-throughput workloads (clipboard image payload, file drops, and H.264 video streams).
+## Physical transports
+- BLE carries discovery, proximity estimates, handshake, small metadata packets, and session keepalive.
+- Wi-Fi Direct or local TCP starts on demand for clipboard images, file drops, and H.264 video.
