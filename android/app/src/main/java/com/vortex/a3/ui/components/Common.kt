@@ -43,7 +43,7 @@ import com.vortex.a3.ui.str
 
 val CardCorner = RoundedCornerShape(16.dp)
 
-val CardHeight = 180.dp
+val CardHeight = 176.dp
 
 fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 

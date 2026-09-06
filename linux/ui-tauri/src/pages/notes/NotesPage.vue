@@ -93,66 +93,71 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="h-full flex min-h-0">
-    <div class="w-80 shrink-0 border-r border-border flex flex-col min-w-0">
-      <div class="px-4 pt-5 pb-3">
-        <div class="flex items-center justify-between h-8">
-          <span class="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-            <span class="h-1.5 w-1.5 rounded-full bg-primary" />{{ t("notes.synced") }}
-          </span>
-          <button
-            v-if="mode === 'notes'"
-            class="grid h-8 w-8 place-items-center rounded-[9px] bg-muted/50 border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            :title="t('notes.new_note')"
-            @click="createNote('note')"
-          >
-            <SolarAdd class="h-[17px] w-[17px]" :stroke-width="2" />
-          </button>
-        </div>
-        <div class="relative mt-3.5 grid grid-cols-2 rounded-xl bg-muted/40 border border-border p-1">
-          <span
-            class="pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-lg bg-foreground/[0.08] transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]"
-            :style="{ transform: mode === 'todos' ? 'translateX(100%)' : 'translateX(0)' }"
-          />
-          <button
-            class="relative z-[1] rounded-lg py-2 text-[13px] font-semibold transition-colors"
-            :class="mode === 'notes' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'"
-            @click="setMode('notes')"
-          >
-            {{ t("notes.notes") }}
-          </button>
-          <button
-            class="relative z-[1] rounded-lg py-2 text-[13px] font-semibold transition-colors"
-            :class="mode === 'todos' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'"
-            @click="setMode('todos')"
-          >
-            {{ t("notes.todos") }}
-          </button>
-        </div>
-      </div>
+  <div class="h-full flex flex-col min-h-0">
+    <header class="flex items-center justify-between px-5 py-4 border-b border-border bg-card/30 shrink-0">
+      <h1 class="text-base font-semibold">{{ t("notes.title") }}</h1>
+      <span class="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+        <span class="h-1.5 w-1.5 rounded-full bg-primary" />{{ t("notes.synced") }}
+      </span>
+    </header>
 
-      <div v-if="mode === 'notes'" class="flex-1 overflow-y-auto px-3 pb-4 flex flex-col gap-0.5">
-        <p v-if="!visibleNotes.length" class="px-3 py-8 text-center text-xs text-muted-foreground">
-          {{ t("notes.empty") }}
-        </p>
-        <button
-          v-for="n in visibleNotes"
-          :key="n.id"
-          :class="cn('flex flex-col gap-0.5 rounded-2xl px-3.5 py-3 text-left transition-colors', selectedId === n.id ? 'bg-foreground/[0.06]' : 'hover:bg-foreground/[0.03]')"
-          @click="select(n)"
-        >
-          <div class="flex items-baseline justify-between gap-2">
-            <span class="truncate text-sm font-semibold text-foreground">{{ n.title || t("notes.untitled") }}</span>
-            <span class="shrink-0 text-[11px] text-muted-foreground">{{ relTime(n.updated_at) }}</span>
+    <div class="flex-1 flex min-h-0">
+      <div class="w-80 shrink-0 border-r border-border flex flex-col min-w-0">
+        <div class="px-4 pt-4 pb-3">
+          <div class="flex items-center justify-between h-8">
+            <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{{ mode === 'notes' ? t("notes.notes") : t("notes.todos") }}</span>
+            <button
+              v-if="mode === 'notes'"
+              class="grid h-8 w-8 place-items-center rounded-[9px] bg-muted/50 border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              :title="t('notes.new_note')"
+              @click="createNote('note')"
+            >
+              <SolarAdd class="h-[17px] w-[17px]" :stroke-width="2" />
+            </button>
           </div>
-          <span class="truncate text-[12.5px] text-muted-foreground">{{ snippet(n) }}</span>
-        </button>
-      </div>
+          <div class="relative mt-3 grid grid-cols-2 rounded-xl bg-muted/40 border border-border p-1">
+            <span
+              class="pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-lg bg-foreground/[0.08] transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]"
+              :style="{ transform: mode === 'todos' ? 'translateX(100%)' : 'translateX(0)' }"
+            />
+            <button
+              class="relative z-[1] rounded-lg py-2 text-[13px] font-semibold transition-colors"
+              :class="mode === 'notes' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'"
+              @click="setMode('notes')"
+            >
+              {{ t("notes.notes") }}
+            </button>
+            <button
+              class="relative z-[1] rounded-lg py-2 text-[13px] font-semibold transition-colors"
+              :class="mode === 'todos' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'"
+              @click="setMode('todos')"
+            >
+              {{ t("notes.todos") }}
+            </button>
+          </div>
+        </div>
 
-      <template v-else>
-        <div class="flex-1 overflow-y-auto px-2.5 pb-2 flex flex-col">
+        <div v-if="mode === 'notes'" class="flex-1 overflow-y-auto px-3 pb-4 flex flex-col gap-0.5">
           <p v-if="!visibleNotes.length" class="px-3 py-8 text-center text-xs text-muted-foreground">
-            {{ t("notes.empty_todos") }}
+            {{ t("notes.empty") }}
+          </p>
+          <button
+            v-for="n in visibleNotes"
+            :key="n.id"
+            :class="cn('flex flex-col gap-0.5 rounded-2xl px-3.5 py-3 text-left transition-colors', selectedId === n.id ? 'bg-foreground/[0.06]' : 'hover:bg-foreground/[0.03]')"
+            @click="select(n)"
+          >
+            <div class="flex items-baseline justify-between gap-2">
+              <span class="truncate text-sm font-semibold text-foreground">{{ n.title || t("notes.untitled") }}</span>
+              <span class="shrink-0 text-[11px] text-muted-foreground">{{ relTime(n.updated_at) }}</span>
+            </div>
+            <span class="truncate text-[12.5px] text-muted-foreground">{{ snippet(n) }}</span>
+          </button>
+        </div>
+
+        <div v-else class="flex-1 overflow-y-auto px-2 pb-4 flex flex-col gap-1">
+          <p v-if="!visibleNotes.length" class="px-3 py-8 text-center text-xs text-muted-foreground">
+            {{ t("notes.empty") }}
           </p>
           <div
             v-for="n in visibleNotes"
@@ -160,7 +165,7 @@ onMounted(() => {
             class="group flex items-start gap-3 rounded-xl px-2.5 py-2.5 transition-colors hover:bg-foreground/[0.03]"
           >
             <button
-              :class="cn('mt-px grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition-all', n.done ? 'border-primary bg-primary text-black shadow-[0_0_14px_rgba(46,204,113,0.35)]' : 'border-muted-foreground/40 hover:border-muted-foreground')"
+              :class="cn('mt-px grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition-all', n.done ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40 hover:border-muted-foreground')"
               @click="toggleTodo(n.id, !n.done)"
             >
               <SolarCheck v-if="n.done" class="h-[13px] w-[13px]" :stroke-width="3" />
@@ -179,84 +184,95 @@ onMounted(() => {
               <SolarClose class="h-[15px] w-[15px]" :stroke-width="2" />
             </button>
           </div>
-        </div>
-        <div class="px-3.5 pb-[18px] pt-2.5">
-          <div class="flex items-center gap-2 rounded-full border border-border bg-muted/40 py-1.5 pl-4 pr-1.5">
-            <input
-              v-model="newTodo"
-              :placeholder="t('notes.add_todo')"
-              class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-              @keydown.enter="addNewTodo"
-            />
-            <button
-              class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-black shadow-[0_4px_16px_rgba(46,204,113,0.4)] transition-transform hover:scale-105 disabled:opacity-40 disabled:hover:scale-100"
-              :disabled="!newTodo.trim()"
-              @click="addNewTodo"
-            >
-              <SolarAdd class="h-[19px] w-[19px]" :stroke-width="2.4" />
-            </button>
+          <div class="mt-auto px-3.5 pt-2.5">
+            <div class="flex items-center gap-2 rounded-full border border-border bg-muted/40 py-1.5 pl-4 pr-1.5">
+              <input
+                v-model="newTodo"
+                :placeholder="t('notes.add_todo')"
+                class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                @keydown.enter="addNewTodo"
+              />
+              <button
+                class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-105 disabled:opacity-40 disabled:hover:scale-100"
+                :disabled="!newTodo.trim()"
+                @click="addNewTodo"
+              >
+                <SolarAdd class="h-[19px] w-[19px]" :stroke-width="2.4" />
+              </button>
+            </div>
           </div>
         </div>
-      </template>
-    </div>
+      </div>
 
-    <div v-if="mode === 'notes'" class="flex-1 flex flex-col min-w-0">
-      <div v-if="editing" class="flex h-full flex-col">
-        <div class="flex items-center justify-between px-7 pb-3 pt-5">
-          <span class="text-xs text-muted-foreground">{{ relTime(editing.updated_at) }}</span>
-          <button
-            class="grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-muted/40 border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            :title="t('notes.delete')"
-            @click="remove(editing.id)"
-          >
-            <SolarTrash class="h-[17px] w-[17px]" :stroke-width="1.8" />
-          </button>
-        </div>
-        <input
-          v-model="editing.title"
-          :placeholder="t('notes.title_placeholder')"
-          class="bg-transparent px-7 text-2xl font-semibold tracking-[-0.4px] outline-none placeholder:text-muted-foreground/60"
-          @input="scheduleSave"
-        />
-        <textarea
-          v-model="editing.body"
-          :placeholder="t('notes.body_placeholder')"
-          class="mt-3 flex-1 resize-none bg-transparent px-7 pb-7 text-[15px] leading-[1.65] text-muted-foreground outline-none placeholder:text-muted-foreground/60"
-          @input="scheduleSave"
-        />
+      <div class="flex-1 flex flex-col min-w-0 min-h-0">
+        <template v-if="mode === 'notes'">
+          <div v-if="editing" class="flex-1 flex flex-col p-6 min-h-0">
+            <div class="flex items-center justify-between gap-4 pb-4 border-b border-border">
+              <input
+                v-model="editing.title"
+                :placeholder="t('notes.untitled')"
+                class="min-w-0 flex-1 bg-transparent text-xl font-semibold outline-none placeholder:text-muted-foreground/50"
+                @input="scheduleSave"
+              />
+              <div class="flex items-center gap-2">
+                <DateTimePicker :model-value="editing.due_at" @update:model-value="onDuePicked" />
+                <button
+                  class="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                  :title="t('notes.delete')"
+                  @click="remove(editing.id)"
+                >
+                  <SolarTrash class="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <textarea
+              v-model="editing.body"
+              :placeholder="t('notes.write')"
+              class="mt-4 flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none placeholder:text-muted-foreground/40 scrollbar-thin"
+              @input="scheduleSave"
+            />
+          </div>
+          <div v-else class="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+            {{ t("notes.select_or_create") }}
+          </div>
+        </template>
+        <template v-else>
+          <div class="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <div class="relative flex h-32 w-32 items-center justify-center">
+              <svg class="h-32 w-32 -rotate-90 transform" viewBox="0 0 120 120">
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="50"
+                  stroke="currentColor"
+                  stroke-width="8"
+                  fill="transparent"
+                  class="text-muted/40"
+                />
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="50"
+                  stroke="currentColor"
+                  stroke-width="8"
+                  fill="transparent"
+                  class="text-primary ring-fill"
+                  stroke-linecap="round"
+                  :stroke-dasharray="RING_C.toFixed(1)"
+                  :stroke-dashoffset="ringOffset.toFixed(1)"
+                />
+              </svg>
+              <div class="absolute text-2xl font-bold">
+                {{ Math.round(pct * 100) }}%
+              </div>
+            </div>
+            <div class="mt-4 text-base font-semibold text-foreground">
+              {{ t("notes.todos_done", { done: doneCount, total: totalTodos }) }}
+            </div>
+            <div class="mt-1 text-xs text-muted-foreground">{{ t("notes.tap_complete") }}</div>
+          </div>
+        </template>
       </div>
-      <div v-else class="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
-        <SolarAdd class="h-10 w-10 opacity-30" />
-        <p class="text-sm">{{ t("notes.pick_or_create") }}</p>
-      </div>
-    </div>
-
-    <div v-else class="flex flex-1 flex-col items-center justify-center gap-2 min-w-0">
-      <div class="relative h-40 w-40">
-        <svg width="160" height="160" viewBox="0 0 140 140">
-          <circle cx="70" cy="70" r="52" fill="none" stroke="hsl(var(--border))" stroke-width="11" />
-          <circle
-            cx="70"
-            cy="70"
-            r="52"
-            fill="none"
-            stroke="hsl(var(--primary))"
-            stroke-width="11"
-            stroke-linecap="round"
-            :stroke-dasharray="RING_C.toFixed(1)"
-            :stroke-dashoffset="ringOffset.toFixed(1)"
-            transform="rotate(-90 70 70)"
-            class="ring-fill"
-          />
-        </svg>
-        <div class="absolute inset-0 flex flex-col items-center justify-center">
-          <span class="text-[34px] font-bold tracking-[-1px] text-foreground">{{ Math.round(pct * 100) }}%</span>
-        </div>
-      </div>
-      <div class="mt-1.5 text-[15px] font-semibold text-foreground">
-        {{ t("notes.todos_done", { done: doneCount, total: totalTodos }) }}
-      </div>
-      <div class="text-[12.5px] text-muted-foreground">{{ t("notes.tap_complete") }}</div>
     </div>
   </div>
 </template>
@@ -264,6 +280,5 @@ onMounted(() => {
 <style scoped>
 .ring-fill {
   transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-  filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.4));
 }
 </style>

@@ -31,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight as FW
@@ -64,23 +63,22 @@ fun PeerDeviceCard(
     Box(
         modifier = modifier
             .scale(scale)
-            .shadow(
-                elevation = 6.dp,
-                shape = RoundedCornerShape(22.dp),
-                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                ambientColor = Color.Black.copy(alpha = 0.04f),
+            .height(CardHeight)
+            .fillMaxWidth()
+            .clip(CardCorner)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+                shape = CardCorner,
             )
-            .clip(RoundedCornerShape(22.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
             .combinedClickable(
                 interactionSource = interaction,
                 indication = ripple(color = MaterialTheme.colorScheme.primary),
                 onLongClick = onLongPress,
                 onClick = {},
             )
-            .padding(18.dp)
-            .fillMaxWidth()
-            .height(180.dp),
+            .padding(16.dp),
     ) {
         Column {
             CardHeader(

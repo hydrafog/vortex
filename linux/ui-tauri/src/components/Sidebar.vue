@@ -56,7 +56,6 @@ function go(to: string) {
     >
       <VortexLogo
         class="h-[30px] w-[30px] text-primary"
-        style="filter: drop-shadow(0 0 5px hsl(var(--primary) / 0.45))"
       />
       <span
         class="text-[18px] font-semibold tracking-[-0.3px] whitespace-nowrap transition-[opacity,transform] duration-300"

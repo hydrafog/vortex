@@ -23,6 +23,7 @@ import {
   setThemePreference,
   accentPreference,
   setAccentPreference,
+  detectedSystemAccent,
   ACCENT_PRESETS,
   type ThemePreference,
 } from "@/lib/theme";
@@ -139,29 +140,26 @@ const pill = (active: boolean) =>
   cn(
     "flex-1 flex items-center justify-center gap-2 py-[11px] rounded-xl text-[13.5px] font-semibold cursor-pointer transition-all",
     active
-      ? "bg-primary text-primary-foreground shadow-[0_4px_16px_rgba(46,204,113,0.3)]"
+      ? "bg-primary/15 border border-primary/50 text-primary"
       : "bg-muted/40 border border-border text-foreground hover:bg-muted/70",
   );
 </script>
 
 <template>
   <div class="h-full flex flex-col bg-background overflow-y-auto scrollbar-thin">
-    <header class="flex items-center gap-1 px-3 py-2.5 border-b border-border bg-card/40">
+    <header class="flex items-center gap-2 px-5 py-4 border-b border-border bg-card/30 shrink-0">
       <button
-        class="h-9 w-9 rounded-md flex items-center justify-center hover:bg-accent transition-colors"
+        class="h-8 w-8 rounded-md flex items-center justify-center hover:bg-accent transition-colors"
         @click="router.push('/')"
       >
         <SolarArrowLeft class="h-4 w-4" />
       </button>
-      <h1 class="text-base font-semibold ml-1">{{ t("settings.title") }}</h1>
+      <h1 class="text-base font-semibold">{{ t("settings.title") }}</h1>
     </header>
 
     <main class="flex-1 overflow-auto">
-      <div class="w-full px-7 pt-8 pb-14">
-        <h1 class="text-[25px] font-semibold tracking-[-0.5px]">{{ t("settings.title") }}</h1>
-        <p class="text-[13.5px] text-muted-foreground mt-1">{{ t("settings.subtitle") }}</p>
-
-        <div class="sec-label">{{ t("settings.sec_appearance") }}</div>
+      <div class="w-full px-7 pt-6 pb-14">
+        <div class="sec-label mt-0">{{ t("settings.sec_appearance") }}</div>
         <div class="rounded-[20px] border border-border bg-card overflow-hidden">
           <div class="px-[18px] py-4">
             <div class="flex items-center gap-2.5 mb-3">
@@ -210,14 +208,14 @@ const pill = (active: boolean) =>
                 class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer"
                 :class="
                   accentPreference === preset.code
-                    ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                    ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border bg-muted/40 text-foreground hover:bg-muted/70'
                 "
                 @click="setAccentPreference(preset.code)"
               >
                 <span
                   class="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0"
-                  :style="preset.code === 'system' ? 'background: linear-gradient(135deg, #3584e4 50%, #2ecc71 50%)' : { backgroundColor: preset.hex }"
+                  :style="preset.code === 'system' ? (detectedSystemAccent ? { backgroundColor: detectedSystemAccent } : 'background: linear-gradient(135deg, #3584e4 50%, #2ecc71 50%)') : { backgroundColor: preset.hex }"
                 />
                 {{ t(`settings.accent_${preset.code}`) }}
               </button>

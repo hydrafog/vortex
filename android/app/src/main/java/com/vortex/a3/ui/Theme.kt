@@ -22,7 +22,28 @@ fun buildVortexColorScheme(
 
     if (accent == AccentColor.System && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         return try {
-            if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            val scheme = if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            if (isDark) {
+                scheme.copy(
+                    background = Color(0xFF141416),
+                    surface = Color(0xFF1C1C1F),
+                    surfaceVariant = Color(0xFF242428),
+                    outline = Color(0xFF2E2E33),
+                    onBackground = Color(0xFFF4F4F5),
+                    onSurface = Color(0xFFF4F4F5),
+                    onSurfaceVariant = Color(0xFFA1A1AA),
+                )
+            } else {
+                scheme.copy(
+                    background = Color(0xFFFAFAFA),
+                    surface = Color(0xFFFFFFFF),
+                    surfaceVariant = Color(0xFFF4F4F5),
+                    outline = Color(0xFFE4E4E7),
+                    onBackground = Color(0xFF18181B),
+                    onSurface = Color(0xFF18181B),
+                    onSurfaceVariant = Color(0xFF71717A),
+                )
+            }
         } catch (_: Exception) {
             if (isDark) VortexDarkColors else VortexLightColors
         }
@@ -33,13 +54,13 @@ fun buildVortexColorScheme(
 
     return if (isDark) {
         darkColorScheme(
-            background = Color(0xFF18181B),
-            onBackground = Color(0xFFFAFAFA),
+            background = Color(0xFF141416),
+            onBackground = Color(0xFFF4F4F5),
             surface = Color(0xFF1C1C1F),
-            onSurface = Color(0xFFFAFAFA),
-            surfaceVariant = Color(0xFF1C1C1F),
-            onSurfaceVariant = Color(0xFF8A8A8E),
-            outline = Color(0xFF27272A),
+            onSurface = Color(0xFFF4F4F5),
+            surfaceVariant = Color(0xFF242428),
+            onSurfaceVariant = Color(0xFFA1A1AA),
+            outline = Color(0xFF2E2E33),
             primary = primary,
             onPrimary = onPrimary,
             secondary = primary,
@@ -54,8 +75,8 @@ fun buildVortexColorScheme(
             onBackground = Color(0xFF18181B),
             surface = Color(0xFFFFFFFF),
             onSurface = Color(0xFF18181B),
-            surfaceVariant = Color(0xFFFFFFFF),
-            onSurfaceVariant = Color(0xFF67676E),
+            surfaceVariant = Color(0xFFF4F4F5),
+            onSurfaceVariant = Color(0xFF71717A),
             outline = Color(0xFFE4E4E7),
             primary = primary,
             onPrimary = onPrimary,

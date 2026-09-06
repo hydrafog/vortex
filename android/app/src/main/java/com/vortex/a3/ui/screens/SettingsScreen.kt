@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +43,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight as FW
 import androidx.compose.ui.unit.dp
@@ -361,7 +364,7 @@ private fun AdbHintCard(title: String, body: String, command: String) {
 @Composable
 private fun IosSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val knobX by animateDpAsState(if (checked) 22.dp else 2.dp, label = "knob")
-    val track = if (checked) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
+    val track = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
     Box(
         modifier = Modifier
             .width(44.dp)
@@ -389,16 +392,17 @@ private fun SegmentedButton(
     leadingIcon: ImageVector? = null,
     enabled: Boolean = true,
 ) {
-    val bg = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
+    val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else Color.Transparent
     val fg = when {
         !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-        selected -> MaterialTheme.colorScheme.onPrimary
+        selected -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.onSurface
     }
     val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
     Row(
         modifier = modifier
-            .background(bg, RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(8.dp))
+            .background(bg)
             .border(width = 1.dp, color = borderColor, shape = RoundedCornerShape(8.dp))
             .height(36.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -425,6 +429,9 @@ private fun AccentChip(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val isDark = isSystemInDarkTheme()
+    val dotColor = remember(accent, isDark, context) { accent.resolveDisplayColor(context, isDark) }
     val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
     val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant
     Row(
@@ -441,13 +448,7 @@ private fun AccentChip(
             modifier = Modifier
                 .size(14.dp)
                 .clip(CircleShape)
-                .background(
-                    if (accent == AccentColor.System) {
-                        Brush.linearGradient(listOf(Color(0xFF3584E4), Color(0xFF2ECC71)))
-                    } else {
-                        SolidColor(accent.color)
-                    }
-                ),
+                .background(dotColor),
         )
         Text(
             text = accent.label,

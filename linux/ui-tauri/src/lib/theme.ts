@@ -214,19 +214,19 @@ function computeThemeTokens(
   isDark: boolean,
   isSlate = false,
 ): ColorToken {
-  const sat = isSlate ? 4 : 10;
+  const sat = isSlate ? 3 : 7;
   if (isDark) {
     return {
       primary: base.primary,
       foreground: base.foreground,
       ring: base.ring,
-      background: `${h} ${sat}% 9%`,
-      card: `${h} ${sat + 1}% 11%`,
+      background: `${h} ${sat}% 8%`,
+      card: `${h} ${sat}% 11%`,
       secondary: `${h} ${sat}% 14%`,
       muted: `${h} ${sat}% 14%`,
       accent: `${h} ${sat}% 17%`,
-      border: `${h} ${sat - 1}% 19%`,
-      input: `${h} ${sat - 1}% 17%`,
+      border: `${h} ${Math.max(0, sat - 2)}% 20%`,
+      input: `${h} ${Math.max(0, sat - 2)}% 18%`,
     };
   } else {
     return {
@@ -235,11 +235,11 @@ function computeThemeTokens(
       ring: base.ring,
       background: `${h} ${sat + 2}% 98%`,
       card: "0 0% 100%",
-      secondary: `${h} ${sat}% 95%`,
-      muted: `${h} ${sat}% 95%`,
-      accent: `${h} ${sat + 2}% 93%`,
-      border: `${h} ${sat}% 89%`,
-      input: `${h} ${sat}% 91%`,
+      secondary: `${h} ${sat}% 96%`,
+      muted: `${h} ${sat}% 96%`,
+      accent: `${h} ${sat + 2}% 94%`,
+      border: `${h} ${sat}% 88%`,
+      input: `${h} ${sat}% 90%`,
     };
   }
 }

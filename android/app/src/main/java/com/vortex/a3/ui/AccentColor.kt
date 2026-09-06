@@ -1,5 +1,9 @@
 package com.vortex.a3.ui
 
+import android.content.Context
+import android.os.Build
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.ui.graphics.Color
 
 enum class AccentColor(val code: String, val label: String, val hex: Long) {
@@ -16,6 +20,18 @@ enum class AccentColor(val code: String, val label: String, val hex: Long) {
     Slate("slate", "Slate", 0xFF737E8CL);
 
     val color: Color get() = Color(hex)
+
+    fun resolveDisplayColor(context: Context, isDark: Boolean): Color {
+        if (this == System && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return try {
+                if (isDark) dynamicDarkColorScheme(context).primary
+                else dynamicLightColorScheme(context).primary
+            } catch (_: Exception) {
+                Color(0xFF2ECC71)
+            }
+        }
+        return if (this == System) Color(0xFF2ECC71) else color
+    }
 
     companion object {
         fun fromCode(c: String?): AccentColor =

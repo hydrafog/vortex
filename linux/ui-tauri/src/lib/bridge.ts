@@ -231,3 +231,11 @@ export async function sendEarbudsClaim(peerStaticPub: string, mac: string): Prom
 export async function getSystemAccentColor(): Promise<string | null> {
   return await invoke<string | null>("get_system_accent_color");
 }
+
+export async function getLocalDeviceName(): Promise<string> {
+  try {
+    return await invoke<string>("get_local_device_name");
+  } catch {
+    return "Linux";
+  }
+}

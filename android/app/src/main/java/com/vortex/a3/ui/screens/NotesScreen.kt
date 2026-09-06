@@ -36,11 +36,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -63,6 +63,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vortex.a3.core.notes.Note
 import com.vortex.a3.core.notes.NoteStore
+import com.vortex.a3.ui.components.VortexDivider
 import com.vortex.a3.ui.str
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -89,54 +90,62 @@ fun NotesScreen(onBack: () -> Unit) {
     val kind = if (mode == "notes") "note" else "todo"
     val shown = items.filter { it.kind == kind }.sortedByDescending { it.updatedAt }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(str("notes.title")) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(SolarIcons.ArrowBack, contentDescription = null)
-                    }
-                },
-                actions = {
-                    if (mode == "notes") {
-                        IconButton(onClick = { editing = NoteStore.create("note") }) {
-                            Icon(SolarIcons.Add, contentDescription = str("notes.new_note"))
-                        }
-                    }
-                },
-            )
-        },
-    ) { pad ->
-        Column(Modifier.fillMaxSize().padding(pad)) {
-            NotesSegment(mode) { mode = it }
-
-            if (mode == "notes") {
-                ListArea(
-                    empty = shown.isEmpty(),
-                    emptyText = str("notes.empty"),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    items(shown, key = { it.id }) { n ->
-                        NoteRow(n, onOpen = { editing = n })
-                        HorizontalDivider()
-                    }
-                }
-            } else {
-                TodoProgress(done = shown.count { it.done }, total = shown.size)
-                ListArea(
-                    empty = shown.isEmpty(),
-                    emptyText = str("notes.empty_todos"),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    items(shown, key = { it.id }) { n -> TodoRow(n, onOpen = { editing = n }) }
-                }
-                TodoAddBar(
-                    value = newTodo,
-                    onChange = { newTodo = it },
-                    onAdd = { NoteStore.addTodo(newTodo); newTodo = "" },
-                )
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(SolarIcons.ArrowBack, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
             }
+            Text(
+                str("notes.title"),
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(start = 4.dp).weight(1f),
+            )
+            if (mode == "notes") {
+                IconButton(onClick = { editing = NoteStore.create("note") }) {
+                    Icon(SolarIcons.Add, contentDescription = str("notes.new_note"), tint = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        }
+        VortexDivider()
+
+        NotesSegment(mode) { mode = it }
+
+        if (mode == "notes") {
+            ListArea(
+                empty = shown.isEmpty(),
+                emptyText = str("notes.empty"),
+                modifier = Modifier.weight(1f),
+            ) {
+                items(shown, key = { it.id }) { n ->
+                    NoteRow(n, onOpen = { editing = n })
+                    HorizontalDivider()
+                }
+            }
+        } else {
+            TodoProgress(done = shown.count { it.done }, total = shown.size)
+            ListArea(
+                empty = shown.isEmpty(),
+                emptyText = str("notes.empty_todos"),
+                modifier = Modifier.weight(1f),
+            ) {
+                items(shown, key = { it.id }) { n -> TodoRow(n, onOpen = { editing = n }) }
+            }
+            TodoAddBar(
+                value = newTodo,
+                onChange = { newTodo = it },
+                onAdd = { NoteStore.addTodo(newTodo); newTodo = "" },
+            )
         }
     }
 }
@@ -162,7 +171,8 @@ private fun NotesSegment(mode: String, onSelect: (String) -> Unit) {
                 .width(cellW)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(8.dp)),
         )
         Row(Modifier.fillMaxSize()) {
             tabs.forEach { (key, label) ->
@@ -178,7 +188,7 @@ private fun NotesSegment(mode: String, onSelect: (String) -> Unit) {
                         label,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (mode == key) MaterialTheme.colorScheme.onSurface
+                        color = if (mode == key) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -407,43 +417,47 @@ private fun NoteEditor(note: Note, onClose: () -> Unit, onDelete: () -> Unit) {
     BackHandler { onClose() }
     val ctx = androidx.compose.ui.platform.LocalContext.current
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("") },
-                navigationIcon = {
-                    IconButton(onClick = onClose) {
-                        Icon(SolarIcons.ArrowBack, contentDescription = null)
-                    }
-                },
-                actions = {
-                    if (note.kind == "todo") {
-                        Box(
-                            Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(percent = 50))
-                                .combinedClickable(
-                                    onClick = { pickDueDateTime(ctx, dueAt) { dueAt = it } },
-                                    onLongClick = { dueAt = 0L },
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                SolarIcons.Notifications,
-                                contentDescription = str("notes.add_reminder"),
-                                tint = if (dueAt > 0L) MaterialTheme.colorScheme.primary
-                                else androidx.compose.material3.LocalContentColor.current,
-                            )
-                        }
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(SolarIcons.Delete, contentDescription = str("notes.delete"))
-                    }
-                },
-            )
-        },
-    ) { pad ->
-        Column(Modifier.fillMaxSize().padding(pad)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onClose) {
+                Icon(SolarIcons.ArrowBack, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            if (note.kind == "todo") {
+                Box(
+                    Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(percent = 50))
+                        .combinedClickable(
+                            onClick = { pickDueDateTime(ctx, dueAt) { dueAt = it } },
+                            onLongClick = { dueAt = 0L },
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        SolarIcons.Notifications,
+                        contentDescription = str("notes.add_reminder"),
+                        tint = if (dueAt > 0L) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            IconButton(onClick = onDelete) {
+                Icon(SolarIcons.Delete, contentDescription = str("notes.delete"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        VortexDivider()
+
+        Column(Modifier.fillMaxSize()) {
             TextField(
                 value = title,
                 onValueChange = { title = it },

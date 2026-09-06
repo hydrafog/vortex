@@ -336,6 +336,7 @@ pub fn run() {
             share::send_files,
             share::pick_and_send_files,
             desktop_theme::get_system_accent_color,
+            desktop_theme::get_local_device_name,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vortex Tauri");

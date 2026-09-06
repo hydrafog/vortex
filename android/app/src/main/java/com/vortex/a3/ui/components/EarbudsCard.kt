@@ -38,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight as FW
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -85,7 +84,6 @@ fun EarbudsCard(
         modifier = modifier
             .scale(scale)
             .height(CardHeight)
-            .shadow(elevation = 6.dp, shape = CardCorner, clip = false)
             .clip(CardCorner)
             .background(MaterialTheme.colorScheme.surface)
             .combinedClickable(
@@ -97,7 +95,7 @@ fun EarbudsCard(
             )
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.outline,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
                 shape = CardCorner,
             )
             .padding(16.dp),
@@ -179,14 +177,13 @@ fun EarbudsAddPlaceholder(
         modifier = modifier
             .scale(scale)
             .height(CardHeight)
-            .shadow(elevation = 6.dp, shape = CardCorner, clip = false)
             .clip(CardCorner)
             .background(MaterialTheme.colorScheme.surface)
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(bounded = true, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
             ) { onOpenPicker() }
-            .border(width = 1.dp, color = MaterialTheme.colorScheme.outline, shape = CardCorner)
+            .border(width = 1.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), shape = CardCorner)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,

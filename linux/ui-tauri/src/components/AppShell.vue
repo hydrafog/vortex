@@ -47,8 +47,7 @@ onUnmounted(() => {
     <Sidebar v-if="primaryPeer" />
 
     <main
-      class="flex-1 min-w-0 flex flex-col overflow-hidden relative h-full"
-      style="background: radial-gradient(120% 80% at 100% -5%, hsl(var(--primary) / 0.05), transparent 50%)"
+      class="flex-1 min-w-0 flex flex-col overflow-hidden relative h-full bg-background"
     >
       <div
         data-tauri-drag-region

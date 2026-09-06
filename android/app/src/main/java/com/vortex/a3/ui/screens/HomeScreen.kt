@@ -442,12 +442,23 @@ fun HomeScreen(
 
 @Composable
 private fun ThisPhoneCard(modifier: Modifier = Modifier) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val deviceName = remember(context) {
+        try {
+            android.provider.Settings.Global.getString(context.contentResolver, "device_name")
+                ?.takeIf { it.isNotBlank() }
+        } catch (_: Exception) { null }
+            ?: "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim()
+    }
+    val thisDeviceText = str("device.this")
+    val hasDistinctName = deviceName.isNotBlank() && !deviceName.equals(thisDeviceText, ignoreCase = true)
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(CardCorner)
             .background(MaterialTheme.colorScheme.surface)
-            .border(width = 1.dp, color = MaterialTheme.colorScheme.outline, shape = CardCorner)
+            .border(width = 1.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), shape = CardCorner)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -469,24 +480,26 @@ private fun ThisPhoneCard(modifier: Modifier = Modifier) {
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    str("device.this"),
+                    if (hasDistinctName) deviceName else thisDeviceText,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FW.SemiBold,
                     style = MaterialTheme.typography.bodyLarge,
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                ) {
-                    Text(
-                        str("device.this").uppercase(),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FW.SemiBold,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
+                if (hasDistinctName) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                    ) {
+                        Text(
+                            thisDeviceText.uppercase(),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FW.SemiBold,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(6.dp))

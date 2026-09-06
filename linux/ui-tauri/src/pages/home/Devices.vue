@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { invoke } from "@tauri-apps/api/core";
+import { getLocalDeviceName } from "@/lib/bridge";
 import {
   SolarLaptop,
   SolarSmartphone,
@@ -76,6 +77,11 @@ async function pickAndSendFiles() {
     sendingFiles.value = false;
   }
 }
+
+const localHost = ref("");
+onMounted(async () => {
+  localHost.value = await getLocalDeviceName();
+});
 </script>
 
 <template>
@@ -92,13 +98,14 @@ async function pickAndSendFiles() {
         <span class="vx-icon"><SolarLaptop class="h-6 w-6" /></span>
         <div class="shrink-0">
           <div class="flex items-center gap-2.5">
-            <span class="text-base font-semibold">{{ t("device.this") }}</span>
+            <span class="text-base font-semibold">{{ localHost || t("device.this") }}</span>
             <span
+              v-if="localHost && localHost.toLowerCase() !== t('device.this').toLowerCase()"
               class="rounded-full bg-primary/[0.12] px-2 py-[3px] text-[10px] font-semibold uppercase tracking-[0.6px] text-primary"
             >{{ t("device.this") }}</span>
           </div>
           <div class="mt-1.5 flex items-center gap-2">
-            <span class="vx-dot bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]" />
+            <span class="vx-dot bg-primary" />
             <span class="text-[12.5px] text-muted-foreground">{{ t("device.linux") }}</span>
           </div>
         </div>
@@ -213,7 +220,7 @@ async function pickAndSendFiles() {
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <span class="vx-dot" :class="activeEarbuds.connected ? 'bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]' : 'bg-muted-foreground'" />
+          <span class="vx-dot" :class="activeEarbuds.connected ? 'bg-primary' : 'bg-muted-foreground'" />
           <span class="text-[13px] text-[hsl(var(--card-foreground)/0.82)]">{{ earbudsStatus }}</span>
         </div>
         <div class="flex items-center gap-1.5">
@@ -233,9 +240,8 @@ async function pickAndSendFiles() {
 
 <style scoped>
 .vx-card {
-  @apply rounded-[20px] border border-white/[0.07] p-[18px] text-left transition-colors;
-  background: linear-gradient(180deg, hsl(var(--secondary)), hsl(var(--card)));
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  @apply rounded-[20px] border border-border p-[18px] text-left transition-colors;
+  background: hsl(var(--card));
 }
 .vx-icon {
   @apply flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.05];
