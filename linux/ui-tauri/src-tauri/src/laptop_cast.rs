@@ -499,4 +499,3 @@ fn resolve_h264_encoder() -> &'static str {
     tracing::warn!("laptop-cast: no preferred H264 encoder found; defaulting to x264enc");
     "x264enc tune=zerolatency speed-preset=veryfast bitrate=4000 key-int-max=30"
 }
-

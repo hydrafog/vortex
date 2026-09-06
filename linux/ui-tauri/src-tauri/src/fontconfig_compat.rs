@@ -1,6 +1,4 @@
 pub fn setup_fontconfig_compat() {
-    // If FONTCONFIG_FILE is already explicitly set to a custom file (not /etc/fonts/fonts.conf),
-    // respect the user's explicit setting.
     if let Ok(existing) = std::env::var("FONTCONFIG_FILE") {
         if existing != "/etc/fonts/fonts.conf" && std::path::Path::new(&existing).exists() {
             return;
@@ -12,7 +10,6 @@ pub fn setup_fontconfig_compat() {
         return;
     }
 
-    // Check if the Fontconfig 2.18-specific conf files are present in /etc/fonts/conf.d
     let guess_family = conf_d.join("48-guessfamily.conf");
     let sans_serif = conf_d.join("49-sansserif.conf");
     if !guess_family.exists() && !sans_serif.exists() {
@@ -49,10 +46,8 @@ pub fn setup_fontconfig_compat() {
 
     let mut replacement = String::new();
     for f in conf_files {
-        replacement.push_str(&format!(
-            "  <include ignore_missing=\"yes\">{}</include>\n",
-            f.display()
-        ));
+        replacement
+            .push_str(&format!("  <include ignore_missing=\"yes\">{}</include>\n", f.display()));
     }
 
     let sanitized_content = base_content.replace(target_include, &replacement);
