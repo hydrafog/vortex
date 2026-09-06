@@ -370,6 +370,7 @@ pub(crate) fn run_worker(app: AppHandle, cmd_rx: Receiver<UiCmd>) {
             match cmd {
                 UiCmd::Scan => cmd_pairing::scan(&ctx, &mut active_scan),
                 UiCmd::Pair(addr_str) => cmd_pairing::pair(&ctx, addr_str, &mut active_scan).await,
+                UiCmd::RemoveBond(addr_str) => cmd_pairing::remove_bond(&ctx, addr_str).await,
                 UiCmd::ForgetPeer(hex_str) => cmd_pairing::forget_peer(&ctx, hex_str).await,
                 UiCmd::ForgetAll => cmd_pairing::forget_all(&ctx).await,
                 UiCmd::RefreshState => cmd_earbuds::refresh_state(&ctx).await,

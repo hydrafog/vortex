@@ -276,6 +276,7 @@ pub fn run() {
             worker::start_screen_mirror,
             worker::stop_screen_mirror,
             pairing::start_pair,
+            pairing::remove_bond,
             pairing::pair_decision,
             pairing::forget_peer,
             pairing::forget_all,

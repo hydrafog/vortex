@@ -239,6 +239,38 @@ async fn monitor_unsupported_wait(
     }
 }
 
+async fn load_persisted_bonded_addr(peer_store: &Arc<dyn PeerStore>) -> Option<bluer::Address> {
+    let peers = {
+        let store = peer_store.clone();
+        tokio::task::spawn_blocking(move || store.list().unwrap_or_default())
+            .await
+            .unwrap_or_default()
+    };
+    for p in peers {
+        let store = peer_store.clone();
+        let pub_key = p.peer_static_pub;
+        let loaded =
+            tokio::task::spawn_blocking(move || store.load_bonded_addr(&pub_key).unwrap_or(None))
+                .await
+                .unwrap_or(None);
+        if let Some(s) = loaded {
+            if let Ok(addr) = s.parse() {
+                return Some(addr);
+            }
+        }
+    }
+    None
+}
+
+fn persist_bonded_addr(peer_store: Arc<dyn PeerStore>, peer_pub: [u8; 32], addr: bluer::Address) {
+    tokio::spawn(async move {
+        let addr_str = addr.to_string();
+        let _ =
+            tokio::task::spawn_blocking(move || peer_store.save_bonded_addr(&peer_pub, &addr_str))
+                .await;
+    });
+}
+
 pub(crate) async fn wait_for_presence(
     adapter: &bluer::Adapter,
     peer_store: &Arc<dyn PeerStore>,
@@ -252,11 +284,23 @@ pub(crate) async fn wait_for_presence(
             .unwrap_or_default()
     };
     if peers.is_empty() {
-        tokio::time::sleep(Duration::from_secs(10)).await;
+        tokio::select! {
+            _ = tokio::time::sleep(Duration::from_secs(10)) => {}
+            _ = retry_nudge.notified() => {}
+        }
         return None;
     }
-    if let Some(a) = find_trusted_presence_peer(adapter, peer_store, Duration::from_secs(15)).await
-    {
+    // NOTE: the initial scan is raced against the LAN cross-transport nudge
+    let scan = find_trusted_presence_peer(adapter, peer_store, Duration::from_secs(15));
+    tokio::pin!(scan);
+    let found = tokio::select! {
+        r = &mut scan => r,
+        _ = retry_nudge.notified() => {
+            tracing::info!("presence wait: woken by LAN cross-transport nudge during scan");
+            return None;
+        }
+    };
+    if let Some(a) = found {
         return Some(a);
     }
     if !MONITOR_UNSUPPORTED.load(Ordering::Relaxed) {
@@ -281,6 +325,13 @@ pub(crate) async fn connect_bonded_or_scan(
     retry_nudge: &tokio::sync::Notify,
     consec_connect_fail: &mut u32,
 ) -> Option<VortexClient> {
+    // NOTE: last_rpa is in-memory only. Seed it from the persisted bonded
+    if last_rpa.is_none() {
+        *last_rpa = load_persisted_bonded_addr(peer_store).await;
+        if let Some(a) = *last_rpa {
+            tracing::info!(addr = %a, "BLE persistent: seeded fast-path from bonded store");
+        }
+    }
     if let Some(addr) = *last_rpa {
         match tokio::time::timeout(Duration::from_secs(3), VortexClient::connect(adapter, addr))
             .await
@@ -294,11 +345,14 @@ pub(crate) async fn connect_bonded_or_scan(
                 tracing::debug!(addr = %addr, "BLE persistent: last-RPA connect failed: {e}; scanning");
                 clear_pending_connect(adapter, addr).await;
                 forget_stale_device(adapter, addr).await;
+                // NOTE: drop the stale fast-path so the next scan result
+                *last_rpa = None;
             }
             Err(_) => {
                 tracing::debug!(addr = %addr, "BLE persistent: last-RPA connect timed out; scanning");
                 clear_pending_connect(adapter, addr).await;
                 forget_stale_device(adapter, addr).await;
+                *last_rpa = None;
             }
         }
     }
@@ -527,6 +581,8 @@ pub(crate) async fn run_ble_persistent_loop(
         tokio::spawn(async move {
             let _ = counter_store.bump_counter(&counter_peer, counter_value);
         });
+        // NOTE: persist the RPA that just proved liveness so the next loop
+        persist_bonded_addr(peer_store.clone(), peer.peer_static_pub, client.address);
 
         let client_arc = Arc::new(client);
         let writer_transport = transport.clone();

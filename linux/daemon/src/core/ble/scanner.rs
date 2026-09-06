@@ -44,6 +44,18 @@ where
 
     let mut device_events: SelectAll<DeviceEventStream> = SelectAll::new();
 
+    // NOTE: BlueZ only emits DeviceAdded for newly seen devices. A phone that
+    if let Ok(known) = adapter.device_addresses().await {
+        for address in known {
+            try_emit(&adapter, address, &mut on_candidate).await;
+            if let Ok(device) = adapter.device(address) {
+                if let Ok(stream) = device.events().await {
+                    device_events.push(tag_with_address(address, stream));
+                }
+            }
+        }
+    }
+
     loop {
         tokio::select! {
             evt = adapter_events.next() => {

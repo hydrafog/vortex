@@ -104,7 +104,7 @@ private val EN = mapOf(
     "hint.bluetooth_off_action" to "Turn on Bluetooth",
     "hint.battery"          to "Battery optimization is on. Android may kill the Vortex service when the screen sleeps.",
     "hint.battery_action"   to "Allow background activity",
-    "hint.autostart"        to "On Xiaomi, Samsung, Huawei and similar phones, allow Vortex to auto-start (or mark it "never sleeping") so it reconnects and stays linked after reboot.",
+    "hint.autostart"        to "On Xiaomi, Samsung, Huawei and similar phones, allow Vortex to auto-start (or mark it \"never sleeping\") so it reconnects and stays linked after reboot.",
     "hint.autostart_action" to "Open Autostart settings",
     "hint.notif_access"     to "Grant notification access so Vortex knows what is playing and moves the earbuds at the right time. Without it, detection is less exact.",
     "hint.notif_access_action" to "Grant notification access",

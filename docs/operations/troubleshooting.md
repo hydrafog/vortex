@@ -16,12 +16,12 @@ Fixes for problems people hit with Vortex.
 3. Ensure location and nearby permissions are granted on the Android app (required by Android OS for BLE scanning).
 
 ### Pairing fails or aborts
-- A Bluetooth timeout, GATT failure, or BlueZ agent conflict shows Pairing failed.
-- An explicit emoji reject shows Pairing canceled for safety.
+- A Bluetooth timeout, GATT failure, or BlueZ agent conflict shows Pairing failed. Vortex retries the GATT connect 3 times before failing, so a single transient miss does not abort pairing.
+- An explicit emoji reject shows Pairing canceled for safety. Both screens allow 120 seconds to compare the three emoji.
 - On KDE Plasma, Bluedevil can intercept pairing. Vortex registers a Just Works agent with BlueZ. When the desktop prompts instead, restart Bluetooth or disconnect third-party connectors such as KDE Connect. Check the controller with `bluetoothctl show`.
-- When BlueZ keeps a bonded classic (BR/EDR) audio profile (A2DP or HFP) for the phone, it refuses GATT over BLE. Vortex reports this error when discovery times out:
+- When BlueZ keeps a bonded classic (BR/EDR) audio profile (A2DP or HFP) for the phone, it refuses GATT over BLE. Vortex reports this error with the peer address and a one-click Remove Bond fix:
   `BlueZ kept the classic (BR/EDR) bearer, so no GATT service is reachable. This phone is also paired to this laptop as a Bluetooth *audio* device, and BlueZ always prefers the bonded bearer. Unpair it as an audio device (bluetoothctl remove <addr>), then pair Vortex.`
-- Run `bluetoothctl remove <addr>` to remove the audio device entry in BlueZ, then pair again inside Vortex.
+- Run `bluetoothctl remove <addr>` or the Vortex Remove Bond action to remove the audio device entry in BlueZ, then pair again inside Vortex. Vortex trust in the keyring is kept.
 
 ---
 

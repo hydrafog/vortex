@@ -393,7 +393,7 @@ class PairingOrchestrator(private val identity: IdentityRecord) {
 
         const val MAX_CONCURRENT_PEERS: Int = 8
 
-        const val APPROVAL_TIMEOUT_MS: Long = 60_000L
+        const val APPROVAL_TIMEOUT_MS: Long = 120_000L
 
         private fun ByteArray.toHex(): String =
             joinToString("") { "%02x".format(it) }

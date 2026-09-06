@@ -11,6 +11,8 @@ import {
   pairingResult,
   pairLocalRejected,
   pairWith,
+  approvePairing,
+  rejectPairing,
   dismissPairing,
   proximityHit,
   pairFromProximity,
@@ -179,6 +181,10 @@ const confetti = Array.from({ length: 22 }, (_, i) => {
         </div>
         <div class="vp-waiting">
           <SolarLoader :size="16" class="vp-spin" />{{ t("pair.awaiting_phone") }}
+        </div>
+        <div class="flex gap-3 justify-center" style="margin-top: 24px">
+          <button class="vp-btn vp-btn-primary" style="margin-top: 0; width: auto; padding: 15px 32px" @click="approvePairing">{{ t("pair.they_match") }}</button>
+          <button class="vp-btn vp-btn-quiet" style="margin-top: 0; width: auto; padding: 12px 24px" @click="rejectPairing">{{ t("pair.they_dont") }}</button>
         </div>
       </div>
 

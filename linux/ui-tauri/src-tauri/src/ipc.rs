@@ -10,6 +10,7 @@ use vortex_l3_daemon::core::storage::peers::PeerStore;
 pub(crate) enum UiCmd {
     Scan,
     Pair(String),
+    RemoveBond(String),
     ForgetPeer(String),
     ForgetAll,
     RefreshState,

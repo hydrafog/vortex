@@ -46,6 +46,10 @@ export async function startPair(addr: string): Promise<void> {
   await invoke("start_pair", { addr });
 }
 
+export async function removeBond(addr: string): Promise<void> {
+  await invoke("remove_bond", { addr });
+}
+
 export async function pairDecision(approve: boolean): Promise<void> {
   await invoke("pair_decision", { approve });
 }

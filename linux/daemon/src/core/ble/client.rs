@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use bluer::gatt::remote::{Characteristic, CharacteristicWriteRequest, Service};
 use bluer::gatt::WriteOp;
-use bluer::{Adapter, Address, Device, Result as BluerResult};
+use bluer::{Adapter, Address, Device};
 use futures::future::try_join_all;
 use futures::{pin_mut, StreamExt};
 use tokio::time::timeout;
@@ -204,8 +204,11 @@ impl VortexClient {
         Ok(response)
     }
 
-    pub async fn disconnect(self) -> BluerResult<()> {
-        Ok(())
+    pub async fn disconnect_via(&self, adapter: &Adapter) {
+        // NOTE: disconnect needs an adapter handle because VortexClient only
+        if let Ok(device) = adapter.device(self.address) {
+            let _ = timeout(Duration::from_secs(3), device.disconnect()).await;
+        }
     }
 }
 

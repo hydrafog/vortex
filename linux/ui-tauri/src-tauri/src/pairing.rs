@@ -36,12 +36,39 @@ pub(crate) async fn do_pair(
     if let Ok(device) = adapter.device(addr) {
         if device.is_connected().await.unwrap_or(false) {
             let _ = device.disconnect().await;
-            tokio::time::sleep(Duration::from_millis(300)).await;
+            // NOTE: BlueZ needs time to release the old GATT bearer before a
+            tokio::time::sleep(Duration::from_millis(1000)).await;
         }
     }
     let hygiene_ms = t_pair.elapsed().as_millis();
 
-    let client = VortexClient::connect(adapter, addr).await.map_err(|e| format!("connect: {e}"))?;
+    // NOTE: a single GATT connect is hit-and-miss when BlueZ is still
+    let mut last_err = String::new();
+    let mut client_opt = None;
+    for attempt in 1..=3u32 {
+        match VortexClient::connect(adapter, addr).await {
+            Ok(c) => {
+                client_opt = Some(c);
+                break;
+            }
+            Err(e) => {
+                last_err = e.to_string();
+                warn!("pair connect attempt {attempt}/3 failed for {addr_str}: {last_err}");
+                if attempt < 3 {
+                    let backoff = if attempt == 1 { 500 } else { 1500 };
+                    tokio::time::sleep(Duration::from_millis(backoff)).await;
+                }
+            }
+        }
+    }
+    let Some(client) = client_opt else {
+        if last_err.contains("classic (BR/EDR)") {
+            return Err(format!(
+                "{last_err} (peer {addr_str}; one-click fix: remove the classic audio bond with `bluetoothctl remove {addr_str}` or Vortex Remove Bond, then pair again)"
+            ));
+        }
+        return Err(format!("connect: {last_err}"));
+    };
     info!(
         hygiene_ms,
         connect_total_ms = t_pair.elapsed().as_millis(),
@@ -56,7 +83,7 @@ pub(crate) async fn do_pair(
     let outcome = run_pairing_initiator(
         &client,
         &identity.static_priv.0,
-        Duration::from_secs(60),
+        Duration::from_secs(120),
         move |sas: &str| {
             let sas_string = sas.to_string();
             let app = app_for_sas.clone();
@@ -79,14 +106,15 @@ pub(crate) async fn do_pair(
                     "pair: Noise XX complete, SAS ready (≈ Android modal appears now)"
                 );
                 let _ = app.emit("vortex:pairing_sas", sas_string);
-                match tokio::time::timeout(Duration::from_secs(60), rx).await {
+                // NOTE: 120s matches the Android SAS dialog auto-reject so both
+                match tokio::time::timeout(Duration::from_secs(120), rx).await {
                     Ok(Ok(decision)) => decision,
                     Ok(Err(_)) => {
                         warn!("pairing decision sender dropped; treating as Reject");
                         LocalDecision::Reject
                     }
                     Err(_) => {
-                        warn!("pairing SAS approval timed out after 60s; treating as Reject");
+                        warn!("pairing SAS approval timed out after 120s; treating as Reject");
                         if let Some(decision_state) = app.try_state::<PairDecisionState>() {
                             if let Ok(mut slot) = decision_state.0.lock() {
                                 *slot = None;
@@ -113,10 +141,22 @@ pub(crate) async fn do_pair(
         peer_name: outcome.peer_name.clone(),
     };
     peer_store.save(&trusted).map_err(|e| format!("save trust: {e}"))?;
+    // NOTE: remember the BLE address that just worked so the persistent loop
+    let _ = peer_store.save_bonded_addr(&trusted.peer_static_pub, addr_str);
 
     emit_peers(app, peer_store.clone()).await;
 
-    // NOTE: no BT bond here. We investigated LE bonding to resolve the
+    // NOTE: no BlueZ LE bonding here by design. Vortex trust lives in the
+    Ok(())
+}
+
+pub(crate) async fn remove_bonded_device(
+    adapter: &bluer::Adapter,
+    addr_str: &str,
+) -> Result<(), String> {
+    let addr: bluer::Address = addr_str.parse().map_err(|e| format!("bad BD_ADDR: {e}"))?;
+    // NOTE: painless fix for the classic-audio bearer trap where BlueZ keeps
+    adapter.remove_device(addr).await.map_err(|e| format!("remove bond: {e}"))?;
     Ok(())
 }
 
@@ -159,6 +199,11 @@ pub(crate) async fn send_revoke_to_peer(
 #[tauri::command]
 pub fn start_pair(addr: String, state: State<'_, CmdChannel>) -> Result<(), String> {
     state.0.send(UiCmd::Pair(addr)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remove_bond(addr: String, state: State<'_, CmdChannel>) -> Result<(), String> {
+    state.0.send(UiCmd::RemoveBond(addr)).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

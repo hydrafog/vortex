@@ -5,7 +5,7 @@ use tauri::Emitter;
 use vortex_l3_daemon::core::ble::scanner::run_filtered_scan;
 
 use crate::ipc::{emit_peers, PairingResultDto, PairingStartedDto, ScanHitDto};
-use crate::pairing::{do_pair, send_revoke_to_peer};
+use crate::pairing::{do_pair, remove_bonded_device, send_revoke_to_peer};
 use crate::worker_ctx::WorkerCtx;
 
 fn purge_peer_cache(app: &tauri::AppHandle) {
@@ -25,8 +25,9 @@ pub(crate) fn scan(ctx: &WorkerCtx, active_scan: &mut Option<tokio::task::JoinHa
     *active_scan = Some(tokio::spawn(async move {
         let _ = app_c.emit("vortex:busy", true);
         let app_for_cb = app_c.clone();
+        // NOTE: 15s covers one full BlueZ discovery cycle plus cached-device
         let _ = tokio::time::timeout(
-            Duration::from_secs(8),
+            Duration::from_secs(15),
             run_filtered_scan(adapter_c, move |c| {
                 if !c.payload.flags.is_pairable() {
                     return;
@@ -165,4 +166,25 @@ pub(crate) async fn forget_all(ctx: &WorkerCtx) {
     .await;
     purge_peer_cache(&ctx.app);
     emit_peers(&ctx.app, ctx.peer_store.clone()).await;
+}
+
+pub(crate) async fn remove_bond(ctx: &WorkerCtx, addr_str: String) {
+    match remove_bonded_device(&ctx.adapter, &addr_str).await {
+        Ok(()) => {
+            tracing::info!(peer = %addr_str, "classic bond removed via one-click fix");
+            let _ = ctx.app.emit(
+                "vortex:pairing_result",
+                PairingResultDto::Ok {
+                    ok: true,
+                    message: format!("removed bond {addr_str}; tap pair again"),
+                },
+            );
+        }
+        Err(err) => {
+            tracing::warn!(peer = %addr_str, "remove bond failed: {err}");
+            let _ = ctx
+                .app
+                .emit("vortex:pairing_result", PairingResultDto::Err { ok: false, error: err });
+        }
+    }
 }

@@ -245,7 +245,7 @@ async fn cmd_pair(
     let outcome = run_pairing_initiator(
         &client,
         &identity.static_priv.0,
-        std::time::Duration::from_secs(60),
+        std::time::Duration::from_secs(120),
         |sas: &str| {
             let sas_owned = sas.to_string();
             async move {

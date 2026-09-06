@@ -407,8 +407,8 @@ export async function initHome() {
     if (r.ok) justPairedAt.value = Math.floor(Date.now() / 1000);
   }));
   unlisten.push(await onPairingSas(sas => {
+    // NOTE: do not auto-approve here. The desktop must show the three emoji
     pairingSas.value = sas;
-    pairDecision(true).catch(() => {});
   }));
   unlisten.push(await onLocalEarbuds(snap => {
     localEarbuds.value = snap;

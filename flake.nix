@@ -21,8 +21,19 @@
             inherit system;
             config = {
               allowUnfree = true;
+              android_sdk.accept_license = true;
             };
           };
+
+          androidComposition = pkgs.androidenv.composeAndroidPackages {
+            cmdLineToolsVersion = "11.0";
+            platformVersions = [ "36" ];
+            buildToolsVersions = [ "35.0.0" "36.0.0" ];
+            includeNDK = false;
+            includeEmulator = false;
+            includeSystemImages = false;
+          };
+          androidSdk = androidComposition.androidsdk;
 
           gstreamerPackages = (with pkgs.gst_all_1; [
             gstreamer
@@ -75,8 +86,9 @@
                 cmake
                 gcc
 
-                # Android and mobile tools
-                android-tools
+                # Android and mobile tools (SDK via composeAndroidPackages;
+                # platform-tools/adb ships inside the SDK, no separate package)
+                androidSdk
                 jdk17
 
                 # Quality, hooks, and maintenance
@@ -89,8 +101,21 @@
               ++ gstreamerPackages;
 
             JAVA_HOME = "${pkgs.jdk17}";
+            ANDROID_HOME = "${androidSdk}/libexec/android-sdk";
+            ANDROID_SDK_ROOT = "${androidSdk}/libexec/android-sdk";
 
             shellHook = ''
+              # Nix provides the SDK via ANDROID_HOME above. Drop the stale
+              # per-machine sdk.dir that pointed at ~/Android/Sdk so Gradle
+              # uses the nix store SDK instead of a missing directory.
+              if [ -f android/local.properties ]; then
+                _sdk_dir="$(sed -n 's/^sdk\.dir=//p' android/local.properties | head -n1)"
+                if [ -z "$_sdk_dir" ] || [ ! -d "$_sdk_dir" ]; then
+                  rm -f android/local.properties
+                fi
+                unset _sdk_dir
+              fi
+
               export LD_LIBRARY_PATH="${
                 pkgs.lib.makeLibraryPath (tauriLibraries ++ gstreamerPackages)
               }:$LD_LIBRARY_PATH"
