@@ -1,12 +1,5 @@
 package com.vortex.a3.ui.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -27,15 +20,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight as FW
 import androidx.compose.ui.unit.dp
 import com.vortex.a3.ui.AdvertiseState
@@ -74,34 +63,8 @@ fun CardHeader(
 
 @Composable
 fun StatusDot(color: Color) {
-    val isOnline = color == MaterialTheme.colorScheme.primary
-    if (!isOnline) {
-        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
-        return
-    }
-    val transition = rememberInfiniteTransition(label = "status-pulse")
-    val progress by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1800, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "pulse",
-    )
-    val density = LocalDensity.current.density
-    Canvas(modifier = Modifier.size(22.dp)) {
-        val center = Offset(size.width / 2f, size.height / 2f)
-        val ringRadius = (4f + 9f * progress) * density
-        val ringAlpha = (0.55f * (1f - progress)).coerceAtLeast(0f)
-        drawCircle(
-            color = color.copy(alpha = ringAlpha),
-            radius = ringRadius,
-            center = center,
-            style = Stroke(width = 2f * density),
-        )
-        drawCircle(color = color, radius = 4f * density, center = center)
-    }
+    // NOTE: Flat status signal. Solid dot only, no pulse or glow.
+    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
 }
 
 @Composable
@@ -148,8 +111,8 @@ fun PairedRow(label: String, short: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-            .border(width = 1.dp, color = MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(8.dp))
+            .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = RoundedCornerShape(8.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -157,13 +120,13 @@ fun PairedRow(label: String, short: String) {
         Box(
             modifier = Modifier
                 .size(36.dp)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
+                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = SolarIcons.Laptop,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(18.dp),
             )
         }
@@ -188,8 +151,8 @@ fun WaitingForLinuxRow(state: AdvertiseState) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-            .border(width = 1.dp, color = MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(8.dp))
+            .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = RoundedCornerShape(8.dp))
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -229,8 +192,8 @@ fun HintCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
-            .border(width = 1.dp, color = MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(10.dp))
+            .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = RoundedCornerShape(10.dp))
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Text("Warning: $text", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)

@@ -1,15 +1,11 @@
 package com.vortex.a3.ui.components
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,7 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight as FW
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -66,36 +61,30 @@ fun EarbudsCard(
     val isSwitching = switchState !is SwitchState.Idle &&
         switchState !is SwitchState.Failed &&
         switchState !is SwitchState.AlmostDone
-    val tintColor = MaterialTheme.colorScheme.primary
+    val tintColor = MaterialTheme.colorScheme.onPrimaryContainer
     val caption = when {
         !connected -> str("earbuds.not_connected")
         onLocal -> str("earbuds.on_local")
         else -> str("earbuds.on_peer")
     }
     val cardInteraction = remember { MutableInteractionSource() }
-    val pressed by cardInteraction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.97f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
-        label = "earbuds-card-press",
-    )
-    val contentAlpha = if (isSwitching) 0.55f else 1f
+    val contentColor = MaterialTheme.colorScheme.onSurface
+    val contentVariant = MaterialTheme.colorScheme.onSurfaceVariant
     Column(
         modifier = modifier
-            .scale(scale)
             .height(CardHeight)
             .clip(CardCorner)
             .background(MaterialTheme.colorScheme.surface)
             .combinedClickable(
                 interactionSource = cardInteraction,
-                indication = ripple(bounded = true, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                indication = ripple(bounded = true),
                 enabled = !isSwitching,
                 onClick = {},
                 onLongClick = { if (canRemove) menuOpen = true },
             )
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+                color = MaterialTheme.colorScheme.outlineVariant,
                 shape = CardCorner,
             )
             .padding(16.dp),
@@ -103,13 +92,13 @@ fun EarbudsCard(
         CardHeader(
             icon = SolarIcons.Headphones,
             iconTint = tintColor,
-            iconBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+            iconBg = MaterialTheme.colorScheme.primaryContainer,
             statusDot = if (connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(14.dp))
         Text(
             name.takeIf { it.isNotBlank() } ?: str("device.earbuds"),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
+            color = contentColor,
             fontWeight = FW.SemiBold,
             style = MaterialTheme.typography.bodyLarge,
             maxLines = 1,
@@ -120,7 +109,7 @@ fun EarbudsCard(
         }
         Text(
             captionText,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
+            color = contentVariant,
             style = MaterialTheme.typography.bodySmall,
             maxLines = 2,
         )
@@ -167,23 +156,16 @@ fun EarbudsAddPlaceholder(
     onOpenPicker: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.97f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
-        label = "earbuds-placeholder-press",
-    )
     Column(
         modifier = modifier
-            .scale(scale)
             .height(CardHeight)
             .clip(CardCorner)
             .background(MaterialTheme.colorScheme.surface)
             .clickable(
                 interactionSource = interaction,
-                indication = ripple(bounded = true, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                indication = ripple(bounded = true),
             ) { onOpenPicker() }
-            .border(width = 1.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), shape = CardCorner)
+            .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = CardCorner)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -192,13 +174,13 @@ fun EarbudsAddPlaceholder(
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = SolarIcons.Add,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(22.dp),
             )
         }

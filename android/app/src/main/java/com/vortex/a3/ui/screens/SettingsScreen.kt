@@ -1,6 +1,5 @@
 package com.vortex.a3.ui.screens
 
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -31,10 +29,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -259,7 +257,7 @@ private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
 
 @Composable
 private fun RowDivider() {
-    HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
+    HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
@@ -268,11 +266,11 @@ private fun IconTile(icon: ImageVector) {
         Modifier
             .size(36.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), RoundedCornerShape(10.dp)),
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp)),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(19.dp))
     }
 }
 
@@ -313,7 +311,7 @@ private fun ToggleRow(
                 Text(hint, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
             }
         }
-        IosSwitch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -362,28 +360,6 @@ private fun AdbHintCard(title: String, body: String, command: String) {
 }
 
 @Composable
-private fun IosSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    val knobX by animateDpAsState(if (checked) 22.dp else 2.dp, label = "knob")
-    val track = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
-    Box(
-        modifier = Modifier
-            .width(44.dp)
-            .height(24.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(track)
-            .clickable { onCheckedChange(!checked) },
-    ) {
-        Box(
-            modifier = Modifier
-                .offset(x = knobX, y = 2.dp)
-                .size(20.dp)
-                .clip(CircleShape)
-                .background(Color.White),
-        )
-    }
-}
-
-@Composable
 private fun SegmentedButton(
     label: String,
     selected: Boolean,
@@ -392,13 +368,13 @@ private fun SegmentedButton(
     leadingIcon: ImageVector? = null,
     enabled: Boolean = true,
 ) {
-    val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else Color.Transparent
+    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
     val fg = when {
-        !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-        selected -> MaterialTheme.colorScheme.primary
+        !enabled -> MaterialTheme.colorScheme.onSurfaceVariant
+        selected -> MaterialTheme.colorScheme.onPrimaryContainer
         else -> MaterialTheme.colorScheme.onSurface
     }
-    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
@@ -432,8 +408,8 @@ private fun AccentChip(
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
     val dotColor = remember(accent, isDark, context) { accent.resolveDisplayColor(context, isDark) }
-    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-    val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
@@ -454,7 +430,7 @@ private fun AccentChip(
             text = accent.label,
             style = MaterialTheme.typography.bodySmall,
             fontWeight = if (selected) FW.SemiBold else FW.Normal,
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
         )
     }
 }

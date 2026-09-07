@@ -96,17 +96,17 @@ fun EarbudsPickerRow(
     row: BluetoothDeviceRow,
     onPick: () -> Unit,
 ) {
-    val iconTint = if (row.isAudio) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    val iconTint = if (row.isAudio) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
     val iconBg = if (row.isAudio)
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+        MaterialTheme.colorScheme.primaryContainer
     else
-        MaterialTheme.colorScheme.background.copy(alpha = 0.6f)
+        MaterialTheme.colorScheme.surfaceContainerHighest
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.4f))
-            .border(width = 1.dp, color = MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = RoundedCornerShape(10.dp))
             .clickable { onPick() }
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

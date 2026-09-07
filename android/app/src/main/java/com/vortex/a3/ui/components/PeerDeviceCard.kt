@@ -1,15 +1,11 @@
 package com.vortex.a3.ui.components
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,12 +22,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight as FW
@@ -55,27 +49,20 @@ fun PeerDeviceCard(
     onShutdown: (() -> Unit)? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.985f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "peer_press_scale",
-    )
     Box(
         modifier = modifier
-            .scale(scale)
             .height(CardHeight)
             .fillMaxWidth()
             .clip(CardCorner)
             .background(MaterialTheme.colorScheme.surface)
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+                color = MaterialTheme.colorScheme.outlineVariant,
                 shape = CardCorner,
             )
             .combinedClickable(
                 interactionSource = interaction,
-                indication = ripple(color = MaterialTheme.colorScheme.primary),
+                indication = ripple(),
                 onLongClick = onLongPress,
                 onClick = {},
             )
@@ -84,8 +71,8 @@ fun PeerDeviceCard(
         Column {
             CardHeader(
                 icon = icon,
-                iconTint = MaterialTheme.colorScheme.primary,
-                iconBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                iconBg = MaterialTheme.colorScheme.primaryContainer,
                 statusDot = statusDotColor,
             )
             Spacer(modifier = Modifier.height(14.dp))
@@ -155,12 +142,15 @@ fun PeerDeviceCard(
                         Icon(
                             imageVector = SolarIcons.Power,
                             contentDescription = "Shut down laptop",
-                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(12.dp))
                                 .clickable(onClick = onShutdown)
-                                .padding(10.dp)
-                                .size(20.dp),
+                                .padding(9.dp)
+                                // NOTE: Optical compensation. The power glyph is mostly
+                                // NOTE: empty ring plus stem, so it reads smaller than
+                                // NOTE: the denser siblings at equal size.
+                                .size(22.dp),
                         )
                     }
                 }

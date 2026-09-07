@@ -458,7 +458,7 @@ private fun ThisPhoneCard(modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .clip(CardCorner)
             .background(MaterialTheme.colorScheme.surface)
-            .border(width = 1.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), shape = CardCorner)
+            .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = CardCorner)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -466,13 +466,13 @@ private fun ThisPhoneCard(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .size(42.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = SolarIcons.Smartphone,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -490,12 +490,12 @@ private fun ThisPhoneCard(modifier: Modifier = Modifier) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                            .background(MaterialTheme.colorScheme.primaryContainer)
                             .padding(horizontal = 8.dp, vertical = 3.dp),
                     ) {
                         Text(
                             thisDeviceText.uppercase(),
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
                             fontWeight = FW.SemiBold,
                             style = MaterialTheme.typography.labelSmall,
                         )

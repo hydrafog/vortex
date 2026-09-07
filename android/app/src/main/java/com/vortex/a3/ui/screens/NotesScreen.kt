@@ -159,8 +159,8 @@ private fun NotesSegment(mode: String, onSelect: (String) -> Unit) {
             .padding(horizontal = 12.dp, vertical = 10.dp)
             .height(40.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
             .padding(4.dp),
     ) {
         val cellW = maxWidth / 2
@@ -171,8 +171,8 @@ private fun NotesSegment(mode: String, onSelect: (String) -> Unit) {
                 .width(cellW)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
-                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(8.dp)),
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)),
         )
         Row(Modifier.fillMaxSize()) {
             tabs.forEach { (key, label) ->
@@ -188,7 +188,7 @@ private fun NotesSegment(mode: String, onSelect: (String) -> Unit) {
                         label,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (mode == key) MaterialTheme.colorScheme.primary
+                        color = if (mode == key) MaterialTheme.colorScheme.onPrimaryContainer
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -320,7 +320,7 @@ private fun TodoProgress(done: Int, total: Int) {
     val pct = if (total > 0) done.toFloat() / total else 0f
     val sweep by animateFloatAsState(pct * 360f, label = "ring")
     val primary = MaterialTheme.colorScheme.primary
-    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+    val track = MaterialTheme.colorScheme.surfaceContainerHighest
     Column(
         Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -360,8 +360,8 @@ private fun TodoAddBar(value: String, onChange: (String) -> Unit, onAdd: () -> U
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 12.dp)
             .clip(RoundedCornerShape(percent = 50))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(percent = 50))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(percent = 50))
             .padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
