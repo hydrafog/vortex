@@ -29,6 +29,29 @@ fun assertSolarIconName(name: String) {
     }
 }
 
+private fun solarVector(name: String, pathData: String): ImageVector {
+    assertSolarIconName(name)
+    return try {
+        ImageVector.Builder(
+            name = name,
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).addPath(
+            pathData = addPathNodes(pathData),
+            fill = null,
+            stroke = SolidColor(Color.Black),
+            strokeLineWidth = 1.7f,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round,
+        ).build()
+    } catch (e: Exception) {
+        if (e is IconLoadFailure) throw e
+        throw IconLoadFailure(name, e)
+    }
+}
+
 private fun solarVector(name: String, nodes: List<PathNode>): ImageVector {
     assertSolarIconName(name)
     return try {
@@ -66,176 +89,67 @@ internal object SolarIcons {
         )
     }
     val Language: ImageVector by lazy {
+        // NOTE: Canonical Solar Translation (Linear) ported from `linux/ui-tauri/src/lib/solarIcons.ts`.
         solarVector(
             "Language",
-            listOf(
-                PathNode.MoveTo(3.5f, 12f),
-                PathNode.LineTo(20.5f, 12f),
-                PathNode.MoveTo(12f, 3.5f),
-                PathNode.LineTo(12f, 20.5f),
-                PathNode.MoveTo(5f, 5f),
-                PathNode.LineTo(19f, 5f),
-                PathNode.LineTo(19f, 19f),
-                PathNode.LineTo(5f, 19f),
-                PathNode.Close,
-            ),
+            "M4 5H13M8.5 3.5V5C8.5 8.5 6.5 11.5 4 13M6 8.5C7 11 9 13 11.5 14M13 21L17 12L21 21M14.5 17.5H19.5",
         )
     }
     val LightMode: ImageVector by lazy {
+        // NOTE: Canonical Solar Sun (Linear) ported from `linux/ui-tauri/src/lib/solarIcons.ts`.
         solarVector(
             "LightMode",
-            listOf(
-                PathNode.MoveTo(12f, 8f),
-                PathNode.LineTo(16f, 12f),
-                PathNode.LineTo(12f, 16f),
-                PathNode.LineTo(8f, 12f),
-                PathNode.Close,
-                PathNode.MoveTo(12f, 2.5f),
-                PathNode.LineTo(12f, 5f),
-                PathNode.MoveTo(12f, 19f),
-                PathNode.LineTo(12f, 21.5f),
-                PathNode.MoveTo(2.5f, 12f),
-                PathNode.LineTo(5f, 12f),
-                PathNode.MoveTo(19f, 12f),
-                PathNode.LineTo(21.5f, 12f),
-            ),
+            "M8 12A4 4 0 1 0 16 12A4 4 0 1 0 8 12ZM12 2.5V5M12 19V21.5M2.5 12H5M19 12H21.5M5 5L6.8 6.8M17.2 17.2L19 19M19 5L17.2 6.8M6.8 17.2L5 19",
         )
     }
     val DarkMode: ImageVector by lazy {
+        // NOTE: Canonical Solar Moon (Linear) ported from `linux/ui-tauri/src/lib/solarIcons.ts`.
         solarVector(
             "DarkMode",
-            listOf(
-                PathNode.MoveTo(20f, 14.5f),
-                PathNode.LineTo(15f, 19f),
-                PathNode.LineTo(10f, 19f),
-                PathNode.LineTo(6f, 15f),
-                PathNode.LineTo(6f, 10f),
-                PathNode.LineTo(10f, 5.5f),
-                PathNode.LineTo(15f, 5.5f),
-                PathNode.LineTo(19f, 9f),
-                PathNode.Close,
-            ),
+            "M20 14.5A8.5 8.5 0 0 1 9.5 4A8.5 8.5 0 1 0 20 14.5Z",
         )
     }
     val Headset: ImageVector by lazy {
+        // NOTE: Canonical Solar Headphones (Linear) ported from `linux/ui-tauri/src/lib/solarIcons.ts`.
         solarVector(
             "Headset",
-            listOf(
-                PathNode.MoveTo(4f, 15f),
-                PathNode.LineTo(4f, 11f),
-                PathNode.LineTo(8f, 5f),
-                PathNode.LineTo(16f, 5f),
-                PathNode.LineTo(20f, 11f),
-                PathNode.LineTo(20f, 15f),
-                PathNode.MoveTo(4f, 14f),
-                PathNode.LineTo(7f, 14f),
-                PathNode.LineTo(7f, 19f),
-                PathNode.LineTo(4f, 19f),
-                PathNode.Close,
-                PathNode.MoveTo(20f, 14f),
-                PathNode.LineTo(17f, 14f),
-                PathNode.LineTo(17f, 19f),
-                PathNode.LineTo(20f, 19f),
-                PathNode.Close,
-            ),
+            "M4 15V13A8 8 0 0 1 20 13V15M4.5 14H5.5Q7 14 7 15.5V18.5Q7 20 5.5 20H4.5Q3 20 3 18.5V15.5Q3 14 4.5 14ZM18.5 14H19.5Q21 14 21 15.5V18.5Q21 20 19.5 20H18.5Q17 20 17 18.5V15.5Q17 14 18.5 14Z",
         )
     }
     val Notifications: ImageVector by lazy {
+        // NOTE: Canonical Solar Bell (Linear) ported from `linux/ui-tauri/src/lib/solarIcons.ts`.
         solarVector(
             "Notifications",
-            listOf(
-                PathNode.MoveTo(6f, 10f),
-                PathNode.LineTo(6f, 15.5f),
-                PathNode.LineTo(4.5f, 15.5f),
-                PathNode.LineTo(19.5f, 15.5f),
-                PathNode.LineTo(18f, 10f),
-                PathNode.LineTo(15f, 5f),
-                PathNode.LineTo(9f, 5f),
-                PathNode.Close,
-                PathNode.MoveTo(10f, 19f),
-                PathNode.LineTo(14f, 19f),
-            ),
+            "M6 10A6 6 0 0 1 18 10C18 14 19.5 15.5 19.5 15.5H4.5C4.5 15.5 6 14 6 10ZM10 19A2.2 2.2 0 0 0 14 19",
         )
     }
     val NotificationsActive: ImageVector by lazy {
+        // NOTE: Canonical Solar BellBing (Linear) ported from `linux/ui-tauri/src/lib/solarIcons.ts`.
         solarVector(
             "NotificationsActive",
-            listOf(
-                PathNode.MoveTo(6f, 10f),
-                PathNode.LineTo(6f, 15.5f),
-                PathNode.LineTo(4.5f, 15.5f),
-                PathNode.LineTo(19.5f, 15.5f),
-                PathNode.LineTo(18f, 10f),
-                PathNode.LineTo(15f, 5f),
-                PathNode.LineTo(9f, 5f),
-                PathNode.Close,
-                PathNode.MoveTo(10f, 19f),
-                PathNode.LineTo(14f, 19f),
-                PathNode.MoveTo(19f, 3f),
-                PathNode.LineTo(19f, 6f),
-                PathNode.MoveTo(17.5f, 4.5f),
-                PathNode.LineTo(20.5f, 4.5f),
-            ),
+            "M6 10A6 6 0 0 1 18 10C18 14 19.5 15.5 19.5 15.5H4.5C4.5 15.5 6 14 6 10ZM10 19A2.2 2.2 0 0 0 14 19M19 4L19.8 5.6L21.5 6L19.8 6.8L19 8.5L18.2 6.8L16.5 6L18.2 5.6L19 4Z",
         )
     }
     val ContentPaste: ImageVector by lazy {
+        // NOTE: Canonical Solar ClipboardList (Linear) ported from `linux/ui-tauri/src/lib/solarIcons.ts`.
         solarVector(
             "ContentPaste",
-            listOf(
-                PathNode.MoveTo(6f, 5f),
-                PathNode.LineTo(18f, 5f),
-                PathNode.LineTo(18f, 20f),
-                PathNode.LineTo(6f, 20f),
-                PathNode.Close,
-                PathNode.MoveTo(9f, 3f),
-                PathNode.LineTo(15f, 3f),
-                PathNode.LineTo(15f, 7f),
-                PathNode.LineTo(9f, 7f),
-                PathNode.Close,
-                PathNode.MoveTo(9.5f, 11f),
-                PathNode.LineTo(14.5f, 11f),
-                PathNode.MoveTo(9.5f, 14.5f),
-                PathNode.LineTo(14.5f, 14.5f),
-            ),
+            "M7 5H17Q19 5 19 7V19Q19 21 17 21H7Q5 21 5 19V7Q5 5 7 5ZM10 3H14Q15 3 15 4V6Q15 7 14 7H10Q9 7 9 6V4Q9 3 10 3ZM9 11H15M9 14.5H15M9 18H13",
         )
     }
     val FileDownload: ImageVector by lazy {
+        // NOTE: Canonical Solar FileDownload (Linear) ported from `linux/ui-tauri/src/lib/solarIcons.ts`.
         solarVector(
             "FileDownload",
-            listOf(
-                PathNode.MoveTo(6f, 3.5f),
-                PathNode.LineTo(14f, 3.5f),
-                PathNode.LineTo(19f, 8.5f),
-                PathNode.LineTo(19f, 20f),
-                PathNode.LineTo(5f, 20f),
-                PathNode.LineTo(5f, 3.5f),
-                PathNode.Close,
-                PathNode.MoveTo(12f, 11f),
-                PathNode.LineTo(12f, 17f),
-                PathNode.MoveTo(9.5f, 14.5f),
-                PathNode.LineTo(12f, 17f),
-                PathNode.LineTo(14.5f, 14.5f),
-            ),
+            "M6 3.5H14L19 8.5V20Q19 21 18 21H6Q5 21 5 20V4.5Q5 3.5 6 3.5ZM14 3.5V8.5H19M12 12V18M9.5 15.5L12 18L14.5 15.5",
         )
     }
     val TouchApp: ImageVector by lazy {
+        // NOTE: Canonical Solar Cursor (Linear) ported from `linux/ui-tauri/src/lib/solarIcons.ts`.
+        // NOTE: Name kept as `TouchApp` so existing call sites stay untouched.
         solarVector(
             "TouchApp",
-            listOf(
-                PathNode.MoveTo(9f, 11f),
-                PathNode.LineTo(9f, 5f),
-                PathNode.LineTo(11f, 3.5f),
-                PathNode.LineTo(13f, 5f),
-                PathNode.LineTo(13f, 10f),
-                PathNode.MoveTo(13f, 8f),
-                PathNode.LineTo(15f, 6.5f),
-                PathNode.LineTo(17f, 8f),
-                PathNode.LineTo(17f, 14f),
-                PathNode.LineTo(15f, 19f),
-                PathNode.LineTo(10f, 19f),
-                PathNode.LineTo(7f, 14f),
-                PathNode.Close,
-            ),
+            "M6 3.5L18 12L11.5 13L9 19.5L6 3.5Z",
         )
     }
     val Add: ImageVector by lazy {
@@ -341,26 +255,10 @@ internal object SolarIcons {
         )
     }
     val Headphones: ImageVector by lazy {
+        // NOTE: Canonical Solar Headphones (Linear) ported from `linux/ui-tauri/src/lib/solarIcons.ts`.
         solarVector(
             "Headphones",
-            listOf(
-                PathNode.MoveTo(4f, 15f),
-                PathNode.LineTo(4f, 11f),
-                PathNode.LineTo(8f, 6f),
-                PathNode.LineTo(16f, 6f),
-                PathNode.LineTo(20f, 11f),
-                PathNode.LineTo(20f, 15f),
-                PathNode.MoveTo(3f, 14f),
-                PathNode.LineTo(7f, 14f),
-                PathNode.LineTo(7f, 20f),
-                PathNode.LineTo(3f, 20f),
-                PathNode.Close,
-                PathNode.MoveTo(21f, 14f),
-                PathNode.LineTo(17f, 14f),
-                PathNode.LineTo(17f, 20f),
-                PathNode.LineTo(21f, 20f),
-                PathNode.Close,
-            ),
+            "M4 15V13A8 8 0 0 1 20 13V15M4.5 14H5.5Q7 14 7 15.5V18.5Q7 20 5.5 20H4.5Q3 20 3 18.5V15.5Q3 14 4.5 14ZM18.5 14H19.5Q21 14 21 15.5V18.5Q21 20 19.5 20H18.5Q17 20 17 18.5V15.5Q17 14 18.5 14Z",
         )
     }
     val BatteryChargingFull: ImageVector by lazy {
@@ -456,55 +354,25 @@ internal object SolarIcons {
         )
     }
     val Cast: ImageVector by lazy {
+        // NOTE: Canonical Solar MonitorShare (Linear) ported from `linux/ui-tauri/src/lib/solarIcons.ts`.
+        // NOTE: Name kept as `Cast` so existing call sites stay untouched.
         solarVector(
             "Cast",
-            listOf(
-                PathNode.MoveTo(3f, 4.5f),
-                PathNode.LineTo(21f, 4.5f),
-                PathNode.LineTo(21f, 15f),
-                PathNode.LineTo(3f, 15f),
-                PathNode.Close,
-                PathNode.MoveTo(3f, 19f),
-                PathNode.LineTo(7f, 19f),
-                PathNode.MoveTo(5f, 8f),
-                PathNode.LineTo(9f, 8f),
-                PathNode.LineTo(9f, 12f),
-            ),
+            "M5 4H19Q21 4 21 6V14Q21 16 19 16H5Q3 16 3 14V6Q3 4 5 4ZM9 20H15M12 16V20M12 7V11M10 9L12 7L14 9",
         )
     }
     val Lock: ImageVector by lazy {
+        // NOTE: Canonical Solar Lock (Linear) ported from `linux/ui-tauri/src/lib/solarIcons.ts`.
         solarVector(
             "Lock",
-            listOf(
-                PathNode.MoveTo(5f, 10.5f),
-                PathNode.LineTo(19f, 10.5f),
-                PathNode.LineTo(19f, 20f),
-                PathNode.LineTo(5f, 20f),
-                PathNode.Close,
-                PathNode.MoveTo(8f, 10.5f),
-                PathNode.LineTo(8f, 8f),
-                PathNode.LineTo(10f, 5.5f),
-                PathNode.LineTo(14f, 5.5f),
-                PathNode.LineTo(16f, 8f),
-                PathNode.LineTo(16f, 10.5f),
-            ),
+            "M7 10.5H17Q19 10.5 19 12.5V18Q19 20 17 20H7Q5 20 5 18V12.5Q5 10.5 7 10.5ZM8 10.5V8A4 4 0 0 1 16 8V10.5",
         )
     }
     val LockOpen: ImageVector by lazy {
+        // NOTE: Canonical Solar Unlock (Linear) ported from `linux/ui-tauri/src/lib/solarIcons.ts`.
         solarVector(
             "LockOpen",
-            listOf(
-                PathNode.MoveTo(5f, 10.5f),
-                PathNode.LineTo(19f, 10.5f),
-                PathNode.LineTo(19f, 20f),
-                PathNode.LineTo(5f, 20f),
-                PathNode.Close,
-                PathNode.MoveTo(8f, 10.5f),
-                PathNode.LineTo(8f, 8f),
-                PathNode.LineTo(10f, 5.5f),
-                PathNode.LineTo(14f, 5.5f),
-                PathNode.LineTo(15.5f, 7f),
-            ),
+            "M7 10.5H17Q19 10.5 19 12.5V18Q19 20 17 20H7Q5 20 5 18V12.5Q5 10.5 7 10.5ZM8 10.5V8A4 4 0 0 1 15.8 6.8",
         )
     }
     val Power: ImageVector by lazy {

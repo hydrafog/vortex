@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -91,77 +92,77 @@ fun PeerDeviceCard(
             Text(name, color = MaterialTheme.colorScheme.onSurface, fontWeight = FW.SemiBold, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
             Text(caption, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             Spacer(modifier = Modifier.weight(1f))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.weight(1f)) {
-                    BatteryRow(battery, charging = charging)
-                }
-                if (onViewScreen != null) {
-                    Box(contentAlignment = Alignment.TopEnd) {
+            // NOTE: Battery gets its own full-width line so narrow half-width
+            // NOTE: cards never squeeze it against the action buttons.
+            BatteryRow(battery, charging = charging)
+            if (onViewScreen != null || (locked != null && onToggleLock != null) || onSuspend != null || onShutdown != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (onViewScreen != null) {
+                        Box(contentAlignment = Alignment.TopEnd) {
+                            Icon(
+                                imageVector = SolarIcons.Cast,
+                                contentDescription = "View laptop screen (experimental)",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable(onClick = onViewScreen)
+                                    .padding(10.dp)
+                                    .size(20.dp),
+                            )
+                            Box(
+                                Modifier
+                                    .padding(top = 8.dp, end = 8.dp)
+                                    .size(7.dp)
+                                    .clip(RoundedCornerShape(percent = 50))
+                                    .background(Color(0xFFF0B43C)),
+                            )
+                        }
+                    }
+                    if (locked != null && onToggleLock != null) {
                         Icon(
-                            imageVector = SolarIcons.Cast,
-                            contentDescription = "View laptop screen (experimental)",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            imageVector = SolarIcons.lockIconFor(locked),
+                            contentDescription = if (locked) "Unlock laptop" else "Lock laptop",
+                            tint = if (locked) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable(onClick = onViewScreen)
-                                .padding(4.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable(onClick = onToggleLock)
+                                .padding(10.dp)
                                 .size(20.dp),
                         )
-                        Box(
-                            Modifier
-                                .padding(top = 3.dp, end = 2.dp)
-                                .size(7.dp)
-                                .clip(RoundedCornerShape(percent = 50))
-                                .background(Color(0xFFF0B43C)),
+                    }
+                    if (onSuspend != null) {
+                        Icon(
+                            imageVector = SolarIcons.Suspend,
+                            contentDescription = "Suspend laptop",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable(onClick = onSuspend)
+                                .padding(10.dp)
+                                .size(20.dp),
                         )
                     }
-                    Spacer(modifier = Modifier.size(8.dp))
-                }
-                if (locked != null && onToggleLock != null) {
-                    Icon(
-                        imageVector = SolarIcons.lockIconFor(locked),
-                        contentDescription = null,
-                        tint = if (locked) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onToggleLock)
-                            .padding(4.dp)
-                            .size(20.dp),
-                    )
-                }
-                if (onSuspend != null) {
-                    if (locked != null && onToggleLock != null) {
-                        Spacer(modifier = Modifier.size(8.dp))
+                    if (onShutdown != null) {
+                        Icon(
+                            imageVector = SolarIcons.Power,
+                            contentDescription = "Shut down laptop",
+                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable(onClick = onShutdown)
+                                .padding(10.dp)
+                                .size(20.dp),
+                        )
                     }
-                    Icon(
-                        imageVector = SolarIcons.Suspend,
-                        contentDescription = "Suspend laptop",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onSuspend)
-                            .padding(4.dp)
-                            .size(20.dp),
-                    )
-                }
-                if (onShutdown != null) {
-                    if ((locked != null && onToggleLock != null) || onSuspend != null) {
-                        Spacer(modifier = Modifier.size(8.dp))
-                    }
-                    Icon(
-                        imageVector = SolarIcons.Power,
-                        contentDescription = "Shut down laptop",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onShutdown)
-                            .padding(4.dp)
-                            .size(20.dp),
-                    )
                 }
             }
         }

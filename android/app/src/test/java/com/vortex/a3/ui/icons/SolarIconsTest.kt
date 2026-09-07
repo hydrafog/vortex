@@ -96,4 +96,22 @@ class SolarIconsTest {
             SolarIcons.resolve("NotAnIcon")
         }
     }
+
+    @Test
+    fun `all allowlisted glyphs resolve without failure`() {
+        for (name in SOLAR_ICON_ALLOWLIST) {
+            SolarIcons.resolve(name)
+        }
+    }
+
+    @Test
+    fun `ported solar glyphs are distinct`() {
+        assertNotEquals(SolarIcons.Language, SolarIcons.Settings)
+        assertNotEquals(SolarIcons.LightMode, SolarIcons.DarkMode)
+        assertNotEquals(SolarIcons.Notifications, SolarIcons.NotificationsActive)
+        assertNotEquals(SolarIcons.Lock, SolarIcons.LockOpen)
+        assertNotEquals(SolarIcons.Cast, SolarIcons.Laptop)
+        assertNotEquals(SolarIcons.ContentPaste, SolarIcons.FileDownload)
+        assertNotEquals(SolarIcons.TouchApp, SolarIcons.Add)
+    }
 }
