@@ -45,18 +45,6 @@ Or run the daemon directly:
 cargo run --manifest-path linux/daemon/Cargo.toml
 ```
 
-## Resident tray behavior
-
-The Linux client runs as a resident tray application. The `vortex` tray icon and menu form the primary surface. The main window stays hidden during resident start while background workers for sync, clipboard, and notifications stay alive.
-
-Startup visibility follows a single rule. Tray enabled allows a hidden resident start. Tray disabled forces a visible main window so the application starts with at least one visible surface. The `--hidden`, `--clipboard`, and `--share` flags request background start. The `--no-tray` flag and the `enabled` field in `tray.json` report whether the tray is available. `is_tray_enabled` combines both sources. Closing the main window hides the window and keeps the tray resident.
-
-Single-instance arguments resolve through the same surface. The `--sms` path records a recent alert in the tray, shows a toast, and copies the number to the local clipboard for reply from the phone. The `--sms-send` path records a recent alert, shows a toast, and sends in the background. The `--share` path forwards file paths to the transfer pipeline.
-
-## Autostart
-
-Autostart launches the resident tray on login. The Home Manager module exposes the option directly.
-
 ### 4. Binary cache
 
 To skip local builds of Rust and WebKitGTK, point Nix at the Cachix cache:
@@ -108,11 +96,21 @@ Import the module and enable the service:
 
 The `autostart` field installs an XDG autostart entry for resident tray launch. Notification access and background permissions cover banner delivery and clipboard handoff on first login.
 
----
+## Resident tray behavior
+
+The Linux client runs as a resident tray application. The `vortex` tray icon and menu form the primary surface. The main window stays hidden during resident start while background workers for sync, clipboard, and notifications stay alive.
+
+Startup visibility follows a single rule. Tray enabled allows a hidden resident start. Tray disabled forces a visible main window so the application starts with at least one visible surface. The `--hidden`, `--clipboard`, and `--share` flags request background start. The `--no-tray` flag and the `enabled` field in `tray.json` report whether the tray is available. `is_tray_enabled` combines both sources. Closing the main window hides the window and keeps the tray resident.
+
+Single-instance arguments resolve through the same surface. The `--sms` path records a recent alert in the tray, shows a toast, and copies the number to the local clipboard for reply from the phone. The `--sms-send` path records a recent alert, shows a toast, and sends in the background. The `--share` path forwards file paths to the transfer pipeline.
+
+## Autostart
+
+Autostart launches the resident tray on login. The Home Manager module exposes the option directly.
 
 ## Android client setup
 
-1. Enable **Developer options** and **USB debugging** on your Android device.
+1. Enable Developer options and USB debugging on your Android device.
 2. Build and install the APK via Gradle:
 
    ```bash

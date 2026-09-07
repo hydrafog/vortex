@@ -19,3 +19,9 @@ To use the phone as a second Linux monitor:
 1. The desktop opens a Wayland screencast through `ashpd` and `org.freedesktop.portal.ScreenCast`.
 2. GStreamer encodes captured buffers to H.264, with VA-API or NVENC when present.
 3. Android decodes the stream onto a `SurfaceView`.
+
+## See also
+
+- `docs/architecture/overview.md` describes GStreamer desktop integration and Wayland capture.
+- `docs/architecture/protocols.md` details Wi-Fi transport and ChaCha20-Poly1305 framing.
+- `docs/features/universal-control.md` describes remote cursor and touch input injection.

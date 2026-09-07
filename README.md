@@ -59,3 +59,9 @@ Vortex links a Linux desktop and an Android phone over the local network. Clipbo
 ## License
 
 This project is licensed under the [GNU General Public License v3.0](LICENSE).
+
+## See also
+
+- `docs/index.md` provides the complete documentation table of contents.
+- `docs/getting-started/installation.md` details installation and build commands.
+- `docs/architecture/overview.md` explains system architecture and component structure.

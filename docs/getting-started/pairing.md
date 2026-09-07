@@ -23,3 +23,9 @@ For a phone already paired for classic audio, use the one-click Remove Bond acti
 3. Confirm the three emoji on both screens.
 
 After that, Vortex encrypts over BLE and local Wi-Fi and moves audio through smart audio handoff.
+
+## See also
+
+- `docs/architecture/protocols.md` details Noise XX and wire encryption.
+- `docs/security-compliance/security.md` covers authentication and local-first security.
+- `docs/operations/troubleshooting.md` covers Bluetooth pairing and BlueZ bond removal.

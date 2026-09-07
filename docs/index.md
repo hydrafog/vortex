@@ -22,3 +22,9 @@ This is the documentation for Vortex. It describes how a Linux desktop and an An
   - [Security architecture](security-compliance/security.md)
 - [Operations and troubleshooting](operations/troubleshooting.md): diagnostics, BLE debugging, and common fixes.
   - [Troubleshooting guide](operations/troubleshooting.md)
+
+## See also
+
+- `README.md` introduces project goals and high-level features.
+- `docs/getting-started/installation.md` describes installation and client setup.
+- `docs/architecture/overview.md` describes system architecture and component structure.

@@ -54,3 +54,9 @@ services.vortex = {
   };
 };
 ```
+
+## See also
+
+- `docs/architecture/overview.md` describes the input helper and desktop UI architecture.
+- `docs/architecture/protocols.md` details pointer and input event protobuf contracts.
+- `docs/operations/troubleshooting.md` covers ADB permissions and Wayland portal troubleshooting.

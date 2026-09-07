@@ -27,3 +27,9 @@ On commit, Lefthook runs:
 4. Commit message check for a lowercase prefix (`feat`, `fix`, `chore`, `docs`, `refactor`) and a subject within 72 characters (`scripts/hooks/commit-msg`).
 
 On push, it runs `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked`, the frontend build (`pnpm run build`), and Android unit plus crypto parity tests (`shared/vectors`).
+
+## See also
+
+- `docs/getting-started/installation.md` explains environment activation and build commands.
+- `docs/operations/troubleshooting.md` details diagnostic commands and log inspection.
+- `docs/architecture/overview.md` details component layouts across the repository.
