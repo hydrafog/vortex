@@ -109,9 +109,10 @@ mod tests {
             super::ClickAction::Tray(kind) => assert_eq!(kind, "call"),
             _ => panic!("call must resolve to tray fallback"),
         }
-        match super::resolve_notif_click("org.telegram.messenger", "Telegram", "Carol") {
-            super::ClickAction::Tray(_) => panic!("unknown app must not resolve to tray"),
-            _ => {}
+        if let super::ClickAction::Tray(_) =
+            super::resolve_notif_click("org.telegram.messenger", "Telegram", "Carol")
+        {
+            panic!("unknown app must not resolve to tray")
         }
     }
 
