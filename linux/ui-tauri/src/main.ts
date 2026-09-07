@@ -6,14 +6,12 @@ import { router } from "@/router";
 import { initConnectionStore } from "@/lib/connectionStore";
 import { initHome } from "@/composables/useHome";
 import { initContacts } from "@/composables/useContacts";
-import { initRecents } from "@/composables/useRecents";
 import { initMessages } from "@/composables/useMessages";
 import "@/lib/theme";
 
 initConnectionStore();
 initHome();
 initContacts();
-initRecents();
 initMessages();
 
 createApp(App).use(i18n).use(router).mount("#app");

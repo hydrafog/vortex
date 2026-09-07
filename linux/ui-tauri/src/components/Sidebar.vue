@@ -4,15 +4,10 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import {
   SolarDevices,
-  SolarUsersGroup,
-  SolarPhone,
-  SolarChatSquare,
-  SolarNotebook,
   SolarSettings,
   SolarChevronsLeft,
 } from "@/lib/solarIcons";
 import VortexLogo from "@/components/VortexLogo.vue";
-import { unreadConversations } from "@/composables/useMessages";
 
 const route = useRoute();
 const router = useRouter();
@@ -22,10 +17,6 @@ const collapsed = ref(true);
 
 const items = computed(() => [
   { key: "home", icon: SolarDevices, to: "/", label: t("nav.home") },
-  { key: "contacts", icon: SolarUsersGroup, to: "/contacts", label: t("nav.contacts") },
-  { key: "recents", icon: SolarPhone, to: "/recents", label: t("nav.recents") },
-  { key: "messages", icon: SolarChatSquare, to: "/messages", label: t("nav.messages") },
-  { key: "notes", icon: SolarNotebook, to: "/notes", label: t("nav.notes") },
   { key: "settings", icon: SolarSettings, to: "/settings", label: t("nav.settings") },
 ]);
 
@@ -84,10 +75,6 @@ function go(to: string) {
       >
         <span class="relative inline-flex shrink-0">
           <component :is="it.icon" :size="19" :stroke-width="1.8" />
-          <span
-            v-if="it.key === 'messages' && unreadConversations > 0"
-            class="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-semibold text-primary-foreground"
-          >{{ unreadConversations > 99 ? "99+" : unreadConversations }}</span>
         </span>
         <span
           class="whitespace-nowrap text-sm transition-[opacity,transform] duration-300"

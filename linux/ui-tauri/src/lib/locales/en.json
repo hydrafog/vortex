@@ -188,10 +188,6 @@
   },
   "nav": {
     "home": "My devices",
-    "contacts": "Contacts",
-    "recents": "Recents",
-    "messages": "Messages",
-    "notes": "Notes",
     "settings": "Settings"
   },
   "notes": {

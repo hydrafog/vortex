@@ -21,9 +21,7 @@ function onMouseNav(e: MouseEvent) {
   }
 }
 function onKeyNav(e: KeyboardEvent) {
-  if (e.key === "Escape" && /^\/messages\/./.test(route.path)) {
-    router.back();
-  } else if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+  if ((e.ctrlKey || e.metaKey) && e.key === "f") {
     const el = document.querySelector<HTMLInputElement>("input[data-search]");
     if (el) {
       e.preventDefault();

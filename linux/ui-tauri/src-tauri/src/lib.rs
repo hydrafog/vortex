@@ -68,7 +68,7 @@ pub(crate) use call::{
 };
 pub(crate) use clipboard_sync::{ClipboardImageWriter, ClipboardWriter};
 pub(crate) use ipc::{app_state_to_dto, emit_peers, CmdChannel, UiCmd};
-pub(crate) use notifications::{NotifWriter, ACTIVE_CHAT};
+pub(crate) use notifications::NotifWriter;
 
 pub(crate) type SealedWriter = Arc<
     dyn Fn(
@@ -143,7 +143,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            use tauri::{Emitter, Manager};
+            use tauri::Manager;
             tracing::info!(?argv, "single-instance: second launch forwarded");
             if let Some(pos) = argv.iter().position(|a| a == "--share") {
                 let paths: Vec<String> = argv[pos + 1..].to_vec();
@@ -160,19 +160,49 @@ pub fn run() {
                 if let (Some(number), Some(body)) =
                     (argv.get(pos + 1).cloned(), argv.get(pos + 2).cloned())
                 {
-                    if let Some(w) = app.get_webview_window("main") {
-                        let _ = w.emit("vortex:open-sms", serde_json::json!({ "number": number }));
-                        let _ = w.show();
-                        let _ = w.set_focus();
+                    // NOTE: tray-first fallback uses toast plus tray; deleted pages are never an emit target.
+                    let number = number.trim().to_string();
+                    if number.is_empty() || body.trim().is_empty() {
+                        tracing::warn!(
+                            "single-instance --sms-send with empty number/body; ignoring"
+                        );
+                    } else {
+                        crate::tray::push_recent_alert(
+                            app,
+                            "SMS queued".to_string(),
+                            "Outgoing message sending".to_string(),
+                        );
+                        crate::tray::show_tray_toast(
+                            "SMS queued".to_string(),
+                            "Sending in the background".to_string(),
+                        );
+                        tracing::info!("single-instance --sms-send queued via tray fallback");
+                        tauri::async_runtime::spawn(
+                            async move { call::send_sms(number, body).await },
+                        );
                     }
-                    tauri::async_runtime::spawn(async move { call::send_sms(number, body).await });
                 }
             } else if let Some(pos) = argv.iter().position(|a| a == "--sms") {
                 if let Some(number) = argv.get(pos + 1).cloned() {
-                    if let Some(w) = app.get_webview_window("main") {
-                        let _ = w.emit("vortex:open-sms", serde_json::json!({ "number": number }));
-                        let _ = w.show();
-                        let _ = w.set_focus();
+                    // NOTE: tray-first fallback uses toast plus clipboard plus tray; no window show here.
+                    let number = number.trim().to_string();
+                    if number.is_empty() {
+                        tracing::warn!("single-instance --sms with empty number; ignoring");
+                    } else {
+                        let display: String = number.chars().take(32).collect();
+                        crate::tray::push_recent_alert(
+                            app,
+                            "SMS request".to_string(),
+                            format!("Thread {display} — see phone"),
+                        );
+                        crate::tray::show_tray_toast(
+                            "SMS request".to_string(),
+                            "Number copied — reply from your phone".to_string(),
+                        );
+                        if let Err(e) = crate::clipboard_sync::set_local_text(&number) {
+                            tracing::warn!("single-instance --sms clipboard copy failed: {e}");
+                        }
+                        tracing::info!("single-instance --sms handled via tray fallback");
                     }
                 }
             } else if argv.iter().any(|a| a == "--clipboard") {
@@ -215,15 +245,19 @@ pub fn run() {
                 worker::run_worker(handle, rx);
             });
 
-            if is_tray_enabled() {
+            let tray_enabled = is_tray_enabled();
+            if tray_enabled {
                 tray::setup(app)?;
             }
 
             {
                 use tauri::Manager;
-                let special = std::env::args()
+                let hidden_requested = std::env::args()
                     .any(|a| a == "--hidden" || a == "--clipboard" || a == "--share");
-                if !special {
+                // NOTE: neither-visible guard. Disabled tray forces a visible window.
+                // NOTE: enabled tray allows hidden resident start with workers alive.
+                let should_show = !hidden_requested || !tray_enabled;
+                if should_show {
                     if let Some(w) = app.get_webview_window("main") {
                         let _ = w.show();
                         let _ = w.set_focus();
@@ -313,7 +347,6 @@ pub fn run() {
             call_log::get_call_log_history,
             sms::get_sms,
             sms::get_sms_history,
-            notifications::set_active_chat,
             call::dial,
             call::send_sms,
             call::mark_sms_read,

@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-pub(crate) static ACTIVE_CHAT: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
-
 const SMS_APP_IDS: &[&str] = &[
     "com.google.android.apps.messaging",
     "com.android.messaging",
@@ -47,15 +45,27 @@ fn wa_number(raw: &str) -> String {
 }
 
 enum ClickAction {
-    Page(&'static str),
+    Tray(&'static str),
     OpenUrl(String),
     LaunchApp(std::path::PathBuf),
     Dismiss,
 }
 
+// NOTE: allowlist for external opens from a notification click. Only these URL
+fn is_allowlisted_url(url: &str) -> bool {
+    const ALLOWLIST: &[&str] = &[
+        "https://wa.me/",
+        "https://mail.google.com/",
+        "https://outlook.live.com/",
+        "https://mail.yahoo.com/",
+        "https://mail.proton.me/",
+    ];
+    ALLOWLIST.iter().any(|prefix| url.starts_with(prefix))
+}
+
 fn resolve_notif_click(app_id: &str, app_label: &str, title: &str) -> ClickAction {
     if let Some(kind) = notif_click_target(app_id) {
-        return ClickAction::Page(kind);
+        return ClickAction::Tray(kind);
     }
     if is_whatsapp(app_id) {
         if let Some(num) = crate::contacts::lookup_number_by_name(title) {
@@ -76,7 +86,7 @@ fn resolve_notif_click(app_id: &str, app_label: &str, title: &str) -> ClickActio
 
 #[cfg(test)]
 mod tests {
-    use super::{is_whatsapp, notif_click_target, wa_number, webmail_inbox};
+    use super::{is_allowlisted_url, is_whatsapp, notif_click_target, wa_number, webmail_inbox};
 
     #[test]
     fn click_target_gates_by_app() {
@@ -87,6 +97,30 @@ mod tests {
         assert_eq!(notif_click_target("org.telegram.messenger"), None);
         assert_eq!(notif_click_target("com.whatsapp"), None);
         assert_eq!(notif_click_target(""), None);
+    }
+
+    #[test]
+    fn sms_and_call_resolve_to_tray_fallback() {
+        match super::resolve_notif_click("com.google.android.apps.messaging", "Messages", "Alice") {
+            super::ClickAction::Tray(kind) => assert_eq!(kind, "sms"),
+            _ => panic!("sms must resolve to tray fallback"),
+        }
+        match super::resolve_notif_click("com.google.android.dialer", "Phone", "Bob") {
+            super::ClickAction::Tray(kind) => assert_eq!(kind, "call"),
+            _ => panic!("call must resolve to tray fallback"),
+        }
+        match super::resolve_notif_click("org.telegram.messenger", "Telegram", "Carol") {
+            super::ClickAction::Tray(_) => panic!("unknown app must not resolve to tray"),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn allowlisted_urls_only() {
+        assert!(is_allowlisted_url("https://wa.me/998901234567"));
+        assert!(is_allowlisted_url("https://mail.google.com/"));
+        assert!(!is_allowlisted_url("https://evil.example/steal"));
+        assert!(!is_allowlisted_url("file:///etc/passwd"));
     }
 
     #[test]
@@ -103,13 +137,6 @@ mod tests {
     fn wa_number_strips_to_digits() {
         assert_eq!(wa_number("+998 90 123-45-67"), "998901234567");
         assert_eq!(wa_number("(555) 010"), "555010");
-    }
-}
-
-#[tauri::command]
-pub fn set_active_chat(name: String) {
-    if let Ok(mut g) = ACTIVE_CHAT.lock() {
-        *g = name;
     }
 }
 
@@ -223,7 +250,6 @@ pub(crate) fn spawn_subsystem(
 
     {
         let links = notif_links.clone();
-        let app_show = app.clone();
         let writer_for_catchup = ble_notif_writer.clone();
         let delivered = delivered_keys.clone();
         let pending = catch_up_pending.clone();
@@ -288,20 +314,6 @@ pub(crate) fn spawn_subsystem(
                 if !NOTIF_SHOW.load(std::sync::atomic::Ordering::Relaxed) {
                     tracing::info!(app = %notif.app, "notif: suppressed (show toggle off)");
                     continue;
-                }
-                {
-                    use tauri::Manager;
-                    let active = crate::ACTIVE_CHAT.lock().map(|g| g.clone()).unwrap_or_default();
-                    if !active.is_empty()
-                        && notif.title == active
-                        && app_show
-                            .get_webview_window("main")
-                            .map(|w| w.is_focused().unwrap_or(false))
-                            .unwrap_or(false)
-                    {
-                        tracing::info!("notif: suppressed (chat open and focused)");
-                        continue;
-                    }
                 }
                 let replaces_id = if notif.key.is_empty() {
                     0
@@ -431,26 +443,44 @@ pub(crate) fn spawn_subsystem(
                         .map(|l| (l.3.clone(), l.4.clone(), l.5.clone()))
                         .unwrap_or_default();
                     match resolve_notif_click(&app_id, &app_label, &title) {
-                        ClickAction::Page(kind) => {
-                            use tauri::{Emitter, Manager};
-                            if let Some(w) = app_open.get_webview_window("main") {
-                                let _ = w.show();
-                                let _ = w.unminimize();
-                                let _ = w.set_focus();
-                            }
-                            tracing::info!(%app_id, kind, "notif click: open laptop page");
-                            let _ = app_open.emit(
-                                        "vortex:open-chat",
-                                        serde_json::json!({ "title": title, "appId": app_id, "kind": kind }),
-                                    );
+                        ClickAction::Tray(kind) => {
+                            // NOTE: tray-first triage fallback. Deleted pages are never a click target;
+                            // NOTE: triage happens via the tray menu plus toast. The clipboard leg
+                            // NOTE: stays owned by the SMS OTP offer at delivery time so clicks
+                            // NOTE: never overwrite it with stale text.
+                            crate::tray::push_recent_alert(
+                                &app_open,
+                                title.clone(),
+                                format!("{kind} alert — see tray"),
+                            );
+                            let (toast_title, toast_body) = match kind {
+                                "call" => (
+                                    "Call — see tray".to_string(),
+                                    "Use Answer / Decline in the tray menu".to_string(),
+                                ),
+                                _ => (
+                                    "Message — see tray".to_string(),
+                                    "Use Copy login code in the tray menu".to_string(),
+                                ),
+                            };
+                            crate::tray::show_tray_toast(toast_title, toast_body);
+                            tracing::info!(%app_id, kind, "notif click: tray fallback");
                         }
                         ClickAction::OpenUrl(url) => {
-                            tracing::info!(%app_id, "notif click: open in browser");
-                            let _ = tokio::process::Command::new("xdg-open").arg(&url).spawn();
+                            if !is_allowlisted_url(&url) {
+                                tracing::warn!(%app_id, "notif click: blocked non-allowlisted open");
+                            } else {
+                                tracing::info!(%app_id, "notif click: open in browser");
+                                let _ = tokio::process::Command::new("xdg-open").arg(&url).spawn();
+                            }
                         }
                         ClickAction::LaunchApp(path) => {
-                            tracing::info!(%app_id, app = %app_label, "notif click: launch desktop app");
-                            crate::desktop_apps::launch(&path);
+                            if path.extension().and_then(|e| e.to_str()) != Some("desktop") {
+                                tracing::warn!(%app_id, "notif click: blocked non-desktop launch");
+                            } else {
+                                tracing::info!(%app_id, app = %app_label, "notif click: launch desktop app");
+                                crate::desktop_apps::launch(&path);
+                            }
                         }
                         ClickAction::Dismiss => {
                             tracing::info!(%app_id, "notif click: dismiss-only (no matching laptop app)");

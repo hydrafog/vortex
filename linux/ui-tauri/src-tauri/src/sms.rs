@@ -234,3 +234,62 @@ pub(crate) fn get_sms_history() -> Vec<SmsMessage> {
         .and_then(|b| serde_json::from_slice::<Vec<SmsMessage>>(&b).ok())
         .unwrap_or_default()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::OTP_FRESH_MS;
+    use vortex_l3_daemon::core::sms::{extract_otp, SmsMessage};
+
+    fn msg(id: &str, body: &str, msg_type: i32, date: i64) -> SmsMessage {
+        SmsMessage {
+            id: id.to_string(),
+            address: "+998901234567".to_string(),
+            body: body.to_string(),
+            r#type: msg_type,
+            date,
+            thread: 1,
+            read: 0,
+        }
+    }
+
+    fn pick(known: &[SmsMessage], incoming: &[SmsMessage], now: i64) -> Option<String> {
+        let seen: std::collections::HashSet<&str> = known.iter().map(|m| m.id.as_str()).collect();
+        incoming
+            .iter()
+            .filter(|m| m.r#type == 1 && !seen.contains(m.id.as_str()))
+            .filter(|m| now - m.date < OTP_FRESH_MS)
+            .filter_map(|m| extract_otp(&m.body).map(|c| (m, c)))
+            .max_by_key(|(m, _)| m.date)
+            .map(|(_, code)| code)
+    }
+
+    #[test]
+    fn otp_fresh_window_is_five_minutes() {
+        assert_eq!(OTP_FRESH_MS, 5 * 60 * 1000);
+    }
+
+    #[test]
+    fn otp_selection_prefers_newest_unseen_inbound() {
+        let now = 1_700_000_000_000i64;
+        let known = vec![msg("1", "Your code is 111111", 1, now - 60_000)];
+        let incoming = vec![
+            msg("1", "Your code is 111111", 1, now - 60_000),
+            msg("2", "Your code is 222222", 2, now - 10_000),
+            msg("3", "Your code is 333333", 1, now - 20_000),
+            msg("4", "Your code is 444444", 1, now - 5_000),
+        ];
+        // NOTE: seen id 1 plus outbound type 2 are skipped; newest fresh inbound wins.
+        assert_eq!(pick(&known, &incoming, now).as_deref(), Some("444444"));
+    }
+
+    #[test]
+    fn otp_selection_rejects_stale_and_hint_less() {
+        let now = 1_700_000_000_000i64;
+        let known = vec![msg("seen", "Your code is 999999", 1, now - 60_000)];
+        let stale = vec![msg("old", "Your code is 123456", 1, now - OTP_FRESH_MS - 1)];
+        assert_eq!(pick(&known, &stale, now), None);
+        let hint_less = vec![msg("bal", "Balansingiz 45000 so'm", 1, now - 1_000)];
+        assert_eq!(pick(&known, &hint_less, now), None);
+        assert_eq!(extract_otp("See you at 1830"), None);
+    }
+}
