@@ -49,14 +49,14 @@ The tray icon reflects `is_tray_enabled`, which combines the `--no-tray` flag wi
 Banners arrive through `org.freedesktop.Notifications` with `show` and `show_call_banner` delivery, `watch_actions` capability probing, and `watch_closed` dismissal tracking. The failure mode is a banner that never appears or disappears before triage. The checks share one pattern: confirm the notification toggle, then confirm the server capability.
 
 - When all banners are absent, confirm the notification toggle in the tray menu and the `notifications.enable` setting. The daemon logs a suppressed event at info level with a redacted payload.
-- When call banners vanish early, check the server `actions` capability. A server without `actions` degrades Accept, Decline, and Reply into timeout-as-declined, which the daemon logs at warning level. The tray menu carries compensating answer and decline entries.
+- When call banners vanish early, check the server `actions` capability. A server without `actions` degrades Accept, Decline, and Reply into timeout-as-declined, which the daemon logs at warning level.
 - Repeated alerts update in place through a `replace-id` key derived from the phone key. Catch-up resync debounces at 1500 ms with a 90 s minimum interval after `BLE` drops, so a burst of duplicates points to transport replay rather than tray state.
 
 ### Triage paths
 
-Each alert carries a triage path that avoids any full page. SMS and call clicks record a recent alert in the tray and show a toast. Call toasts direct to Answer and Decline in the tray menu. Message toasts direct to Copy login code in the tray menu.
+Each alert carries a triage path that avoids any full page. Notification banners present direct action buttons, while toasts confirm background actions.
 
-- When a click does nothing visible, open the tray menu and read the Recent entry. The menu keeps the last five alerts with truncated titles. A fresh entry there means delivery works and only the banner action was lost.
+- When an alert action is triggered, Vortex performs the action directly without requiring a resident window.
 - When an SMS code is missing from the clipboard, use Copy login code in the tray menu. The clipboard leg belongs to the SMS delivery offer, so clicks never overwrite it with stale text.
 - External opens validate against an allowlist (`https://wa.me/`, Gmail, Outlook, Yahoo, Proton webmail). Non-allowlisted URLs stay closed and log a warning. Desktop app launches accept `.desktop` paths only.
 

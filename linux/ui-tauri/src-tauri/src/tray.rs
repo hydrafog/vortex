@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::sync::Mutex;
 
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
@@ -14,8 +14,6 @@ use crate::{CmdChannel, UiCmd};
 pub(crate) struct BatteryMenuItem {
     pub(crate) buds: MenuItem<tauri::Wry>,
     pub(crate) phone: MenuItem<tauri::Wry>,
-    pub(crate) status: MenuItem<tauri::Wry>,
-    pub(crate) recent: MenuItem<tauri::Wry>,
     pub(crate) notif_toggle: MenuItem<tauri::Wry>,
     pub(crate) clip_toggle: MenuItem<tauri::Wry>,
 }
@@ -44,23 +42,8 @@ fn trunc_menu(s: &str, max: usize) -> String {
     }
 }
 
-fn recent_label_locked(q: &VecDeque<(String, String)>) -> String {
-    match q.front() {
-        Some((title, summary)) => {
-            let head = if !title.trim().is_empty() { title } else { summary };
-            let clean = head.replace('\n', " ").trim().to_string();
-            if clean.is_empty() {
-                "Recent: (empty alert)".to_string()
-            } else {
-                format!("Recent: {}", trunc_menu(&clean, 42))
-            }
-        }
-        None => "Recent: none".to_string(),
-    }
-}
-
-pub(crate) fn push_recent_alert(app: &tauri::AppHandle, title: String, summary: String) {
-    let label = {
+pub(crate) fn push_recent_alert(_app: &tauri::AppHandle, title: String, summary: String) {
+    {
         let mut q = RECENT_ALERTS.lock().unwrap_or_else(|p| p.into_inner());
         let t = trunc_menu(title.trim(), 64);
         let s = trunc_menu(summary.trim(), 96);
@@ -70,15 +53,8 @@ pub(crate) fn push_recent_alert(app: &tauri::AppHandle, title: String, summary: 
                 q.pop_back();
             }
         }
-        recent_label_locked(&q)
-    };
+    }
     tracing::info!("tray: recent alert recorded");
-    let app_menu = app.clone();
-    let _ = app.run_on_main_thread(move || {
-        if let Some(state) = app_menu.try_state::<BatteryMenuItem>() {
-            let _ = state.recent.set_text(label);
-        }
-    });
 }
 
 pub(crate) fn show_tray_toast(title: String, body: String) {
@@ -200,43 +176,44 @@ fn toggle_main_visibility(app: &tauri::AppHandle) {
 }
 
 pub(crate) fn setup(app: &tauri::App) -> tauri::Result<()> {
-    let status_i =
-        MenuItem::with_id(app, "tray_status", "Vortex — tray resident", false, None::<&str>)?;
-    let recent_i = MenuItem::with_id(app, "tray_recent", "Recent: none", false, None::<&str>)?;
-    let answer_i = MenuItem::with_id(app, "tray_answer", "Answer call", true, None::<&str>)?;
-    let decline_i = MenuItem::with_id(app, "tray_decline", "Decline call", true, None::<&str>)?;
-    let copy_code_i =
-        MenuItem::with_id(app, "tray_copy_code", "Copy login code", true, None::<&str>)?;
-    let buds_i = MenuItem::with_id(app, "buds_batt", "Buds   --", false, None::<&str>)?;
     let phone_i = MenuItem::with_id(app, "phone_batt", "Phone   --", false, None::<&str>)?;
+    let buds_i = MenuItem::with_id(app, "buds_batt", "Buds   --", false, None::<&str>)?;
+    let sep1 = PredefinedMenuItem::separator(app)?;
+
     let send_files_i =
         MenuItem::with_id(app, "send_files", "Send files to phone", true, None::<&str>)?;
     let mirror_i = MenuItem::with_id(app, "mirror", "Share screen", true, None::<&str>)?;
     let clipboard_i =
         MenuItem::with_id(app, "clipboard", "Open clipboard history", true, None::<&str>)?;
     let switch_i = MenuItem::with_id(app, "switch", "Switch earbuds", true, None::<&str>)?;
+    let copy_code_i =
+        MenuItem::with_id(app, "tray_copy_code", "Copy login code", true, None::<&str>)?;
+    let sep2 = PredefinedMenuItem::separator(app)?;
+
     let notif_toggle_i =
         MenuItem::with_id(app, "tray_notif_toggle", "Notifications: On", true, None::<&str>)?;
     let clip_toggle_i =
         MenuItem::with_id(app, "tray_clip_toggle", "Clipboard sync: On", true, None::<&str>)?;
+    let sep3 = PredefinedMenuItem::separator(app)?;
+
     let show_i = MenuItem::with_id(app, "show", "Show / Hide", true, None::<&str>)?;
     let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+
     let menu = Menu::with_items(
         app,
         &[
-            &status_i,
-            &recent_i,
-            &answer_i,
-            &decline_i,
-            &copy_code_i,
             &phone_i,
             &buds_i,
+            &sep1,
             &send_files_i,
             &mirror_i,
             &clipboard_i,
             &switch_i,
+            &copy_code_i,
+            &sep2,
             &notif_toggle_i,
             &clip_toggle_i,
+            &sep3,
             &show_i,
             &quit_i,
         ],
@@ -244,8 +221,6 @@ pub(crate) fn setup(app: &tauri::App) -> tauri::Result<()> {
     app.manage(BatteryMenuItem {
         buds: buds_i,
         phone: phone_i,
-        status: status_i,
-        recent: recent_i,
         notif_toggle: notif_toggle_i,
         clip_toggle: clip_toggle_i,
     });
@@ -256,15 +231,6 @@ pub(crate) fn setup(app: &tauri::App) -> tauri::Result<()> {
         .tooltip("Vortex")
         .menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "tray_answer" => {
-                // NOTE: tray compensates when the server lacks actions buttons; timeout counts as declined.
-                tracing::info!("tray: answer call requested");
-                tauri::async_runtime::spawn(async move { crate::call::call_accept().await });
-            }
-            "tray_decline" => {
-                tracing::info!("tray: decline call requested");
-                tauri::async_runtime::spawn(async move { crate::call::call_decline().await });
-            }
             "tray_copy_code" => {
                 // NOTE: conservative copy keeps OTP handling tight; stale or hint-less codes never touch the clipboard.
                 match latest_login_code() {
