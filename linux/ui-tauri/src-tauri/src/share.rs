@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use tauri::AppHandle;
-use vortex_l3_daemon::core::outgoing_share::{enqueue_batch, OutgoingFile};
+use vortex_l3_daemon::core::outgoing_share::{enqueue_batch, enqueue_url, OutgoingFile};
 
 pub(crate) fn handle_share(_app: &AppHandle, paths: Vec<String>) -> Result<usize, String> {
     let mut batch: Vec<OutgoingFile> = Vec::new();
@@ -95,6 +95,22 @@ pub async fn pick_and_send_files(app: AppHandle) -> Result<usize, String> {
         }
     }
     Ok(0)
+}
+
+pub(crate) fn handle_open_url(_app: &AppHandle, url: String) -> Result<(), String> {
+    let url = url.trim().to_string();
+    if !url.starts_with("https://") && !url.starts_with("http://") {
+        tracing::warn!(url, "open-url: rejected non-http(s) scheme");
+        return Err("Only http:// and https:// URLs are supported".to_string());
+    }
+    if !enqueue_url(url.clone()) {
+        return Err("Failed to enqueue URL".to_string());
+    }
+    tracing::info!(url, "open-url: queued for phone");
+    if let Some(n) = crate::SYNC_NUDGE.get() {
+        n.notify_one();
+    }
+    Ok(())
 }
 
 fn read_file(path: &Path) -> Option<OutgoingFile> {

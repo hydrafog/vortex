@@ -244,6 +244,21 @@ pub async fn run_lan_reconnect(
         }
     }
 
+    if let Some(url) = crate::core::outgoing_share::take_url() {
+        let ev = crate::core::handoff::HandoffEvent {
+            url: url.clone(),
+            title: String::new(),
+            app_id: String::new(),
+            open_now: true,
+        };
+        let json = ev.to_json();
+        if let Err(e) = send_sealed(&mut stream, &mut transport, ty::HANDOFF, &json).await {
+            tracing::warn!(url, "url-to-phone: HANDOFF send failed: {e}");
+        } else {
+            tracing::info!(url, "→ url-to-phone: HANDOFF sent");
+        }
+    }
+
     let _ = stream.shutdown().await;
     Ok(LanReconnectOutcome {
         transcript_hash,
@@ -330,13 +345,28 @@ async fn push_outgoing_batch(
             })?;
             let mut buf = vec![0u8; PUSH_CHUNK_BYTES];
             for chunk_idx in 0..total_chunks {
+                let is_last = chunk_idx + 1 == total_chunks;
                 let n = if f.size == 0 {
                     0
+                } else if is_last {
+                    let mut total_read = 0usize;
+                    loop {
+                        let got = file.read(&mut buf[total_read..]).await.map_err(|e| {
+                            report_progress(OutProgress::Fail);
+                            LanError::Io(e)
+                        })?;
+                        total_read += got;
+                        if got == 0 || total_read == PUSH_CHUNK_BYTES {
+                            break;
+                        }
+                    }
+                    total_read
                 } else {
-                    file.read(&mut buf).await.map_err(|e| {
+                    file.read_exact(&mut buf).await.map_err(|e| {
                         report_progress(OutProgress::Fail);
                         LanError::Io(e)
-                    })?
+                    })?;
+                    PUSH_CHUNK_BYTES
                 };
                 let header = encode_chunk_header(total_chunks, chunk_idx);
                 let mut payload = Vec::with_capacity(header.len() + n);

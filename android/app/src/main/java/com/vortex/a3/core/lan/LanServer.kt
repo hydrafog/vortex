@@ -1,6 +1,8 @@
 package com.vortex.a3.core.lan
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
@@ -755,6 +757,31 @@ class LanServer(
                             }
                             if (saved > 0) {
                                 IncomingFile.notifyReceived(context, label, saved)
+                            }
+                        }
+                        frame.type == FrameType.HANDOFF -> {
+                            val plain = runCatching {
+                                aeadOpen(pair.receiver, frame.payload)
+                            }.getOrNull()
+                            if (plain == null) {
+                                Log.w(TAG, "handoff AEAD decrypt failed")
+                                continue
+                            }
+                            runCatching {
+                                val obj = org.json.JSONObject(String(plain, Charsets.UTF_8))
+                                val url = obj.optString("url", "")
+                                val openNow = obj.optBoolean("open_now", false)
+                                if (openNow && url.startsWith("http")) {
+                                    Log.i(TAG, "← handoff from laptop: opening $url")
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(intent)
+                                } else {
+                                    Log.i(TAG, "← handoff from laptop: open_now=$openNow url=${url.take(60)}; ignoring")
+                                }
+                            }.onFailure { e ->
+                                Log.w(TAG, "handoff JSON parse failed: ${e.message}")
                             }
                         }
                         else -> Log.i(TAG, "post-IK frame type=0x${"%02x".format(frame.type)} ignored")

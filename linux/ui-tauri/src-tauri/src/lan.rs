@@ -403,9 +403,20 @@ pub(crate) async fn try_lan_reconnect(
                             }
                         }
                         vortex_l3_daemon::core::ble::frame::ty::CLIPBOARD_FILE => {
-                            let meta = crate::PENDING_FILE_OFFERS
-                                .get()
-                                .and_then(|m| m.lock().ok().and_then(|mut g| g.pop_front()));
+                            let meta = crate::PENDING_FILE_OFFERS.get().and_then(|m| {
+                                m.lock().ok().and_then(|mut g| {
+                                    if let Some(token) = &requested_file_token {
+                                        let pos = g.iter().position(|(t, ..)| t == token);
+                                        if let Some(idx) = pos {
+                                            g.remove(idx)
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        g.pop_front()
+                                    }
+                                })
+                            });
                             if let Some((_, name, mime, id)) = meta {
                                 note_queue_progress();
                                 match crate::clipboard_sync::apply_synced_file(

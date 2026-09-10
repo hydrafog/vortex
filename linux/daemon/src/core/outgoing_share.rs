@@ -46,6 +46,21 @@ impl OutgoingFile {
 
 static QUEUE: Mutex<VecDeque<Vec<OutgoingFile>>> = Mutex::new(VecDeque::new());
 
+static PENDING_URL: Mutex<Option<String>> = Mutex::new(None);
+
+pub fn enqueue_url(url: String) -> bool {
+    if let Ok(mut g) = PENDING_URL.lock() {
+        *g = Some(url);
+        true
+    } else {
+        false
+    }
+}
+
+pub fn take_url() -> Option<String> {
+    PENDING_URL.lock().ok().and_then(|mut g| g.take())
+}
+
 pub fn enqueue_batch(files: Vec<OutgoingFile>) -> bool {
     if files.is_empty() {
         return false;

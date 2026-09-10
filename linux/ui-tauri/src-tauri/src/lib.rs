@@ -148,6 +148,10 @@ pub fn run() {
             if let Some(pos) = argv.iter().position(|a| a == "--share") {
                 let paths: Vec<String> = argv[pos + 1..].to_vec();
                 let _ = share::handle_share(app, paths);
+            } else if let Some(pos) = argv.iter().position(|a| a == "--open-url") {
+                if let Some(url) = argv.get(pos + 1).cloned() {
+                    let _ = share::handle_open_url(app, url);
+                }
             } else if let Some(pos) = argv.iter().position(|a| a == "--call") {
                 if let Some(number) = argv.get(pos + 1).cloned() {
                     tauri::async_runtime::spawn(async move { call::dial(number).await });
@@ -252,8 +256,9 @@ pub fn run() {
 
             {
                 use tauri::Manager;
-                let hidden_requested = std::env::args()
-                    .any(|a| a == "--hidden" || a == "--clipboard" || a == "--share");
+                let hidden_requested = std::env::args().any(|a| {
+                    a == "--hidden" || a == "--clipboard" || a == "--share" || a == "--open-url"
+                });
                 // NOTE: neither-visible guard. Disabled tray forces a visible window.
                 // NOTE: enabled tray allows hidden resident start with workers alive.
                 let should_show = !hidden_requested || !tray_enabled;
@@ -273,6 +278,11 @@ pub fn run() {
                     tauri::async_runtime::spawn(async move {
                         let _ = share::handle_share(&h, paths);
                     });
+                }
+            } else if let Some(pos) = cli_args.iter().position(|a| a == "--open-url") {
+                if let Some(url) = cli_args.get(pos + 1).cloned() {
+                    let h = app.handle().clone();
+                    let _ = share::handle_open_url(&h, url);
                 }
             }
 
