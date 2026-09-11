@@ -1,10 +1,10 @@
 # Troubleshooting guide
 
-Fixes for problems people hit with Vortex.
+Diagnostics and fixes for problems with Vortex.
 
 ## Bluetooth discovery and pairing
 
-### Device not visible during BLE scan
+### Device not visible
 
 1. Ensure Bluetooth is powered on:
 
@@ -20,13 +20,13 @@ Fixes for problems people hit with Vortex.
 
 3. Ensure location and nearby permissions are granted on the Android app (required by Android OS for BLE scanning).
 
-### Pairing fails or aborts
+### Pairing problems
 
-- A Bluetooth timeout, GATT failure, or BlueZ agent conflict shows Pairing failed. Vortex retries the GATT connect 3 times before failing, so a single transient miss does not abort pairing.
-- An explicit emoji reject shows Pairing canceled for safety. Both screens allow 120 seconds to compare the three emoji.
+- A Bluetooth timeout, GATT failure, or BlueZ agent conflict shows Pairing failed. Vortex retries the GATT connect 3 times before failing.
+- An explicit emoji reject shows Pairing canceled. Both screens allow 120 seconds to compare the three emoji.
 - On KDE Plasma, Bluedevil can intercept pairing. Vortex registers a Just Works agent with BlueZ. When the desktop prompts instead, restart Bluetooth or disconnect third-party connectors such as KDE Connect. Check the controller with `bluetoothctl show`.
 - When BlueZ keeps a bonded classic (BR/EDR) audio profile (A2DP or HFP) for the phone, it refuses GATT over BLE. Vortex reports this error with the peer address and a one-click Remove Bond fix:
-  `BlueZ kept the classic (BR/EDR) bearer, so no GATT service is reachable. This phone is also paired to this laptop as a Bluetooth *audio* device, and BlueZ always prefers the bonded bearer. Unpair it as an audio device (bluetoothctl remove <addr>), then pair Vortex.`
+  `BlueZ kept the classic (BR/EDR) bearer, so no GATT service is reachable. This phone is also paired to this laptop as a Bluetooth audio device, and BlueZ always prefers the bonded bearer. Unpair it as an audio device (bluetoothctl remove <addr>), then pair Vortex.`
 - Run `bluetoothctl remove <addr>` or the Vortex Remove Bond action to remove the audio device entry in BlueZ, then pair again inside Vortex. Vortex trust in the keyring is kept.
 
 ---
@@ -37,16 +37,16 @@ The tray is the primary resident surface. The main window inventory holds `/`, `
 
 ### Tray icon visibility
 
-The tray icon reflects `is_tray_enabled`, which combines the `--no-tray` flag with the `enabled` field in `tray.json`. The failure mode is a missing icon with a hidden main window. The checks share one pattern: confirm the tray is enabled, then confirm the shell shows it.
+The tray icon reflects `is_tray_enabled`, which combines the `--no-tray` flag with the `enabled` field in `tray.json`. The checks share one pattern: confirm the tray is enabled, then confirm the shell shows it.
 
 - On GNOME, the icon requires an AppIndicator extension. The notification path uses a `gdbus` child process on GNOME and direct `zbus` elsewhere. When the icon is absent on GNOME, enable the AppIndicator extension, restart the shell, and relaunch without `--no-tray`.
 - On KDE Plasma, the system tray shows the icon directly. When the icon is absent, check the system tray visibility settings and the `libayatana-appindicator` dependency from the Direnv environment.
 - On Wayland compositors without a tray host (plain wlroots, Sway, Hyprland), the icon has no host to attach to. Banner and toast delivery still works through `org.freedesktop.Notifications`. The main window remains reachable through `/settings` and `/clipboard`.
-- When the tray is disabled, the main window forces itself visible on startup so the application starts with at least one visible surface. When the tray is enabled, `--hidden`, `--clipboard`, and `--share` start resident with a hidden window.
+- When the tray is disabled, the main window forces itself visible on startup. When the tray is enabled, `--hidden`, `--clipboard`, and `--share` start resident with a hidden window.
 
 ### Banner persistence
 
-Banners arrive through `org.freedesktop.Notifications` with `show` and `show_call_banner` delivery, `watch_actions` capability probing, and `watch_closed` dismissal tracking. The failure mode is a banner that never appears or disappears before triage. The checks share one pattern: confirm the notification toggle, then confirm the server capability.
+Banners arrive through `org.freedesktop.Notifications` with `show` and `show_call_banner` delivery, `watch_actions` capability probing, and `watch_closed` dismissal tracking. The checks share one pattern: confirm the notification toggle, then confirm the server capability.
 
 - When all banners are absent, confirm the notification toggle in the tray menu and the `notifications.enable` setting. The daemon logs a suppressed event at info level with a redacted payload.
 - When call banners vanish early, check the server `actions` capability. A server without `actions` degrades Accept, Decline, and Reply into timeout-as-declined, which the daemon logs at warning level.
@@ -57,7 +57,7 @@ Banners arrive through `org.freedesktop.Notifications` with `show` and `show_cal
 Each alert carries a triage path that avoids any full page. Notification banners present direct action buttons, while toasts confirm background actions.
 
 - When an alert action is triggered, Vortex performs the action directly without requiring a resident window.
-- When an SMS code is missing from the clipboard, use Copy login code in the tray menu. The clipboard leg belongs to the SMS delivery offer, so clicks never overwrite it with stale text.
+- When an SMS code is missing from the clipboard, use Copy login code in the tray menu.
 - External opens validate against an allowlist (`https://wa.me/`, Gmail, Outlook, Yahoo, Proton webmail). Non-allowlisted URLs stay closed and log a warning. Desktop app launches accept `.desktop` paths only.
 
 ### Wayland and X11 display
@@ -69,7 +69,7 @@ Each alert carries a triage path that avoids any full page. Notification banners
 
 ## Universal control and input
 
-### Cursor does not cross the edge or mirror fails
+### Cursor does not cross the edge
 
 1. Confirm the phone is authorized via ADB:
 

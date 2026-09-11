@@ -2,7 +2,6 @@ package com.vortex.a3.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -11,11 +10,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
 import com.vortex.a3.ui.icons.SolarIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -51,6 +53,7 @@ fun EarbudsCard(
     switchState: SwitchState,
     onOpenPicker: () -> Unit,
     onRemoveSaved: () -> Unit,
+    onSwitchRoute: (() -> Unit)? = null,
 ) {
     if (name == null) {
         EarbudsAddPlaceholder(modifier = modifier, onOpenPicker = onOpenPicker)
@@ -70,51 +73,58 @@ fun EarbudsCard(
     val cardInteraction = remember { MutableInteractionSource() }
     val contentColor = MaterialTheme.colorScheme.onSurface
     val contentVariant = MaterialTheme.colorScheme.onSurfaceVariant
-    Column(
+    Box(
         modifier = modifier
-            .height(CardHeight)
+            .fillMaxWidth()
             .clip(CardCorner)
             .background(MaterialTheme.colorScheme.surface)
             .combinedClickable(
                 interactionSource = cardInteraction,
                 indication = ripple(bounded = true),
                 enabled = !isSwitching,
-                onClick = {},
+                onClick = { if (!connected) onOpenPicker() else onSwitchRoute?.invoke() },
                 onLongClick = { if (canRemove) menuOpen = true },
-            )
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant,
-                shape = CardCorner,
             )
             .padding(16.dp),
     ) {
-        CardHeader(
-            icon = SolarIcons.Headphones,
-            iconTint = tintColor,
-            iconBg = MaterialTheme.colorScheme.primaryContainer,
-            statusDot = if (connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(14.dp))
-        Text(
-            name.takeIf { it.isNotBlank() } ?: str("device.earbuds"),
-            color = contentColor,
-            fontWeight = FW.SemiBold,
-            style = MaterialTheme.typography.bodyLarge,
-            maxLines = 1,
-        )
-        val captionText = when {
-            isSwitching -> str("switch.in_progress")
-            else -> caption
+        Column(
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            CardHeader(
+                icon = SolarIcons.Headphones,
+                iconTint = tintColor,
+                iconBg = MaterialTheme.colorScheme.primaryContainer,
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(modifier = Modifier.weight(1f, fill = false)) {
+                    Text(
+                        text = if (connected && !name.isNullOrBlank()) name else str("device.earbuds"),
+                        color = contentColor,
+                        fontWeight = FW.SemiBold,
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                    )
+                    val captionText = when {
+                        isSwitching -> str("switch.in_progress")
+                        else -> caption
+                    }
+                    Text(
+                        captionText,
+                        color = if (connected) Color(0xFF33D17A) else contentVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                    )
+                }
+                if (connected && battery != null) {
+                    BatteryRow(battery)
+                }
+            }
         }
-        Text(
-            captionText,
-            color = contentVariant,
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 2,
-        )
-        Spacer(modifier = Modifier.weight(1f))
-        BatteryRow(battery)
     }
 
     if (menuOpen) {
@@ -156,46 +166,50 @@ fun EarbudsAddPlaceholder(
     onOpenPicker: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
-    Column(
+    Box(
         modifier = modifier
-            .height(CardHeight)
+            .fillMaxWidth()
             .clip(CardCorner)
             .background(MaterialTheme.colorScheme.surface)
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(bounded = true),
             ) { onOpenPicker() }
-            .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = CardCorner)
             .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center,
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            Icon(
-                imageVector = SolarIcons.Add,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(22.dp),
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = SolarIcons.Add,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                str("earbuds.add"),
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FW.SemiBold,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                str("earbuds.add_hint"),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            str("earbuds.add"),
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FW.SemiBold,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Text(
-            str("earbuds.add_hint"),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.Center,
-        )
     }
 }

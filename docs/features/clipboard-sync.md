@@ -21,7 +21,7 @@ Passwords stay off the network:
 
 ## SMS login codes
 
-Login codes arrive as phone SMS and pass through to the desktop clipboard without a thread surface. Detection uses `extract_otp` over inbound messages. Selection prefers unseen inbound type-1 messages with newest-date priority. Fresh codes within the five-minute window copy automatically with a Code copied confirmation. The tray menu carries a Copy login code entry for manual retrieval. Stale or hint-blocked content never overwrites the clipboard.
+Login codes arrive as phone SMS and pass through to the desktop clipboard without a thread surface. Detection uses `extract_otp` over inbound messages. Selection prefers unseen inbound type-1 messages with newest-date priority. Fresh codes within the five-minute window copy automatically with a Code copied confirmation. The tray menu carries a Copy login code entry for manual retrieval. Hint-blocked content is skipped.
 
 Triage stays in the resident surface. An SMS notification click records a recent alert in the tray and shows a toast pointing at the tray menu. The clipboard leg belongs to the delivery offer, so clicks never replace the code with stale text.
 

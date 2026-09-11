@@ -3,13 +3,14 @@ package com.vortex.a3.ui.screens
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight as FW
 import androidx.compose.ui.unit.dp
 import com.vortex.a3.R
 import com.vortex.a3.core.appstate.AppState
+import com.vortex.a3.ui.components.AppHeader
 import com.vortex.a3.ui.components.VortexLogo
 import com.vortex.a3.core.appstate.EarbudsInfo
 import com.vortex.a3.core.earbuds.BluetoothDeviceRow
@@ -54,14 +56,19 @@ import com.vortex.a3.core.storage.TrustedPeer
 import com.vortex.a3.ui.AdvertiseState
 import com.vortex.a3.ui.LAPTOP_STALE_MS
 import com.vortex.a3.ui.PickerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.unit.sp
+import com.vortex.a3.ui.components.CalendarCard
 import com.vortex.a3.ui.components.CardCorner
 import com.vortex.a3.ui.components.EarbudsCard
 import com.vortex.a3.ui.components.EarbudsPickerDialog
 import com.vortex.a3.ui.components.HintCard
+import com.vortex.a3.ui.components.NoteCarousel
+import com.vortex.a3.ui.components.PairNewDeviceCard
 import com.vortex.a3.ui.components.PeerDeviceCard
-import com.vortex.a3.ui.components.SurfaceCard
+import com.vortex.a3.ui.components.ThisDeviceCard
 import com.vortex.a3.ui.components.VortexDivider
-import com.vortex.a3.ui.components.WaitingForLinuxRow
 import com.vortex.a3.ui.components.toHex
 import com.vortex.a3.ui.str
 
@@ -84,8 +91,10 @@ fun HomeScreen(
     onOpenAutostart: () -> Unit,
     onDismissAutostartHint: () -> Unit,
     onRequestBatteryWhitelist: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenNotes: () -> Unit,
+    onOpenSettings: () -> Unit = {},
+    onOpenNotes: () -> Unit = {},
+    onOpenNote: (com.vortex.a3.core.notes.Note) -> Unit = {},
+    onAddNote: () -> Unit = {},
     onOpenEarbudsPicker: () -> Unit,
     onPickEarbud: (BluetoothDeviceRow) -> Unit,
     onRescanEarbuds: () -> Unit,
@@ -98,11 +107,15 @@ fun HomeScreen(
     showBatteryHint: Boolean,
     showBluetoothOff: Boolean,
     onEnableBluetooth: () -> Unit,
+    onStartPairing: () -> Unit = {},
+    onRequestSwitchEarbuds: () -> Unit = {},
 ) {
     val peerCount = peers.size
     val primaryPeer = peers.firstOrNull()
-    val primaryState = primaryPeer?.let { peerStates[it.peerStaticPub.toHex()] }
-    val primaryHex = primaryPeer?.peerStaticPub?.toHex()
+    val primaryHex = remember(primaryPeer) { primaryPeer?.peerStaticPub?.toHex() }
+    val primaryState = remember(primaryHex, peerStates) {
+        primaryHex?.let { peerStates[it] }
+    }
     val lastSeen = primaryHex?.let { peerLastSeen[it] } ?: 0L
     val isLaptopOnline = primaryPeer != null && lastSeen > 0L &&
         (now - lastSeen) < LAPTOP_STALE_MS
@@ -113,80 +126,49 @@ fun HomeScreen(
 
     data class ActiveEarbuds(val name: String, val battery: Int?, val onLocal: Boolean, val connected: Boolean)
     val peerBuds = primaryState?.earbuds
-    val activeEarbuds: ActiveEarbuds? = when {
-        hasSavedEarbuds && localEarbuds != null -> {
-            val peerHas =
-                isLaptopOnline && peerBuds?.connected == true &&
-                    peerBuds.name.equals(localEarbuds.name, ignoreCase = true)
-            when {
-                localEarbuds.connected ->
-                    ActiveEarbuds(localEarbuds.name, localEarbuds.battery, onLocal = true, connected = true)
-                peerHas ->
-                    ActiveEarbuds(localEarbuds.name, peerBuds!!.battery, onLocal = false, connected = true)
-                else ->
-                    ActiveEarbuds(localEarbuds.name, null, onLocal = true, connected = false)
+    val activeEarbuds: ActiveEarbuds? = remember(
+        hasSavedEarbuds,
+        localEarbuds,
+        isLaptopOnline,
+        peerBuds,
+    ) {
+        when {
+            hasSavedEarbuds && localEarbuds != null -> {
+                val peerHas =
+                    isLaptopOnline && peerBuds?.connected == true &&
+                        peerBuds.name.equals(localEarbuds.name, ignoreCase = true)
+                when {
+                    localEarbuds.connected ->
+                        ActiveEarbuds(localEarbuds.name, localEarbuds.battery, onLocal = true, connected = true)
+                    peerHas ->
+                        ActiveEarbuds(localEarbuds.name, peerBuds.battery, onLocal = false, connected = true)
+                    else ->
+                        ActiveEarbuds(localEarbuds.name, null, onLocal = true, connected = false)
+                }
             }
+            localEarbuds?.connected == true ->
+                ActiveEarbuds(localEarbuds.name, localEarbuds.battery, onLocal = true, connected = true)
+            isLaptopOnline && peerBuds?.connected == true ->
+                ActiveEarbuds(peerBuds.name, peerBuds.battery, onLocal = false, connected = true)
+            else -> null
         }
-        localEarbuds?.connected == true ->
-            ActiveEarbuds(localEarbuds.name, localEarbuds.battery, onLocal = true, connected = true)
-        isLaptopOnline && peerBuds?.connected == true ->
-            ActiveEarbuds(peerBuds.name, peerBuds.battery, onLocal = false, connected = true)
-        else -> null
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
-            .navigationBarsPadding(),
+            .statusBarsPadding(),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            VortexLogo(
-                size = 36.dp,
-                modifier = Modifier.clip(RoundedCornerShape(8.dp)),
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    str("app.title"),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FW.SemiBold,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    str("app.tagline"),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            if (peerCount > 0) {
-                IconButton(onClick = onOpenNotes) {
-                    Icon(
-                        imageVector = SolarIcons.StickyNote2,
-                        contentDescription = str("notes.title"),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                IconButton(onClick = onOpenSettings) {
-                    Icon(
-                        imageVector = SolarIcons.Settings,
-                        contentDescription = str("settings.title"),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-        VortexDivider()
+        AppHeader(
+            title = str("app.title"),
+            tagline = str("app.tagline"),
+        )
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -197,69 +179,6 @@ fun HomeScreen(
                     onAction = onEnableBluetooth,
                 )
             }
-            if (peerCount == 0) {
-                SurfaceCard {
-                    Text(
-                        str("discover.title"),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FW.SemiBold,
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    WaitingForLinuxRow(state = state)
-                }
-            } else {
-                ThisPhoneCard()
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    PeerDeviceCard(
-                        modifier = Modifier.weight(1f),
-                        icon = SolarIcons.Laptop,
-                        name = primaryState?.name?.takeIf { it.isNotBlank() }
-                            ?: primaryPeer?.peerName?.takeIf { it.isNotBlank() }
-                            ?: str("device.linux"),
-                        caption = str(if (isLaptopOnline) "peers.online" else "peers.offline"),
-                        battery = primaryState?.battery.takeIf { isLaptopOnline },
-                        charging = isLaptopOnline && primaryState?.charging == true,
-                        statusDotColor = if (isLaptopOnline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        onLongPress = { primaryPeer?.let { forgetTarget = it } },
-                        locked = primaryState?.locked.takeIf { isLaptopOnline },
-                        onToggleLock = {
-                            primaryState?.locked?.let { onToggleLaptopLock(it) }
-                        },
-                        onViewScreen = if (isLaptopOnline) {
-                            { showScreenKind = true }
-                        } else {
-                            null
-                        },
-                        onSuspend = if (isLaptopOnline) {
-                            { showSuspendConfirm = true }
-                        } else {
-                            null
-                        },
-                        onShutdown = if (isLaptopOnline) {
-                            { showShutdownConfirm = true }
-                        } else {
-                            null
-                        },
-                    )
-
-                    EarbudsCard(
-                        modifier = Modifier.weight(1f),
-                        name = activeEarbuds?.name,
-                        battery = activeEarbuds?.battery,
-                        connected = activeEarbuds?.connected == true,
-                        onLocal = activeEarbuds?.onLocal == true,
-                        canRemove = hasSavedEarbuds,
-                        switchState = switchState,
-                        onOpenPicker = onOpenEarbudsPicker,
-                        onRemoveSaved = onRemoveSavedEarbuds,
-                    )
-                }
-            }
-
             if (showBatteryHint && peerCount > 0) {
                 HintCard(
                     text = str("hint.battery"),
@@ -277,6 +196,125 @@ fun HomeScreen(
                 )
             }
 
+            ThisDeviceCard()
+
+            val activeCount = (if (isLaptopOnline) 1 else 0) + (if (activeEarbuds?.connected == true) 1 else 0)
+            val totalCount = peerCount + (if (hasSavedEarbuds || activeEarbuds != null) 1 else 0) + 1
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "PAIRED ENDPOINTS & DEVICES",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FW.SemiBold,
+                    letterSpacing = 1.sp,
+                )
+                Text(
+                    text = "$activeCount Active · $totalCount total",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FW.Medium,
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                PeerDeviceCard(
+                    modifier = Modifier
+                        .weight(1f)
+                        .aspectRatio(0.84f),
+                    icon = SolarIcons.Laptop,
+                    name = primaryState?.name?.takeIf { it.isNotBlank() }
+                        ?: primaryPeer?.peerName?.takeIf { it.isNotBlank() }
+                        ?: str("device.linux"),
+                    caption = str(if (isLaptopOnline) "peers.online" else "peers.offline"),
+                    battery = primaryState?.battery.takeIf { isLaptopOnline },
+                    charging = isLaptopOnline && primaryState?.charging == true,
+                    onLongPress = { primaryPeer?.let { forgetTarget = it } },
+                    ip = if (isLaptopOnline) primaryState?.wifiIp else null,
+                    distro = if (isLaptopOnline) (primaryState?.distro?.takeIf { it.isNotBlank() } ?: "NixOS") else null,
+                    locked = primaryState?.locked.takeIf { isLaptopOnline },
+                    onToggleLock = {
+                        primaryState?.locked?.let { onToggleLaptopLock(it) }
+                    },
+                    onViewScreen = if (isLaptopOnline) {
+                        { showScreenKind = true }
+                    } else {
+                        null
+                    },
+                    onSuspend = if (isLaptopOnline) {
+                        { showSuspendConfirm = true }
+                    } else {
+                        null
+                    },
+                    onShutdown = if (isLaptopOnline) {
+                        { showShutdownConfirm = true }
+                    } else {
+                        null
+                    },
+                )
+
+                EarbudsCard(
+                    modifier = Modifier
+                        .weight(1f)
+                        .aspectRatio(0.84f),
+                    name = activeEarbuds?.name,
+                    battery = activeEarbuds?.battery,
+                    connected = activeEarbuds?.connected == true,
+                    onLocal = activeEarbuds?.onLocal == true,
+                    canRemove = hasSavedEarbuds,
+                    switchState = switchState,
+                    onOpenPicker = onOpenEarbudsPicker,
+                    onRemoveSaved = onRemoveSavedEarbuds,
+                    onSwitchRoute = onRequestSwitchEarbuds,
+                )
+            }
+
+            // NOTE: CALENDAR section sits above NOTES in Hub order
+            Text(
+                text = str("calendar.title"),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FW.SemiBold,
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(start = 2.dp),
+            )
+            val calendarProvider = remember { com.vortex.a3.core.calendar.LocalCalendarProvider() }
+            var selectedDay by remember {
+                mutableStateOf(
+                    runCatching {
+                        java.time.LocalDate.now(java.time.ZoneId.systemDefault()).toString()
+                    }.getOrDefault("2026-01-01"),
+                )
+            }
+            CalendarCard(
+                selected = selectedDay,
+                onSelect = { selectedDay = it },
+                provider = calendarProvider,
+                onOpenNote = { id ->
+                    com.vortex.a3.core.notes.NoteStore.notes.value.firstOrNull { it.id == id }?.let {
+                        onOpenNote(it)
+                    }
+                },
+            )
+
+            Text(
+                text = "NOTES",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FW.SemiBold,
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(start = 2.dp),
+            )
+            NoteCarousel(
+                onOpenNote = onOpenNote,
+                onAddNote = onAddNote,
+            )
         }
     }
 
@@ -440,86 +478,7 @@ fun HomeScreen(
     }
 }
 
-@Composable
-private fun ThisPhoneCard(modifier: Modifier = Modifier) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val deviceName = remember(context) {
-        try {
-            android.provider.Settings.Global.getString(context.contentResolver, "device_name")
-                ?.takeIf { it.isNotBlank() }
-        } catch (_: Exception) { null }
-            ?: "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim()
-    }
-    val thisDeviceText = str("device.this")
-    val hasDistinctName = deviceName.isNotBlank() && !deviceName.equals(thisDeviceText, ignoreCase = true)
 
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(CardCorner)
-            .background(MaterialTheme.colorScheme.surface)
-            .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = CardCorner)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = SolarIcons.Smartphone,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(22.dp),
-            )
-        }
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    if (hasDistinctName) deviceName else thisDeviceText,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FW.SemiBold,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                if (hasDistinctName) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .padding(horizontal = 8.dp, vertical = 3.dp),
-                    ) {
-                        Text(
-                            thisDeviceText.uppercase(),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FW.SemiBold,
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    str("device.android"),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun ScreenKindRow(title: String, hint: String, onClick: () -> Unit) {

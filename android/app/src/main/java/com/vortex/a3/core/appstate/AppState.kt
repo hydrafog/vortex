@@ -63,6 +63,7 @@ data class AppState(
     val ringSeq: Long = 0L,
     val wifiIp: String? = null,
     val displayHz: Int? = null,
+    val distro: String? = null,
     val ts: Long = System.currentTimeMillis() / 1000L,
 ) {
     fun toJsonBytes(): ByteArray {
@@ -130,6 +131,7 @@ data class AppState(
         }
         wifiIp?.takeIf { it.isNotBlank() }?.let { obj.put("wifi_ip", it) }
         displayHz?.takeIf { it > 0 }?.let { obj.put("display_hz", it) }
+        distro?.takeIf { it.isNotBlank() }?.let { obj.put("distro", it) }
         obj.put("ts", ts)
         return obj.toString().toByteArray(Charsets.UTF_8)
     }
@@ -222,6 +224,7 @@ data class AppState(
                 ringSeq = obj.optLong("ring_seq", 0L),
                 wifiIp = obj.optString("wifi_ip", "").takeIf { it.isNotBlank() },
                 displayHz = obj.optInt("display_hz", 0).takeIf { it > 0 },
+                distro = obj.optString("distro", "").takeIf { it.isNotBlank() },
                 cameraFacing = obj.optString("camera_facing", ""),
                 cameraOffer = obj.optJSONObject("camera_offer")?.let { c ->
                     val port = c.optInt("port", 0)

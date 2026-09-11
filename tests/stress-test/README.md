@@ -1,16 +1,11 @@
 # Vortex Stress Test Infrastructure
 
-## Purpose
-Automated test suite designed to validate pairing, reconnect logic, and session persistence under real-world stress scenarios to uncover race conditions, memory leaks, and protocol edge cases.
+Automated test suite that validates pairing, reconnect logic, and session persistence under real-world stress scenarios to uncover race conditions, memory leaks, and protocol edge cases.
 
 ## Directory Structure
+
 - `run-all.sh`: Executes all stress test scenarios sequentially.
-- `scenarios/`: Individual stress test scripts targeting specific subsystem behaviors:
-  - `01-reconnect-l3.sh`: Tests daemon-level reconnect cycles.
-  - `01-reconnect-lan.sh`: Tests local network data channel reconnects.
-  - `01-reconnect-loop.sh`: Loops continuous reconnect sequences.
-  - `02-bt-toggle.sh`: Tests Bluetooth radio toggling resilience.
-  - `03-force-stop.sh`: Tests process crash recovery and restart behavior.
+- `scenarios/`: Individual stress test scripts targeting specific subsystem behaviors.
 - `reports/`: Automatically generated test execution logs and outcome summaries.
 
 ## Running the Suite
@@ -23,4 +18,4 @@ Automated test suite designed to validate pairing, reconnect logic, and session 
 ./tests/stress-test/run-all.sh
 ```
 
-Test results and diagnostics are automatically logged to `tests/stress-test/reports/summary.md`.
+Test results are automatically logged to `tests/stress-test/reports/summary.md`.

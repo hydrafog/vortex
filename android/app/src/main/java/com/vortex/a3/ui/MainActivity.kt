@@ -208,7 +208,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        earbudsPollJob = lifecycleScope.launch {
+        earbudsPollJob = lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             while (isActive) {
                 try {
                     localEarbudsState.value =
@@ -227,7 +227,7 @@ class MainActivity : ComponentActivity() {
                     s !is com.vortex.a3.core.earbuds.SwitchState.Failed
                 if (wasActive && !active) {
                     listOf(50L, 400L, 1000L).forEach { ms ->
-                        lifecycleScope.launch {
+                        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                             delay(ms)
                             try {
                                 localEarbudsState.value =
@@ -280,6 +280,8 @@ class MainActivity : ComponentActivity() {
         onOpenNotificationAccess = ::onOpenNotificationAccess,
         onOpenScreenControl = ::onOpenAccessibilitySettings,
         onEnableBluetooth = ::onEnableBluetooth,
+        onStartPairing = ::onStartClicked,
+        onRequestSwitchEarbuds = ::requestSwitch,
         isAggressiveOem = isAggressiveOemRom(),
         isIgnoringBatteryOptimizations = ::isIgnoringBatteryOptimizations,
     )
@@ -394,11 +396,6 @@ class MainActivity : ComponentActivity() {
 
 
 const val LAPTOP_STALE_MS: Long = 30_000
-
-private val CardCorner = com.vortex.a3.ui.components.CardCorner
-private val CardHeight = com.vortex.a3.ui.components.CardHeight
-
-
 
 @Suppress("unused")
 private val _ignored: BluetoothDevice? = null

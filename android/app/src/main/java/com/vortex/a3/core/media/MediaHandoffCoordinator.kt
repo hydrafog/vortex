@@ -11,6 +11,7 @@ import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Build
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
@@ -32,7 +33,8 @@ class MediaHandoffCoordinator(
     @Volatile var peerPlayEpochMono: Long = 0L
     @Volatile var localPlayEpochMono: Long = 0L
 
-    private val handler = Handler(Looper.getMainLooper())
+    private var handler = Handler(Looper.getMainLooper())
+    private var handoffThread: HandlerThread? = null
     private var sessionManager: MediaSessionManager? = null
     private var audioManager: AudioManager? = null
     private val componentName = ComponentName(context, MediaNotificationListenerService::class.java)
@@ -42,8 +44,8 @@ class MediaHandoffCoordinator(
     private var lastPlaying = false
     private var lastOwn = false
     private var lastAutoGrabMs = 0L
-    private var suppressUntilMs = 0L
-    private var running = false
+    @Volatile private var suppressUntilMs = 0L
+    @Volatile private var running = false
 
     private var havePausedMedia = false
     private var grabbing = false
@@ -58,7 +60,7 @@ class MediaHandoffCoordinator(
     private val lastPlayingPackages = mutableSetOf<String>()
     private var audioFocusHeldForHandoff = false
     private var audioFocusRequest: AudioFocusRequest? = null
-    private var enforcerActive = false
+    @Volatile private var enforcerActive = false
     private var enforcerStartedMs = 0L
 
     private val sessionsChanged =
@@ -73,6 +75,7 @@ class MediaHandoffCoordinator(
     fun start() {
         if (running) return
         running = true
+        ensureHandoffThread()
         audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         sessionManager = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager
         sessionPathOk = try {
@@ -99,6 +102,18 @@ class MediaHandoffCoordinator(
             sessionManager?.removeOnActiveSessionsChangedListener(sessionsChanged)
         } catch (_: Exception) {}
         audioManager?.unregisterAudioPlaybackCallback(playbackCallback)
+        handoffThread?.quitSafely()
+        handoffThread = null
+    }
+
+    private fun ensureHandoffThread() {
+        val live = handoffThread
+        if (live != null && live.isAlive) return
+        HandlerThread("vortex-media-handoff").apply {
+            start()
+            handoffThread = this
+            handler = Handler(looper)
+        }
     }
 
     fun noteManualSwitch() {

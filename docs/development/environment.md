@@ -1,6 +1,6 @@
 # Development environment and standards
 
-Nix pins the toolchain. Direnv loads it. Lefthook runs checks before commit.
+Nix pins the toolchain, Direnv loads it, and Lefthook runs checks before commit.
 
 ## Toolchain and shell
 

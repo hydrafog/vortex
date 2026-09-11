@@ -1,13 +1,11 @@
 package com.vortex.a3.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,28 +16,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import com.vortex.a3.ui.icons.SolarIcons
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -49,7 +42,10 @@ import androidx.compose.ui.unit.sp
 import com.vortex.a3.ui.AccentColor
 import com.vortex.a3.ui.ThemeMode
 import com.vortex.a3.ui.VortexLocale
+import com.vortex.a3.ui.components.AppHeader
 import com.vortex.a3.ui.components.VortexDivider
+import com.vortex.a3.ui.icons.SolarIcons
+import com.vortex.a3.ui.onAccentFor
 import com.vortex.a3.ui.str
 
 @Composable
@@ -58,8 +54,8 @@ fun SettingsScreen(
     onSelect: (VortexLocale) -> Unit,
     currentTheme: ThemeMode,
     onSelectTheme: (ThemeMode) -> Unit,
-    currentAccent: AccentColor,
-    onSelectAccent: (AccentColor) -> Unit,
+    currentAccent: AccentColor? = null,
+    onSelectAccent: ((AccentColor) -> Unit)? = null,
     smartSwitchOn: Boolean,
     onSmartSwitchChange: (Boolean) -> Unit,
     notifMirrorOn: Boolean,
@@ -74,36 +70,26 @@ fun SettingsScreen(
     screenControlOn: Boolean,
     onScreenControlClick: () -> Unit,
     onBack: () -> Unit,
+    calendarBackend: String = "local",
+    onSelectBackend: ((String) -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
-            .navigationBarsPadding(),
+            .statusBarsPadding(),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(SolarIcons.ArrowBack, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
-            }
-            Text(
-                str("settings.title"),
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FW.SemiBold,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(start = 4.dp),
-            )
-        }
-        VortexDivider()
+        AppHeader(
+            title = str("settings.title"),
+            tagline = "Preferences and device configuration",
+            showLogo = false,
+        )
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp),
         ) {
             SectionLabel(str("settings.sec_appearance"))
@@ -122,7 +108,10 @@ fun SettingsScreen(
                 }
                 RowDivider()
                 PickerRow(
-                    icon = if (currentTheme == ThemeMode.Light) SolarIcons.LightMode else SolarIcons.DarkMode,
+                    icon = when (currentTheme) {
+                        ThemeMode.Light -> SolarIcons.LightMode
+                        else -> SolarIcons.DarkMode
+                    },
                     label = str("settings.theme"),
                 ) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -130,41 +119,60 @@ fun SettingsScreen(
                             label = str("settings.theme_dark"),
                             selected = currentTheme == ThemeMode.Dark,
                             onClick = { onSelectTheme(ThemeMode.Dark) },
-                            leadingIcon = SolarIcons.DarkMode,
                             modifier = Modifier.weight(1f),
                         )
                         SegmentedButton(
                             label = str("settings.theme_light"),
                             selected = currentTheme == ThemeMode.Light,
                             onClick = { onSelectTheme(ThemeMode.Light) },
-                            leadingIcon = SolarIcons.LightMode,
+                            modifier = Modifier.weight(1f),
+                        )
+                        SegmentedButton(
+                            label = "OLED",
+                            selected = currentTheme == ThemeMode.Oled,
+                            onClick = { onSelectTheme(ThemeMode.Oled) },
                             modifier = Modifier.weight(1f),
                         )
                     }
                 }
                 RowDivider()
                 PickerRow(
-                    icon = SolarIcons.Settings,
-                    label = str("settings.accent_color"),
+                    icon = SolarIcons.TouchApp,
+                    label = str("settings.accent_color").ifBlank { "Accent color" },
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    val context = LocalContext.current
+                    val isDark = currentTheme != ThemeMode.Light
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        for (acc in AccentColor.entries) {
-                            AccentChip(
-                                accent = acc,
-                                selected = acc == currentAccent,
-                                onClick = { onSelectAccent(acc) },
-                            )
+                        items(AccentColor.entries) { acc ->
+                            val isSelected = acc == currentAccent
+                            val displayColor = acc.resolveDisplayColor(context, isDark)
+                            val contentColor = onAccentFor(displayColor)
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(displayColor)
+                                    .clickable { onSelectAccent?.invoke(acc) },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = SolarIcons.Check,
+                                        contentDescription = acc.label,
+                                        tint = contentColor,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            SectionLabel(str("settings.sec_continuity"))
+            SectionLabel(str("settings.sec_audio"))
             SectionCard {
                 ToggleRow(
                     icon = SolarIcons.Headset,
@@ -173,7 +181,10 @@ fun SettingsScreen(
                     checked = smartSwitchOn,
                     onCheckedChange = onSmartSwitchChange,
                 )
-                RowDivider()
+            }
+
+            SectionLabel(str("settings.sec_notifications"))
+            SectionCard {
                 ToggleRow(
                     icon = SolarIcons.Notifications,
                     title = str("settings.notif_mirror"),
@@ -189,7 +200,10 @@ fun SettingsScreen(
                     checked = peerNotifShowOn,
                     onCheckedChange = onPeerNotifShowChange,
                 )
-                RowDivider()
+            }
+
+            SectionLabel(str("settings.sec_sharing"))
+            SectionCard {
                 ToggleRow(
                     icon = SolarIcons.ContentPaste,
                     title = str("settings.clipboard_sync"),
@@ -227,6 +241,26 @@ fun SettingsScreen(
                     onClick = onScreenControlClick,
                 )
             }
+
+            SectionLabel(str("calendar.provider"))
+            SectionCard {
+                PickerRow(icon = SolarIcons.StickyNote2, label = str("calendar.provider")) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        SegmentedButton(
+                            label = "local",
+                            selected = calendarBackend == "local",
+                            onClick = { onSelectBackend?.invoke("local") },
+                            modifier = Modifier.weight(1f),
+                        )
+                        SegmentedButton(
+                            label = "ricelin",
+                            selected = calendarBackend == "ricelin",
+                            onClick = { onSelectBackend?.invoke("ricelin") },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -249,15 +283,13 @@ private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
+            .background(MaterialTheme.colorScheme.surface),
         content = content,
     )
 }
 
 @Composable
 private fun RowDivider() {
-    HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
@@ -266,8 +298,7 @@ private fun IconTile(icon: ImageVector) {
         Modifier
             .size(36.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.primaryContainer)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp)),
+            .background(MaterialTheme.colorScheme.primaryContainer),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(19.dp))
@@ -340,7 +371,6 @@ private fun AdbHintCard(title: String, body: String, command: String) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -368,27 +398,24 @@ private fun SegmentedButton(
     leadingIcon: ImageVector? = null,
     enabled: Boolean = true,
 ) {
-    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
     val fg = when {
         !enabled -> MaterialTheme.colorScheme.onSurfaceVariant
         selected -> MaterialTheme.colorScheme.onPrimaryContainer
         else -> MaterialTheme.colorScheme.onSurface
     }
-    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-    Row(
+    Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(bg)
-            .border(width = 1.dp, color = borderColor, shape = RoundedCornerShape(8.dp))
-            .height(36.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
+            .clickable(enabled = enabled, onClick = onClick)
+            .height(36.dp)
+            .padding(horizontal = 8.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        TextButton(
-            onClick = onClick,
-            enabled = enabled,
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-            modifier = Modifier.fillMaxWidth(),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
         ) {
             if (leadingIcon != null) {
                 Icon(imageVector = leadingIcon, contentDescription = null, tint = fg, modifier = Modifier.size(14.dp))
@@ -396,41 +423,5 @@ private fun SegmentedButton(
             }
             Text(label, color = fg, style = MaterialTheme.typography.bodySmall, fontWeight = if (selected) FW.SemiBold else FW.Normal)
         }
-    }
-}
-
-@Composable
-private fun AccentChip(
-    accent: AccentColor,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
-    val dotColor = remember(accent, isDark, context) { accent.resolveDisplayColor(context, isDark) }
-    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(bg)
-            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
-            .clickable { onClick() }
-            .padding(horizontal = 10.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(14.dp)
-                .clip(CircleShape)
-                .background(dotColor),
-        )
-        Text(
-            text = accent.label,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = if (selected) FW.SemiBold else FW.Normal,
-            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-        )
     }
 }

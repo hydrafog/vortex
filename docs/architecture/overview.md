@@ -47,6 +47,7 @@ The desktop client in `linux/ui-tauri/` provides the presentation layer and syst
 The mobile client in `android/app/` provides background services and device management:
 
 - Architecture: native Kotlin application built on Android Jetpack, Kotlin Coroutines, and Jetpack Compose.
+- Visual language: unified icon system using Solar duotone glyphs defined as programmatic Compose ImageVectors across all screens and dialogs.
 - Background services: maintains BLE advertisement and scanning loops, processes incoming notifications, and transfers clipboard state.
 - Remote control: dispatches touch, mouse, and keyboard events across the network to the local injection helper.
 - Device security: stores cryptographic keys in Android Keystore, handles out-of-band emoji SAS confirmation, and validates remote session commands.

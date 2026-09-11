@@ -125,6 +125,8 @@ pub struct AppState {
     pub wifi_ip: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_hz: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub distro: Option<String>,
     #[serde(default)]
     pub ts: u64,
 }
@@ -160,6 +162,14 @@ impl AppState {
             .ok()
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty());
+        let distro = std::fs::read_to_string("/etc/os-release").ok().and_then(|s| {
+            for line in s.lines() {
+                if let Some(rest) = line.strip_prefix("NAME=") {
+                    return Some(rest.trim_matches('"').trim().to_string());
+                }
+            }
+            None
+        });
         let ts = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
@@ -207,6 +217,7 @@ impl AppState {
             ring_seq: 0,
             wifi_ip: None,
             display_hz: None,
+            distro,
             ts,
         }
     }
@@ -373,12 +384,14 @@ mod tests {
             ring_seq: 0,
             wifi_ip: Some("192.168.1.42".into()),
             display_hz: Some(120),
+            distro: Some("NixOS".into()),
             ts: 1_700_000_000,
         };
         let json = serde_json::to_vec(&a).unwrap();
         let b: AppState = serde_json::from_slice(&json).unwrap();
         assert_eq!(a.wifi_ip, b.wifi_ip);
         assert_eq!(a.display_hz, b.display_hz);
+        assert_eq!(a.distro, b.distro);
         assert_eq!(a.battery, b.battery);
         assert_eq!(a.class, b.class);
         assert_eq!(a.name, b.name);

@@ -1,11 +1,8 @@
 # Vortex Linux packaging
 
-The Tauri bundle (`cd ui-tauri && npx tauri build`) produces a `.deb` /
-`AppImage` that installs the `vortex-ui-tauri` binary and a desktop entry
-for the app menu. What it does NOT do is start Vortex with the session —
-the app is a tray app that owns the BLE/LAN link, so it should.
+The Tauri bundle (`cd ui-tauri && npx tauri build`) produces a `.deb` / `AppImage` that installs the `vortex-ui-tauri` binary and a desktop entry for the app menu. The app is a tray app that owns the BLE/LAN link, so it should not start with the session.
 
-## Autostart (recommended)
+## Autostart
 
 ```sh
 mkdir -p ~/.config/autostart
@@ -24,8 +21,7 @@ Pick one — running both starts two instances.
 
 ## Android release signing
 
-`a3/` release builds are signed from `a3/keystore.properties` (gitignored).
-Create a keystore once and point the properties file at it:
+`a3/` release builds are signed from `a3/keystore.properties` (gitignored). Create a keystore once and point the properties file at it:
 
 ```sh
 keytool -genkeypair -v -keystore ~/keys/vortex.keystore \
@@ -39,8 +35,4 @@ keyPassword=…
 EOF
 ```
 
-Without the file `assembleRelease` still works and emits an unsigned APK.
-
-> Warning: The release APK is minified (R8). Before trusting any release build,
-> run a full on-device smoke test: pairing, reconnect, call mirror,
-> notifications, SMS send/receive, earbuds switch.
+Without the file, `assembleRelease` still works and emits an unsigned APK. Run a full on-device smoke test before trusting any release build: pairing, reconnect, call mirror, notifications, SMS send/receive, earbuds switch.

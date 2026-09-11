@@ -6,9 +6,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 enum class ThemeMode(val code: String) {
-    Dark("dark"), Light("light");
+    Dark("dark"), Light("light"), Oled("oled");
     companion object {
-        fun fromCode(c: String?): ThemeMode = if (c == "light") Light else Dark
+        fun fromCode(c: String?): ThemeMode = when (c) {
+            "light" -> Light
+            "oled" -> Oled
+            else -> Dark
+        }
     }
 }
 
@@ -22,8 +26,11 @@ class UiSettingsStore(context: Context) {
     private val _theme = MutableStateFlow(ThemeMode.Dark)
     val theme: StateFlow<ThemeMode> = _theme.asStateFlow()
 
-    private val _accent = MutableStateFlow(AccentColor.System)
+    private val _accent = MutableStateFlow(AccentColor.Vortex)
     val accent: StateFlow<AccentColor> = _accent.asStateFlow()
+
+    private val _calendarBackend = MutableStateFlow("local")
+    val calendarBackend: StateFlow<String> = _calendarBackend.asStateFlow()
 
     fun load() {
         val code = prefs.getString("locale", null)
@@ -39,7 +46,14 @@ class UiSettingsStore(context: Context) {
             }
         }
         _theme.value = ThemeMode.fromCode(prefs.getString("theme", null))
-        _accent.value = AccentColor.fromCode(prefs.getString("accent", null))
+        val savedAccent = prefs.getString("accent", null)
+        _accent.value = when (savedAccent) {
+            null, "cyan", "vortex" -> AccentColor.Vortex
+            else -> AccentColor.fromCode(savedAccent)
+        }
+        _calendarBackend.value = prefs.getString("calendarBackend", "local")?.takeIf {
+            it == "local" || it == "ricelin"
+        } ?: "local"
     }
 
     fun setLocale(loc: VortexLocale) {
@@ -64,6 +78,15 @@ class UiSettingsStore(context: Context) {
             .putLong("accent_changed_at", nowSec())
             .apply()
         _accent.value = acc
+    }
+
+    fun setCalendarBackend(backend: String) {
+        val clean = if (backend == "ricelin") "ricelin" else "local"
+        prefs.edit()
+            .putString("calendarBackend", clean)
+            .putLong("calendarBackend_changed_at", nowSec())
+            .apply()
+        _calendarBackend.value = clean
     }
 
     private fun nowSec() = System.currentTimeMillis() / 1000L

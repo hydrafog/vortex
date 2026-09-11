@@ -1,6 +1,6 @@
 # Security and compliance
 
-Traffic stays on the local network and stays encrypted. There is no cloud account and no relay.
+Traffic stays on the local network and stays encrypted.
 
 ## Threat model and principles
 

@@ -1,7 +1,6 @@
 package com.vortex.a3.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,8 +56,7 @@ fun SasApprovalDialog(
                             Box(
                                 modifier = Modifier
                                     .size(78.dp, 84.dp)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(18.dp))
-                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp)),
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(18.dp)),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(g.emoji, fontSize = 38.sp)

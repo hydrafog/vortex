@@ -104,8 +104,9 @@ class VortexNotification(
             com.vortex.a3.R.layout.notification_vortex,
         )
         val laptopCharging = laptopFresh && peer?.charging == true
-        val laptopColor = if (laptopCharging) {
-            service.getColor(com.vortex.a3.R.color.notification_audio_linux)
+        val emeraldGreen = 0xFF33D17A.toInt()
+        val laptopColor = if (laptopBatt != null || laptopCharging) {
+            emeraldGreen
         } else {
             service.getColor(android.R.color.white)
         }
@@ -202,6 +203,14 @@ class VortexNotification(
                 android.view.View.GONE,
             )
         }
+
+        com.vortex.a3.widget.VortexAppWidgetProvider.updateAll(
+            context = service,
+            peerName = peer?.name,
+            connected = laptopFresh,
+            battery = laptopBatt,
+            locked = laptopLocked,
+        )
 
         val launchPi = PendingIntent.getActivity(
             service,

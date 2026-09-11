@@ -6,7 +6,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -117,8 +116,6 @@ fun NotesScreen(onBack: () -> Unit) {
                 }
             }
         }
-        VortexDivider()
-
         NotesSegment(mode) { mode = it }
 
         if (mode == "notes") {
@@ -129,7 +126,6 @@ fun NotesScreen(onBack: () -> Unit) {
             ) {
                 items(shown, key = { it.id }) { n ->
                     NoteRow(n, onOpen = { editing = n })
-                    HorizontalDivider()
                 }
             }
         } else {
@@ -160,7 +156,6 @@ private fun NotesSegment(mode: String, onSelect: (String) -> Unit) {
             .height(40.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
             .padding(4.dp),
     ) {
         val cellW = maxWidth / 2
@@ -171,8 +166,7 @@ private fun NotesSegment(mode: String, onSelect: (String) -> Unit) {
                 .width(cellW)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)),
+                .background(MaterialTheme.colorScheme.primaryContainer),
         )
         Row(Modifier.fillMaxSize()) {
             tabs.forEach { (key, label) ->
@@ -295,12 +289,7 @@ private fun TodoCheck(done: Boolean, onToggle: (Boolean) -> Unit) {
         Modifier
             .size(24.dp)
             .clip(CircleShape)
-            .background(if (done) MaterialTheme.colorScheme.primary else Color.Transparent)
-            .border(
-                2.dp,
-                if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                CircleShape,
-            )
+            .background(if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest)
             .clickable { onToggle(!done) },
         contentAlignment = Alignment.Center,
     ) {
@@ -361,7 +350,6 @@ private fun TodoAddBar(value: String, onChange: (String) -> Unit, onAdd: () -> U
             .padding(horizontal = 14.dp, vertical = 12.dp)
             .clip(RoundedCornerShape(percent = 50))
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(percent = 50))
             .padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -405,7 +393,7 @@ private fun TodoAddBar(value: String, onChange: (String) -> Unit, onAdd: () -> U
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-private fun NoteEditor(note: Note, onClose: () -> Unit, onDelete: () -> Unit) {
+internal fun NoteEditor(note: Note, onClose: () -> Unit, onDelete: () -> Unit) {
     var title by remember(note.id) { mutableStateOf(note.title) }
     var body by remember(note.id) { mutableStateOf(note.body) }
     var dueAt by remember(note.id) { mutableStateOf(note.dueAt) }
@@ -455,7 +443,6 @@ private fun NoteEditor(note: Note, onClose: () -> Unit, onDelete: () -> Unit) {
                 Icon(SolarIcons.Delete, contentDescription = str("notes.delete"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        VortexDivider()
 
         Column(Modifier.fillMaxSize()) {
             TextField(

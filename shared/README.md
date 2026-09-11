@@ -1,6 +1,6 @@
 # Shared Cross-Platform Specifications & Contracts
 
-The `shared/` directory contains source-of-truth contracts and test specifications shared between the **Linux desktop** (`linux/`) and **Android mobile** (`android/`) implementations.
+The `shared/` directory contains source-of-truth contracts and test specifications shared between the Linux desktop and Android mobile implementations.
 
 ## Directory Structure
 
@@ -16,13 +16,10 @@ shared/
 
 ## Subsystems
 
-### 1. Protocol Buffers (`shared/proto/`)
-- Contains `vortex.proto`, the wire contract governing all point-to-point communication.
-- **Rust integration**: Automatically compiled via `prost-build` in build scripts (`linux/daemon/build.rs`).
-- **Android integration**: Compiled via `protobuf-gradle-plugin` into Kotlin/Java models during Gradle build.
-- **CI / Hook Guard**: Lefthook validates `.proto` syntax on commit (`proto-syntax`).
+### Protocol Buffers (`shared/proto/`)
 
-### 2. Crypto Test Vectors (`shared/vectors/`)
-- Houses deterministic test vectors in JSON format.
-- Tests handshake transitions (`Noise_XX`, `Noise_IK`), HKDF key derivation, ChaCha20-Poly1305 encryption, and SAS emoji generation.
-- Replayed by `tests/parity-test` to guarantee byte-level parity between Rust's `snow`/`ring` and Android's `Noise-Java`/Keystore implementations.
+`vortex.proto` is the wire contract governing all point-to-point communication. Rust compiles it through `prost-build` in build scripts (`linux/daemon/build.rs`). Android compiles it through `protobuf-gradle-plugin` into Kotlin/Java models during Gradle build. Lefthook validates `.proto` syntax on commit (`proto-syntax`).
+
+### Crypto Test Vectors (`shared/vectors/`)
+
+Deterministic test vectors in JSON format test handshake transitions (`Noise_XX`, `Noise_IK`), HKDF key derivation, ChaCha20-Poly1305 encryption, and SAS emoji generation. The `tests/parity-test` suite replays them to guarantee byte-level parity between Rust's `snow`/`ring` and Android's `Noise-Java`/Keystore implementations.

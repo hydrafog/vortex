@@ -17,6 +17,10 @@ import androidx.compose.ui.graphics.lerp
 // NOTE: canvas so icon tiles and selected pills stay solid per accent.
 private fun softContainer(accent: Color, canvas: Color): Color = lerp(accent, canvas, 0.82f)
 
+// NOTE: Tinted surface helper: pulls neutral lightness levels toward the
+// NOTE: active accent to achieve chromatic harmony across all backgrounds.
+private fun tintedSurface(base: Color, accent: Color, amount: Float): Color = lerp(base, accent, amount)
+
 // NOTE: Dynamic accent contrast. Bright accents get near-black text,
 // NOTE: dark or saturated accents get white (WCAG relative luminance).
 fun onAccentFor(accent: Color): Color {
@@ -33,178 +37,124 @@ private val BrandEmerald = Color(0xFF2ECC71)
 private val BrandOnEmerald = Color(0xFFFFFFFF)
 private val BrandRed = Color(0xFFEF4444)
 
+private fun buildScheme(
+    themeMode: ThemeMode,
+    primary: Color,
+): ColorScheme {
+    val isLight = themeMode == ThemeMode.Light
+    val isOled = themeMode == ThemeMode.Oled
+    val onPrimary = onAccentFor(primary)
+
+    return when {
+        isOled -> {
+            val canvas = tintedSurface(Color(0xFF000000), primary, 0.08f)
+            val canvasSurface = tintedSurface(Color(0xFF101013), primary, 0.14f)
+            darkColorScheme(
+                background = canvas,
+                onBackground = Color(0xFFF4F4F5),
+                surface = canvasSurface,
+                onSurface = Color(0xFFF4F4F5),
+                surfaceVariant = tintedSurface(Color(0xFF161619), primary, 0.20f),
+                onSurfaceVariant = Color(0xFFA8A8B0),
+                surfaceDim = tintedSurface(Color(0xFF0A0A0D), primary, 0.10f),
+                surfaceBright = tintedSurface(Color(0xFF222228), primary, 0.20f),
+                surfaceContainerLowest = tintedSurface(Color(0xFF0C0C0E), primary, 0.10f),
+                surfaceContainerLow = tintedSurface(Color(0xFF101013), primary, 0.14f),
+                surfaceContainer = canvasSurface,
+                surfaceContainerHigh = tintedSurface(Color(0xFF161619), primary, 0.20f),
+                surfaceContainerHighest = tintedSurface(Color(0xFF1C1C20), primary, 0.24f),
+                primary = primary,
+                onPrimary = onPrimary,
+                primaryContainer = softContainer(primary, canvas),
+                onPrimaryContainer = primary,
+                secondary = primary,
+                onSecondary = onPrimary,
+                error = BrandRed,
+                onError = BrandOnEmerald,
+                tertiary = Color(0xFFFBBF24),
+            )
+        }
+        themeMode == ThemeMode.Dark -> {
+            val canvas = tintedSurface(Color(0xFF141416), primary, 0.14f)
+            val canvasSurface = tintedSurface(Color(0xFF1C1C1F), primary, 0.18f)
+            val surfaceVariant = tintedSurface(Color(0xFF242428), primary, 0.24f)
+            darkColorScheme(
+                background = canvas,
+                onBackground = Color(0xFFF4F4F5),
+                surface = canvasSurface,
+                onSurface = Color(0xFFF4F4F5),
+                surfaceVariant = surfaceVariant,
+                onSurfaceVariant = Color(0xFFA1A1AA),
+                surfaceDim = tintedSurface(Color(0xFF101013), primary, 0.12f),
+                surfaceBright = tintedSurface(Color(0xFF2E2E34), primary, 0.22f),
+                surfaceContainerLowest = tintedSurface(Color(0xFF161619), primary, 0.12f),
+                surfaceContainerLow = tintedSurface(Color(0xFF1A1A1E), primary, 0.15f),
+                surfaceContainer = canvasSurface,
+                surfaceContainerHigh = tintedSurface(Color(0xFF232329), primary, 0.22f),
+                surfaceContainerHighest = tintedSurface(Color(0xFF2A2A30), primary, 0.26f),
+                primary = primary,
+                onPrimary = onPrimary,
+                primaryContainer = softContainer(primary, canvas),
+                onPrimaryContainer = primary,
+                secondary = primary,
+                onSecondary = onPrimary,
+                error = BrandRed,
+                onError = BrandOnEmerald,
+                tertiary = Color(0xFFFBBF24),
+            )
+        }
+        else -> {
+            val canvas = tintedSurface(Color(0xFFFFFFFF), primary, 0.14f)
+            val canvasSurface = tintedSurface(Color(0xFFEFF0F3), primary, 0.18f)
+            val surfaceVariant = tintedSurface(Color(0xFFC3C3CE), primary, 0.24f)
+            lightColorScheme(
+                background = canvas,
+                onBackground = Color(0xFF18181B),
+                surface = canvasSurface,
+                onSurface = Color(0xFF18181B),
+                surfaceVariant = surfaceVariant,
+                onSurfaceVariant = Color(0xFF52525B),
+                surfaceDim = tintedSurface(Color(0xFFE2E3E8), primary, 0.16f),
+                surfaceBright = tintedSurface(Color(0xFFFFFFFF), primary, 0.10f),
+                surfaceContainerLowest = tintedSurface(Color(0xFFFFFFFF), primary, 0.10f),
+                surfaceContainerLow = canvasSurface,
+                surfaceContainer = canvasSurface,
+                surfaceContainerHigh = surfaceVariant,
+                surfaceContainerHighest = tintedSurface(Color(0xFFB8B8C4), primary, 0.26f),
+                primary = primary,
+                onPrimary = onPrimary,
+                primaryContainer = softContainer(primary, canvas),
+                onPrimaryContainer = primary,
+                secondary = primary,
+                onSecondary = onPrimary,
+                error = BrandRed,
+                onError = Color.White,
+                tertiary = Color(0xFFD97706),
+            )
+        }
+    }
+}
+
 fun buildVortexColorScheme(
     themeMode: ThemeMode,
     accent: AccentColor,
     context: Context,
 ): ColorScheme {
-    val isDark = themeMode == ThemeMode.Dark
+    val isDark = themeMode != ThemeMode.Light
 
     if (accent == AccentColor.System && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         return try {
-            val scheme = if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-            if (isDark) {
-                val canvas = Color(0xFF141416)
-                scheme.copy(
-                    background = canvas,
-                    surface = Color(0xFF1C1C1F),
-                    surfaceVariant = Color(0xFF242428),
-                    surfaceDim = Color(0xFF101013),
-                    surfaceBright = Color(0xFF2E2E34),
-                    surfaceContainerLowest = Color(0xFF161619),
-                    surfaceContainerLow = Color(0xFF1A1A1E),
-                    surfaceContainer = Color(0xFF1C1C1F),
-                    surfaceContainerHigh = Color(0xFF232329),
-                    surfaceContainerHighest = Color(0xFF2A2A30),
-                    outline = Color(0xFF2E2E33),
-                    outlineVariant = Color(0xFF242429),
-                    onBackground = Color(0xFFF4F4F5),
-                    onSurface = Color(0xFFF4F4F5),
-                    onSurfaceVariant = Color(0xFFA1A1AA),
-                    primaryContainer = softContainer(scheme.primary, canvas),
-                    onPrimaryContainer = scheme.primary,
-                )
-            } else {
-                val canvas = Color(0xFFFAFAFA)
-                scheme.copy(
-                    background = canvas,
-                    surface = Color(0xFFFFFFFF),
-                    surfaceVariant = Color(0xFFF4F4F5),
-                    surfaceDim = Color(0xFFE0E0E5),
-                    surfaceBright = Color(0xFFFFFFFF),
-                    surfaceContainerLowest = Color(0xFFFFFFFF),
-                    surfaceContainerLow = Color(0xFFF6F6F8),
-                    surfaceContainer = Color(0xFFF1F1F4),
-                    surfaceContainerHigh = Color(0xFFECECF0),
-                    surfaceContainerHighest = Color(0xFFE7E7EB),
-                    outline = Color(0xFFE4E4E7),
-                    outlineVariant = Color(0xFFE7E7EB),
-                    onBackground = Color(0xFF18181B),
-                    onSurface = Color(0xFF18181B),
-                    onSurfaceVariant = Color(0xFF71717A),
-                    primaryContainer = softContainer(scheme.primary, canvas),
-                    onPrimaryContainer = scheme.primary,
-                )
-            }
+            val dynamicScheme = if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            buildScheme(themeMode, dynamicScheme.primary)
         } catch (_: Exception) {
-            if (isDark) VortexDarkColors else VortexLightColors
+            buildScheme(themeMode, BrandEmerald)
         }
     }
 
     val primary = if (accent == AccentColor.System) BrandEmerald else accent.color
-    val onPrimary = onAccentFor(primary)
-
-    return if (isDark) {
-        val canvas = Color(0xFF141416)
-        val canvasSurface = Color(0xFF1C1C1F)
-        darkColorScheme(
-            background = canvas,
-            onBackground = Color(0xFFF4F4F5),
-            surface = canvasSurface,
-            onSurface = Color(0xFFF4F4F5),
-            surfaceVariant = Color(0xFF242428),
-            onSurfaceVariant = Color(0xFFA1A1AA),
-            surfaceDim = Color(0xFF101013),
-            surfaceBright = Color(0xFF2E2E34),
-            surfaceContainerLowest = Color(0xFF161619),
-            surfaceContainerLow = Color(0xFF1A1A1E),
-            surfaceContainer = canvasSurface,
-            surfaceContainerHigh = Color(0xFF232329),
-            surfaceContainerHighest = Color(0xFF2A2A30),
-            outline = Color(0xFF2E2E33),
-            outlineVariant = Color(0xFF242429),
-            primary = primary,
-            onPrimary = onPrimary,
-            primaryContainer = softContainer(primary, canvas),
-            onPrimaryContainer = primary,
-            secondary = primary,
-            onSecondary = onPrimary,
-            error = BrandRed,
-            onError = onPrimary,
-            tertiary = Color(0xFFFBBF24),
-        )
-    } else {
-        val canvas = Color(0xFFFAFAFA)
-        val canvasSurface = Color(0xFFFFFFFF)
-        lightColorScheme(
-            background = canvas,
-            onBackground = Color(0xFF18181B),
-            surface = canvasSurface,
-            onSurface = Color(0xFF18181B),
-            surfaceVariant = Color(0xFFF4F4F5),
-            onSurfaceVariant = Color(0xFF71717A),
-            surfaceDim = Color(0xFFE0E0E5),
-            surfaceBright = Color(0xFFFFFFFF),
-            surfaceContainerLowest = Color(0xFFFFFFFF),
-            surfaceContainerLow = Color(0xFFF6F6F8),
-            surfaceContainer = Color(0xFFF1F1F4),
-            surfaceContainerHigh = Color(0xFFECECF0),
-            surfaceContainerHighest = Color(0xFFE7E7EB),
-            outline = Color(0xFFE4E4E7),
-            outlineVariant = Color(0xFFE7E7EB),
-            primary = primary,
-            onPrimary = onPrimary,
-            primaryContainer = softContainer(primary, canvas),
-            onPrimaryContainer = primary,
-            secondary = primary,
-            onSecondary = onPrimary,
-            error = BrandRed,
-            onError = onPrimary,
-            tertiary = Color(0xFFD97706),
-        )
-    }
+    return buildScheme(themeMode, primary)
 }
 
-internal val VortexDarkColors = darkColorScheme(
-    background = Color(0xFF18181B),
-    onBackground = Color(0xFFFAFAFA),
-    surface = Color(0xFF1C1C1F),
-    onSurface = Color(0xFFFAFAFA),
-    surfaceVariant = Color(0xFF1C1C1F),
-    onSurfaceVariant = Color(0xFF8A8A8E),
-    surfaceDim = Color(0xFF101013),
-    surfaceBright = Color(0xFF2E2E34),
-    surfaceContainerLowest = Color(0xFF161619),
-    surfaceContainerLow = Color(0xFF1A1A1E),
-    surfaceContainer = Color(0xFF1C1C1F),
-    surfaceContainerHigh = Color(0xFF232329),
-    surfaceContainerHighest = Color(0xFF2A2A30),
-    outline = Color(0xFF27272A),
-    outlineVariant = Color(0xFF242429),
-    primary = BrandEmerald,
-    onPrimary = BrandOnEmerald,
-    primaryContainer = softContainer(BrandEmerald, Color(0xFF18181B)),
-    onPrimaryContainer = BrandEmerald,
-    secondary = BrandEmerald,
-    onSecondary = BrandOnEmerald,
-    error = BrandRed,
-    onError = BrandOnEmerald,
-    tertiary = Color(0xFFFBBF24),
-)
-
-internal val VortexLightColors = lightColorScheme(
-    background = Color(0xFFFAFAFA),
-    onBackground = Color(0xFF18181B),
-    surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF18181B),
-    surfaceVariant = Color(0xFFFFFFFF),
-    onSurfaceVariant = Color(0xFF67676E),
-    surfaceDim = Color(0xFFE0E0E5),
-    surfaceBright = Color(0xFFFFFFFF),
-    surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFF6F6F8),
-    surfaceContainer = Color(0xFFF1F1F4),
-    surfaceContainerHigh = Color(0xFFECECF0),
-    surfaceContainerHighest = Color(0xFFE7E7EB),
-    outline = Color(0xFFE4E4E7),
-    outlineVariant = Color(0xFFE7E7EB),
-    primary = BrandEmerald,
-    onPrimary = BrandOnEmerald,
-    primaryContainer = softContainer(BrandEmerald, Color(0xFFFAFAFA)),
-    onPrimaryContainer = BrandEmerald,
-    secondary = BrandEmerald,
-    onSecondary = BrandOnEmerald,
-    error = BrandRed,
-    onError = BrandOnEmerald,
-    tertiary = Color(0xFFD97706),
-)
+internal val VortexOledColors = buildScheme(ThemeMode.Oled, BrandEmerald)
+internal val VortexDarkColors = buildScheme(ThemeMode.Dark, BrandEmerald)
+internal val VortexLightColors = buildScheme(ThemeMode.Light, BrandEmerald)

@@ -50,6 +50,7 @@ Vortex links a Linux desktop and an Android phone over the local network. Clipbo
 
 | Document | Description |
 | :--- | :--- |
+| [Design system](docs/design/design-system.md) | Android app visual language, theming, components, and navigation |
 | [Environment and tooling](docs/development/environment.md) | Nix shell, Lefthook pre-commit checks, and formatting standards |
 | [Security and compliance](docs/security-compliance/security.md) | Local-first threat model, Noise XX crypto, and sandbox privileges |
 | [Troubleshooting guide](docs/operations/troubleshooting.md) | Diagnostics, BlueZ/BLE reconnection, ADB permissions, and Wayland display fixes |

@@ -29,7 +29,7 @@ X11 root polling does not work on Wayland, so Vortex registers edge barriers thr
 
 ## Android input injection (`vortex_inject`)
 
-Android does not let normal apps inject input. Vortex ships a small helper instead:
+Android restricts input injection to system-level processes. Vortex ships a small helper:
 1. Vortex copies the 20 KB `vortex_inject` binary to `/data/local/tmp/`.
 2. It starts the binary as the `shell` user over ADB.
 3. The binary opens `/dev/uinput` and registers a virtual touch screen, a virtual mouse, and a virtual keyboard.

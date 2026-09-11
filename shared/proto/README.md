@@ -1,105 +1,28 @@
-# shared/proto README
+# shared/proto
 
-## What This Is
+This folder contains the cross-language Protocol Buffer definitions used by Vortex. The schemas define wire message structures, payload envelopes, transport-safe typed messages, and compatibility boundaries between Rust and Kotlin codebases. The main file is `vortex.proto`.
 
-This folder contains the cross-language Protocol Buffer definitions used by
-Vortex.
+`shared/proto` is the contract layer between platforms. Schema changes are protocol changes, not code changes. Careless changes can cause Android and Linux to drift, make decode failures hard to debug, and silently break backward compatibility.
 
-The schemas in this directory define:
+## Rust generation
 
-- shared wire message structures
-- payload envelopes
-- transport-safe typed messages
-- long-term compatibility boundaries between Rust and Kotlin codebases
-
-The main file is:
-
-- `vortex.proto`
-
-## Why This Folder Matters
-
-`shared/proto` is the contract layer between platforms.
-
-If the schema changes carelessly:
-
-- Android and Linux can drift apart
-- decode failures become hard to debug
-- backward compatibility can be broken silently
-
-Treat schema changes as protocol changes, not just code changes.
-
-## How It Is Used
-
-Rust side:
-
-- generated through `prost-build`
-- usually invoked from `build.rs`
-- generated types should not be edited by hand
-
-Kotlin side:
-
-- generated through `protobuf-gradle-plugin`
-- integrated into the Gradle build graph
-- generated outputs should remain derived artifacts
-
-## Generation Commands
-
-Rust generation:
+Rust types are generated through `prost-build`, usually invoked from `build.rs`. Generated types should not be edited by hand.
 
 ```bash
 cargo build
 ```
 
-Expected behavior:
+## Kotlin generation
 
-- `build.rs` invokes `prost-build`
-- Rust types are regenerated automatically when schema changes
-
-Kotlin generation:
+Kotlin types are generated through `protobuf-gradle-plugin`, integrated into the Gradle build graph. Generated outputs remain derived artifacts.
 
 ```bash
 ./gradlew generateProto
 ```
 
-Expected behavior:
+## Field numbering
 
-- Gradle plugin regenerates Java or Kotlin-compatible Proto classes
-- Android modules consume generated sources from the build directory
-
-## Field Numbering Rules
-
-Field numbers are permanent protocol real estate.
-
-Rules:
-
-- `1-15`: reserve for frequently used fields because they encode in one byte
-- `16+`: use for less frequent fields
-- `NEVER` reuse numbers from removed fields
-
-Bad practice:
-
-- deleting a field and reusing its old number for something new
-
-Good practice:
-
-- mark removed fields as `reserved`
-- add a new field number for changed semantics
-
-## Versioning Strategy
-
-Safe changes:
-
-- adding optional fields
-- adding new messages
-- adding new enum values with safe defaults
-
-Unsafe or breaking changes:
-
-- changing field types
-- reusing field numbers
-- changing existing semantics without version gating
-
-When removing a field:
+Field numbers are permanent protocol real estate. Fields `1-15` reserve the most frequently used fields because they encode in one byte; `16+` are for less frequent fields. Removed fields are marked as `reserved` and their numbers are never reused.
 
 ```proto
 message Example {
@@ -107,40 +30,19 @@ message Example {
 }
 ```
 
-## Compatibility Rules
+## Versioning
 
-Backward compatibility expectations:
+Safe changes add optional fields, add new messages, or add new enum values with safe defaults. Breaking changes change field types, reuse field numbers, or change existing semantics without version gating.
 
-- older peers ignore unknown optional fields
-- newer peers tolerate missing optional fields
-- message wrappers should remain stable once experiments converge
+## Compatibility
 
-Forward planning:
-
-- reserve room for new payload types
-- document every schema-affecting decision in protocol review
+Older peers ignore unknown optional fields. Newer peers tolerate missing optional fields. Message wrappers remain stable once experiments converge. Room is reserved for new payload types, and every schema-affecting decision is documented in protocol review.
 
 ## Testing
 
-Required test types:
+Tests include round-trip encode/decode, Rust-to-Kotlin decode, Kotlin-to-Rust decode, and malformed payload handling. Test cases cover empty optional fields, populated nested messages, and unknown field preservation.
 
-- round-trip encode/decode tests
-- Rust encode -> Kotlin decode tests
-- Kotlin encode -> Rust decode tests
-- malformed payload handling tests
+## See also
 
-Good test cases:
-
-- empty optional fields
-- populated nested messages
-- unknown field preservation or ignore behavior where applicable
-
-## Files
-
-- `vortex.proto` — primary wire protocol schema for Vortex
-
-## TODO / FIXME / NOTE
-
-- TODO: add example generated output paths once Rust and Android builds exist
-- FIXME: confirm whether Kotlin generation targets Java or Kotlin stubs in MVP
-- NOTE: keep this directory small and contract-focused
+- `docs/architecture/protocols.md` details the wire protocol and encryption.
+- `shared/README.md` describes the shared directory structure and subsystems.

@@ -7,8 +7,8 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.ui.graphics.Color
 
 enum class AccentColor(val code: String, val label: String, val hex: Long) {
-    System("system", "System", 0x00000000L),
     Vortex("vortex", "Vortex Green", 0xFF2ECC71L),
+    System("system", "System", 0x00000000L),
     Blue("blue", "Blue", 0xFF3584E4L),
     Teal("teal", "Teal", 0xFF21A48CL),
     Green("green", "Green", 0xFF33D17AL),
@@ -35,6 +35,7 @@ enum class AccentColor(val code: String, val label: String, val hex: Long) {
 
     companion object {
         fun fromCode(c: String?): AccentColor =
-            entries.firstOrNull { it.code == c } ?: System
+            if (c == "cyan") Vortex
+            else entries.firstOrNull { it.code == c } ?: Vortex
     }
 }
