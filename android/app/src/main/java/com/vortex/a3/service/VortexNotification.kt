@@ -26,7 +26,8 @@ class VortexNotification(
         fun peerStateAgeMs(): Long
     }
 
-    private val handler = Handler(Looper.getMainLooper())
+    private val notifThread = android.os.HandlerThread("vortex-notification").apply { start() }
+    private val handler = Handler(notifThread.looper)
     @Volatile private var lastOwner: String? = null
     @Volatile private var targetOwner: String? = null
     @Volatile private var lastOwnerAtMs: Long = 0L
@@ -55,10 +56,12 @@ class VortexNotification(
     }
 
     fun refresh() {
-        try {
-            service.getSystemService(NotificationManager::class.java)
-                ?.notify(NOTIF_ID, build())
-        } catch (_: Exception) {}
+        handler.post {
+            try {
+                service.getSystemService(NotificationManager::class.java)
+                    ?.notify(NOTIF_ID, build())
+            } catch (_: Exception) {}
+        }
     }
 
     fun noteSwitchTarget(owner: String) {
@@ -71,6 +74,7 @@ class VortexNotification(
 
     fun stop() {
         handler.removeCallbacks(ticker)
+        notifThread.quitSafely()
     }
 
     private fun build(): Notification {

@@ -45,8 +45,10 @@ import androidx.compose.ui.unit.sp
 import com.vortex.a3.core.lan.IncomingFile
 import com.vortex.a3.ui.components.AppHeader
 import com.vortex.a3.ui.components.CardCorner
+import com.vortex.a3.ui.components.pillowCard
 import com.vortex.a3.ui.components.VortexDivider
 import com.vortex.a3.ui.icons.SolarIcons
+import com.vortex.a3.ui.icons.SolarDuotoneIcon
 import com.vortex.a3.ui.str
 import java.io.File
 import java.text.SimpleDateFormat
@@ -117,13 +119,12 @@ fun FilesScreen(
                         modifier = Modifier
                             .size(72.dp)
                             .clip(RoundedCornerShape(20.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer),
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            imageVector = SolarIcons.Folder,
+                        SolarDuotoneIcon(
+                            icon = SolarIcons.Folder,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.size(36.dp),
                         )
                     }
@@ -164,8 +165,7 @@ fun FilesScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(CardCorner)
-                        .background(MaterialTheme.colorScheme.surface),
+                        .pillowCard(),
                 ) {
                     filesList.forEachIndexed { index, item ->
                         FileRow(
@@ -242,13 +242,12 @@ private fun FileRow(
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = SolarIcons.FileDownload,
+            SolarDuotoneIcon(
+                icon = SolarIcons.FileDownload,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(18.dp),
             )
         }

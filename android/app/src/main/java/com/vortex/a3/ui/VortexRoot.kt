@@ -19,7 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -103,10 +103,11 @@ fun VortexRoot(
     val activeLocale = settings.locale.collectAsState().value
     val activeTheme = settings.theme.collectAsState().value
     val activeAccent = settings.accent.collectAsState().value
+    val activeCalendarBackend = settings.calendarBackend.collectAsState().value
     val colorScheme = remember(activeTheme, activeAccent, activity) {
         buildVortexColorScheme(activeTheme, activeAccent, activity)
     }
-    SideEffect {
+    LaunchedEffect(activeTheme, colorScheme.background) {
         val window = activity.window
         val isLight = activeTheme == ThemeMode.Light
         WindowCompat.getInsetsController(window, window.decorView)
@@ -211,6 +212,7 @@ fun VortexRoot(
                                             showBluetoothOff = ui.bluetoothOff.collectAsState().value,
                                             onEnableBluetooth = actions.onEnableBluetooth,
                                             onRequestSwitchEarbuds = actions.onRequestSwitchEarbuds,
+                                            calendarBackend = activeCalendarBackend,
                                         )
                                     }
                                     NavDestination.Files -> {
@@ -242,6 +244,8 @@ fun VortexRoot(
                                             },
                                             screenControlOn = screenControlOn,
                                             onScreenControlClick = actions.onOpenScreenControl,
+                                            calendarBackend = activeCalendarBackend,
+                                            onSelectBackend = { settings.setCalendarBackend(it) },
                                             onBack = { currentTab = NavDestination.Hub },
                                         )
                                     }

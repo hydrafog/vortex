@@ -186,7 +186,6 @@ EOF
       }"
       --set-default WEBKIT_DISABLE_DMABUF_RENDERER 1
       --set-default GDK_BACKEND wayland
-      --set-default XDG_DOWNLOAD_DIR "$HOME/_inbox"
     )
   '';
 

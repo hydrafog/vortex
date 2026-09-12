@@ -12,9 +12,6 @@
 
 Vortex links a Linux desktop and an Android phone over the local network. Clipboard, mouse and keyboard, files, audio, notifications, and screen share move directly between the two devices, encrypted end to end. There is no cloud account and no relay server.
 
-> [!NOTE]
-> The documentation and codebase guides for this project were written and maintained with the assistance of AI agents.
-
 > [!WARNING]
 > **Beta Software**: Vortex is currently under active development. Features, protocol definitions, and platform integrations are actively being tested and refined.
 

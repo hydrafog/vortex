@@ -393,15 +393,15 @@ class LanServer(
                 val peerPubFinal: ByteArray = peerPub
 
                 val outLock = java.util.concurrent.locks.ReentrantLock()
-                fun lockedWrite(frame: Frame) {
+                fun lockedWrite(frame: Frame, flush: Boolean = true) {
                     outLock.lock()
-                    try { writeFrame(output, frame) } finally { outLock.unlock() }
+                    try { writeFrame(output, frame, flush) } finally { outLock.unlock() }
                 }
-                fun lockedSealAndWrite(type: Byte, sub: Byte, plaintext: ByteArray) {
+                fun lockedSealAndWrite(type: Byte, sub: Byte, plaintext: ByteArray, flush: Boolean = true) {
                     outLock.lock()
                     try {
                         val ct = aeadSeal(pair.sender, plaintext)
-                        writeFrame(output, Frame(type, sub, ct))
+                        writeFrame(output, Frame(type, sub, ct), flush)
                     } finally { outLock.unlock() }
                 }
 
@@ -494,12 +494,14 @@ class LanServer(
                                 for (idx in 0 until total) {
                                     val s = idx * BULK_CHUNK
                                     val e = minOf(s + BULK_CHUNK, json.size)
-                                    val payload = java.io.ByteArrayOutputStream().apply {
-                                        write((total ushr 8) and 0xFF); write(total and 0xFF)
-                                        write((idx ushr 8) and 0xFF); write(idx and 0xFF)
-                                        write(json, s, e - s)
-                                    }.toByteArray()
-                                    lockedSealAndWrite(frameType, 0x00, payload)
+                                    val chunkLen = e - s
+                                    val payload = ByteArray(4 + chunkLen)
+                                    payload[0] = ((total ushr 8) and 0xFF).toByte()
+                                    payload[1] = (total and 0xFF).toByte()
+                                    payload[2] = ((idx ushr 8) and 0xFF).toByte()
+                                    payload[3] = (idx and 0xFF).toByte()
+                                    System.arraycopy(json, s, payload, 4, chunkLen)
+                                    lockedSealAndWrite(frameType, 0x00, payload, flush = (idx + 1 == total))
                                 }
                             }
                             for (key in req.keys()) {
@@ -773,10 +775,7 @@ class LanServer(
                                 val openNow = obj.optBoolean("open_now", false)
                                 if (openNow && url.startsWith("http")) {
                                     Log.i(TAG, "← handoff from laptop: opening $url")
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    }
-                                    context.startActivity(intent)
+                                    dispatchIncomingUrl(context, url)
                                 } else {
                                     Log.i(TAG, "← handoff from laptop: open_now=$openNow url=${url.take(60)}; ignoring")
                                 }
@@ -797,6 +796,52 @@ class LanServer(
         }
     }
 
+    private fun dispatchIncomingUrl(context: Context, url: String) {
+        val uri = Uri.parse(url)
+        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        runCatching { context.startActivity(intent) }
+
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager ?: return
+        val channelId = "vortex_handoff"
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val ch = android.app.NotificationChannel(
+                channelId,
+                "Link Sharing",
+                android.app.NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = "Links sent from your laptop"
+                enableVibration(true)
+                setShowBadge(true)
+            }
+            nm.createNotificationChannel(ch)
+        }
+
+        val flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        val pi = android.app.PendingIntent.getActivity(context, 0x4C494E, intent, flags)
+        val host = runCatching { uri.host }.getOrNull() ?: url
+
+        val notif = androidx.core.app.NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(com.vortex.a3.R.drawable.ic_notification_vortex)
+            .setContentTitle("Open in browser")
+            .setContentText(host)
+            .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(url))
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+            .setCategory(androidx.core.app.NotificationCompat.CATEGORY_RECOMMENDATION)
+            .setAutoCancel(true)
+            .setContentIntent(pi)
+            .setFullScreenIntent(pi, true)
+            .build()
+
+        try {
+            nm.notify(0x4C494E4B, notif)
+        } catch (e: Exception) {
+            Log.w(TAG, "failed to post handoff notification: ${e.message}")
+        }
+    }
+
     private fun readFrame(input: DataInputStream): Frame? {
         return try {
             val header = ByteArray(FRAME_HEADER_LEN)
@@ -805,16 +850,17 @@ class LanServer(
             if (length > MAX_FRAME_PAYLOAD) return null
             val payload = ByteArray(length)
             if (length > 0) input.readFully(payload)
-            val full = header + payload
-            Frame.decode(full).getOrNull()
+            Frame(type = header[0], sub = header[1], payload = payload)
         } catch (e: Exception) {
             null
         }
     }
 
-    private fun writeFrame(output: DataOutputStream, frame: Frame) {
+    private fun writeFrame(output: DataOutputStream, frame: Frame, flush: Boolean = true) {
         output.write(frame.encode())
-        output.flush()
+        if (flush) {
+            output.flush()
+        }
     }
 
     private fun currentServiceType(): String = when (mode) {
@@ -855,9 +901,10 @@ class LanServer(
         if (ciphertext.size < cipher.macLength) {
             throw IllegalArgumentException("ciphertext shorter than MAC")
         }
-        val out = ByteArray(ciphertext.size)
+        val ptLen = ciphertext.size - cipher.macLength
+        val out = ByteArray(ptLen)
         val n = cipher.decryptWithAd(null, ciphertext, 0, out, 0, ciphertext.size)
-        return out.copyOf(n)
+        return if (n == out.size) out else out.copyOf(n)
     }
 
     private fun ByteArray.toHex(): String =

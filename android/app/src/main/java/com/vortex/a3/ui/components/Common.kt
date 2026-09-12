@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.vortex.a3.ui.icons.SolarIcons
+import com.vortex.a3.ui.icons.SolarDuotoneIcon
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,6 +25,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.border
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontWeight as FW
 import androidx.compose.ui.unit.dp
 import com.vortex.a3.ui.AdvertiseState
@@ -33,6 +40,87 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 
 val CardCorner = RoundedCornerShape(16.dp)
+
+// NOTE: Perceived relative luminance calculation for theme-adaptive pillow shading.
+private fun Color.perceivedLuminance(): Float {
+    val r = red.toDouble()
+    val g = green.toDouble()
+    val b = blue.toDouble()
+    fun channel(c: Double): Double =
+        if (c <= 0.03928) c / 12.92 else Math.pow((c + 0.055) / 1.055, 2.4)
+    return (0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)).toFloat()
+}
+
+// NOTE: Mathematical 1:1 port of hyprland pillow.glsl color dodge + multiplicative shadow + soft light curve.
+private fun pillowTransform(src: Color, delta: Float): Color {
+    val r = src.red
+    val g = src.green
+    val b = src.blue
+    val lum = 0.299f * r + 0.587f * g + 0.114f * b
+
+    val strength = 0.20f
+
+    val darkR: Float
+    val darkG: Float
+    val darkB: Float
+    if (delta >= 0f) {
+        val w = delta * 2.0f * strength
+        val denom = maxOf(1.0f - w, 0.001f)
+        darkR = (r + 0.015f * w) / denom
+        darkG = (g + 0.015f * w) / denom
+        darkB = (b + 0.015f * w) / denom
+    } else {
+        val w = (-delta) * 2.0f * strength * 0.75f
+        darkR = r * (1.0f - w)
+        darkG = g * (1.0f - w)
+        darkB = b * (1.0f - w)
+    }
+
+    val sLight = 0.16f
+    val m = 0.5f + delta * sLight
+    val softR = (1.0f - 2.0f * m) * r * r + 2.0f * m * r
+    val softG = (1.0f - 2.0f * m) * g * g + 2.0f * m * g
+    val softB = (1.0f - 2.0f * m) * b * b + 2.0f * m * b
+
+    val lumWeight = ((lum - 0.35f) / (0.75f - 0.35f)).coerceIn(0f, 1f)
+    val smoothWeight = lumWeight * lumWeight * (3f - 2f * lumWeight)
+
+    val finalR = (darkR * (1f - smoothWeight) + softR * smoothWeight).coerceIn(0f, 1f)
+    val finalG = (darkG * (1f - smoothWeight) + softG * smoothWeight).coerceIn(0f, 1f)
+    val finalB = (darkB * (1f - smoothWeight) + softB * smoothWeight).coerceIn(0f, 1f)
+
+    return Color(finalR, finalG, finalB, src.alpha)
+}
+
+// NOTE: Shader-free 3D pillow shading reproducing hyprland pillow.glsl cushion lighting.
+fun Modifier.pillowCard(
+    shape: Shape = CardCorner,
+    backgroundColor: Color? = null,
+): Modifier = composed {
+    val base = backgroundColor ?: MaterialTheme.colorScheme.surface
+    val highlight = pillowTransform(base, 0.5f)
+    val shadow = pillowTransform(base, -0.5f)
+
+    this
+        .clip(shape)
+        .drawBehind {
+            drawRect(
+                brush = Brush.linearGradient(
+                    0.0f to highlight,
+                    0.45f to base,
+                    0.55f to base,
+                    1.0f to shadow,
+                    start = Offset.Zero,
+                    end = Offset(size.width, size.height),
+                ),
+            )
+        }
+        .border(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant,
+            shape = shape,
+        )
+}
 
 fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
@@ -77,17 +165,22 @@ fun AppHeader(
 @Composable
 fun CardHeader(
     icon: ImageVector,
-    iconTint: Color,
-    iconBg: Color,
+    modifier: Modifier = Modifier,
+    iconTint: Color = MaterialTheme.colorScheme.primary,
+    iconBg: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(42.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(iconBg),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(22.dp))
+        SolarDuotoneIcon(
+            icon = icon,
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+        )
     }
 }
 
@@ -112,8 +205,7 @@ fun SurfaceCard(content: @Composable () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface)
+            .pillowCard(shape = RoundedCornerShape(12.dp))
             .padding(20.dp),
     ) {
         content()
@@ -139,13 +231,12 @@ fun PairedRow(label: String, short: String) {
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = SolarIcons.Laptop,
+            SolarDuotoneIcon(
+                icon = SolarIcons.Laptop,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(18.dp),
             )
         }

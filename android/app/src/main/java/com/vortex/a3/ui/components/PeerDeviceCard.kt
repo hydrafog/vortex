@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.vortex.a3.ui.icons.SolarDuotoneIcon
 import com.vortex.a3.ui.icons.SolarIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -54,8 +55,7 @@ fun PeerDeviceCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(CardCorner)
-            .background(MaterialTheme.colorScheme.surface)
+            .pillowCard()
             .combinedClickable(
                 interactionSource = interaction,
                 indication = ripple(),
@@ -71,8 +71,7 @@ fun PeerDeviceCard(
             Column {
                 CardHeader(
                     icon = icon,
-                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    iconBg = MaterialTheme.colorScheme.primaryContainer,
+                    iconBg = MaterialTheme.colorScheme.surfaceContainerHigh,
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(
@@ -147,10 +146,9 @@ fun PeerDeviceCard(
                                     .clickable(onClick = onViewScreen),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Icon(
-                                    imageVector = SolarIcons.Cast,
+                                SolarDuotoneIcon(
+                                    icon = SolarIcons.Cast,
                                     contentDescription = "View laptop screen",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(20.dp),
                                 )
                             }
@@ -161,18 +159,13 @@ fun PeerDeviceCard(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isLocked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh)
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                                     .clickable(onClick = onToggleLock),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Icon(
-                                    imageVector = SolarIcons.lockIconFor(locked),
+                                SolarDuotoneIcon(
+                                    icon = SolarIcons.lockIconFor(locked),
                                     contentDescription = if (isLocked) "Unlock laptop" else "Lock laptop",
-                                    tint = if (isLocked) {
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
                                     modifier = Modifier.size(20.dp),
                                 )
                             }
@@ -186,10 +179,9 @@ fun PeerDeviceCard(
                                     .clickable(onClick = onShutdown),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Icon(
-                                    imageVector = SolarIcons.Power,
+                                SolarDuotoneIcon(
+                                    icon = SolarIcons.Power,
                                     contentDescription = "Shut down laptop",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(20.dp),
                                 )
                             }

@@ -167,6 +167,10 @@ private val EN = mapOf(
     "calendar.add"        to "Add event",
     "calendar.provider"   to "Calendar backend",
     "calendar.due_note"   to "Due note",
+    "calendar.save"       to "Save",
+    "calendar.cancel"     to "Cancel",
+    "calendar.event_title" to "Event title",
+    "calendar.time_hint"  to "Time (optional, e.g. 14:30)",
 )
 
 private val UZ = mapOf(
@@ -311,6 +315,10 @@ private val UZ = mapOf(
     "calendar.add"        to "Tadbir qo'shish",
     "calendar.provider"   to "Taqvim manbai",
     "calendar.due_note"   to "Muddati kelgan qayd",
+    "calendar.save"       to "Saqlash",
+    "calendar.cancel"     to "Bekor qilish",
+    "calendar.event_title" to "Tadbir nomi",
+    "calendar.time_hint"  to "Vaqt (ixtiyoriy, masalan 14:30)",
 )
 
 private val RU = mapOf(
@@ -455,6 +463,10 @@ private val RU = mapOf(
     "calendar.add"        to "Добавить событие",
     "calendar.provider"   to "Источник календаря",
     "calendar.due_note"   to "Заметка к сроку",
+    "calendar.save"       to "Сохранить",
+    "calendar.cancel"     to "Отмена",
+    "calendar.event_title" to "Название события",
+    "calendar.time_hint"  to "Время (необязательно, напр. 14:30)",
 )
 
 private val STRINGS: Map<VortexLocale, Map<String, String>> = mapOf(

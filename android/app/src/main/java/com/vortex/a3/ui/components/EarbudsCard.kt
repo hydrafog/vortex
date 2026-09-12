@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
+import com.vortex.a3.ui.icons.SolarDuotoneIcon
 import com.vortex.a3.ui.icons.SolarIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -76,8 +77,7 @@ fun EarbudsCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(CardCorner)
-            .background(MaterialTheme.colorScheme.surface)
+            .pillowCard()
             .combinedClickable(
                 interactionSource = cardInteraction,
                 indication = ripple(bounded = true),
@@ -92,8 +92,7 @@ fun EarbudsCard(
         ) {
             CardHeader(
                 icon = SolarIcons.Headphones,
-                iconTint = tintColor,
-                iconBg = MaterialTheme.colorScheme.primaryContainer,
+                iconBg = MaterialTheme.colorScheme.surfaceContainerHigh,
             )
             Spacer(modifier = Modifier.height(10.dp))
             Row(
@@ -169,8 +168,7 @@ fun EarbudsAddPlaceholder(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(CardCorner)
-            .background(MaterialTheme.colorScheme.surface)
+            .pillowCard()
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(bounded = true),
@@ -187,13 +185,12 @@ fun EarbudsAddPlaceholder(
                 modifier = Modifier
                     .size(42.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = SolarIcons.Add,
+                SolarDuotoneIcon(
+                    icon = SolarIcons.Add,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(20.dp),
                 )
             }

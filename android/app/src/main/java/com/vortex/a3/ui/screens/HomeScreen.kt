@@ -109,6 +109,7 @@ fun HomeScreen(
     onEnableBluetooth: () -> Unit,
     onStartPairing: () -> Unit = {},
     onRequestSwitchEarbuds: () -> Unit = {},
+    calendarBackend: String = "local",
 ) {
     val peerCount = peers.size
     val primaryPeer = peers.firstOrNull()
@@ -284,7 +285,16 @@ fun HomeScreen(
                 letterSpacing = 1.sp,
                 modifier = Modifier.padding(start = 2.dp),
             )
-            val calendarProvider = remember { com.vortex.a3.core.calendar.LocalCalendarProvider() }
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val calendarProvider = remember(calendarBackend) {
+                if (calendarBackend == "ricelin") {
+                    com.vortex.a3.core.calendar.RicelinFileProvider(
+                        java.io.File(context.filesDir, "events.json"),
+                    )
+                } else {
+                    com.vortex.a3.core.calendar.LocalCalendarProvider()
+                }
+            }
             var selectedDay by remember {
                 mutableStateOf(
                     runCatching {

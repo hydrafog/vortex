@@ -219,6 +219,14 @@ if adb shell appops set "$PKG" READ_CLIPBOARD allow 2>/dev/null; then
   echo "▶ granted READ_CLIPBOARD (clipboard auto-sync)"
 fi
 
+# Link handoff & overlay permissions (Android 14+ background activity launch)
+if adb shell appops set "$PKG" SYSTEM_ALERT_WINDOW allow 2>/dev/null; then
+  echo "▶ granted SYSTEM_ALERT_WINDOW (direct link handoff / background activity launches)"
+fi
+if adb shell appops set "$PKG" USE_FULL_SCREEN_INTENT allow 2>/dev/null; then
+  echo "▶ granted USE_FULL_SCREEN_INTENT (instant full-screen intent / heads-up handoff)"
+fi
+
 # MIUI "Show on Lock screen" (custom appop 10020): without it MIUI blocks the
 # find-my-phone "Found it!" page from popping over the lockscreen. 10021
 # ("display pop-up windows in background") helps the unlocked case on ROMs

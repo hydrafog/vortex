@@ -325,18 +325,51 @@ pub(crate) fn downloads_label() -> String {
         .unwrap_or_else(|| "Downloads".to_string())
 }
 
+fn incoming_dir_configured(home: &std::path::Path) -> Option<PathBuf> {
+    let base = std::env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
+        .unwrap_or_else(|| home.join(".local/share"));
+    let text = std::fs::read_to_string(base.join("vortex/incoming_dir")).ok()?;
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    expand_home(trimmed, home)
+}
+
+fn is_valid_download_dir(path: &std::path::Path) -> bool {
+    let s = path.to_string_lossy();
+    !s.starts_with("/build") && !s.starts_with("/homeless-shelter")
+}
+
 fn xdg_download_dir(home: &std::path::Path) -> Option<PathBuf> {
+    if let Some(p) = incoming_dir_configured(home) {
+        if is_valid_download_dir(&p) {
+            return Some(p);
+        }
+    }
     if let Some(v) = std::env::var_os("XDG_DOWNLOAD_DIR") {
         if let Some(p) = expand_home(&v.to_string_lossy(), home) {
-            return Some(p);
+            if is_valid_download_dir(&p) {
+                return Some(p);
+            }
         }
     }
     let config = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .filter(|p| p.is_absolute())
         .unwrap_or_else(|| home.join(".config"));
-    let text = std::fs::read_to_string(config.join("user-dirs.dirs")).ok()?;
-    expand_home(&parse_user_dirs(&text, "XDG_DOWNLOAD_DIR")?, home)
+    if let Ok(text) = std::fs::read_to_string(config.join("user-dirs.dirs")) {
+        if let Some(p) =
+            parse_user_dirs(&text, "XDG_DOWNLOAD_DIR").and_then(|raw| expand_home(&raw, home))
+        {
+            if is_valid_download_dir(&p) {
+                return Some(p);
+            }
+        }
+    }
+    None
 }
 
 fn parse_user_dirs(text: &str, key: &str) -> Option<String> {
@@ -413,8 +446,21 @@ pub(crate) async fn apply_synced_file(
     let size = bytes.len();
     let safe2 = safe.clone();
     let saved = tokio::task::spawn_blocking(move || -> std::io::Result<PathBuf> {
-        std::fs::create_dir_all(&dir)?;
-        let path = unique_path(&dir, &safe2);
+        let target_dir = if std::fs::create_dir_all(&dir).is_ok() {
+            dir
+        } else {
+            tracing::warn!(dir = %dir.display(), "cannot create target incoming dir; falling back to Downloads/HOME");
+            let home = std::env::var_os("HOME")
+                .map(PathBuf::from)
+                .unwrap_or_else(std::env::temp_dir);
+            let fallback = home.join("Downloads");
+            if std::fs::create_dir_all(&fallback).is_ok() {
+                fallback
+            } else {
+                home
+            }
+        };
+        let path = unique_path(&target_dir, &safe2);
         std::fs::write(&path, &bytes)?;
         Ok(path)
     })

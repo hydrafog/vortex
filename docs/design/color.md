@@ -4,32 +4,32 @@ Color separates surfaces through solid lightness steps. The system is flat: canv
 
 ## Android tokens
 
-The Compose schemes in `Theme.kt` derive opaque canvas and surface values dynamically tinted by the active accent color through `tintedSurface`. Base lightness steps anchor each role while adopting the accent's hue: light canvas blends with 14% accent tint, cards blend with 18%, and overlaid containers blend with 24%. Dark canvas blends with 14% accent tint, dark cards with 18%, and dark containers with 24%.
+The Compose schemes in `Theme.kt` define clean, crisp canvas and surface values across dark, light, and OLED canvases. Base lightness steps anchor each role with high contrast and legibility: pure black for OLED canvas, deep neutral charcoal for dark mode, and soft clean white for light mode.
 
-| Role | Base dark level | Base light level |
-| :--- | :-------------- | :--------------- |
-| `background` (canvas) | `141416` (14% tint) | `FFFFFF` (14% tint) |
-| `surface` | `1C1C1F` (18% tint) | `EFF0F3` (18% tint) |
-| `onBackground` / `onSurface` | `F4F4F5` | `18181B` |
-| `surfaceVariant` | `242428` (24% tint) | `C3C3CE` (24% tint) |
-| `onSurfaceVariant` | `A1A1AA` | `52525B` |
-| `surfaceDim` | `101013` (12% tint) | `E2E3E8` (16% tint) |
-| `surfaceBright` | `2E2E34` (22% tint) | `FFFFFF` (10% tint) |
-| `surfaceContainerLowest` | `161619` (12% tint) | `FFFFFF` (10% tint) |
-| `surfaceContainerLow` | `1A1A1E` (15% tint) | `EFF0F3` (18% tint) |
-| `surfaceContainer` | `1C1C1F` (18% tint) | `EFF0F3` (18% tint) |
-| `surfaceContainerHigh` | `232329` (22% tint) | `C3C3CE` (24% tint) |
-| `surfaceContainerHighest` | `2A2A30` (26% tint) | `B8B8C4` (26% tint) |
-| `tertiary` (warning amber) | `FBBF24` | `D97706` |
-| `error` | `EF4444` | `EF4444` |
-| `batteryGreen` (success) | `33D17A` | `33D17A` |
-| `onBatteryGreen` | `1C1B1F` | `FFFFFF` |
+| Role | OLED level | Dark level | Light level |
+| :--- | :--------- | :--------- | :---------- |
+| `background` (canvas) | `000000` | `141416` | `F8F9FA` |
+| `surface` | `101013` | `1C1C1F` | `FFFFFF` |
+| `onBackground` / `onSurface` | `F4F4F5` | `F4F4F5` | `18181B` |
+| `surfaceVariant` | `1A1A1E` | `242428` | `EBEDF0` |
+| `onSurfaceVariant` | `A1A1AA` | `A1A1AA` | `52525B` |
+| `surfaceDim` | `000000` | `101013` | `E0E2E7` |
+| `surfaceBright` | `2A2A30` | `2E2E34` | `FFFFFF` |
+| `surfaceContainerLowest` | `0A0A0C` | `121214` | `FFFFFF` |
+| `surfaceContainerLow` | `101013` | `18181B` | `F2F3F5` |
+| `surfaceContainer` | `141417` | `1C1C1F` | `ECEEF2` |
+| `surfaceContainerHigh` | `1A1A1E` | `232328` | `E2E4E8` |
+| `surfaceContainerHighest` | `222226` | `2B2B30` | `D8DBE0` |
+| `tertiary` (warning amber) | `FBBF24` | `FBBF24` | `D97706` |
+| `error` | `EF4444` | `EF4444` | `EF4444` |
+| `batteryGreen` (success) | `33D17A` | `33D17A` | `33D17A` |
+| `onBatteryGreen` | `1C1B1F` | `1C1B1F` | `FFFFFF` |
 
 The `tertiary` amber token serves warning surfaces such as `HintCard`, which renders its message text in `tertiary`. The `error` token stays constant across modes. Battery text and glyphs render in `batteryGreen` on both modes, with `onBatteryGreen` as the foreground.
 
 ## OLED canvas
 
-The OLED canvas is a third theme alongside dark and light. The canvas blends `000000` with 8% of the active accent so pure blacks carry the accent hue while preserving high contrast. Primary text sits near the `F4F4F5` family and secondary text steps lighter than dark-mode `A1A1AA`. Card fills sit in the `101013` to `161619` band above the canvas, tinted with 14% to 20% of the active accent so cards separate from the background through solid lightness steps only. OLED flag failure renders the dark-mode scheme as the fallback canvas, so an unreadable OLED preference never produces an unstyled surface.
+The OLED canvas is a third theme alongside dark and light. The canvas uses true pitch black `000000` (0% tint) for maximum power efficiency and infinite contrast on OLED displays. Primary text sits at `F4F4F5` and secondary text sits at `A1A1AA`. Card fills sit in the `101013` to `222226` band above the canvas, separating from the background through clean, solid lightness steps. OLED flag failure renders the dark-mode scheme as the fallback canvas, so an unreadable OLED preference never produces an unstyled surface.
 
 ## Accent presets
 

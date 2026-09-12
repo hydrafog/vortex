@@ -8,41 +8,53 @@ import android.util.Log
 data class ClipboardOutgoingFile(val bytes: ByteArray, val name: String, val mime: String)
 
 object ClipboardFileReader {
-    const val MAX_FILE_BYTES = 2L * 1024 * 1024 * 1024
+    const val MAX_FILE_BYTES = 100L * 1024 * 1024
 
     private const val TAG = "ClipboardFileOut"
 
     fun read(context: Context, uri: Uri): ClipboardOutgoingFile? = try {
         val cr = context.contentResolver
         val mime = cr.getType(uri) ?: "application/octet-stream"
-        val name = displayName(context, uri) ?: "file"
-        val bytes = cr.openInputStream(uri)?.use { it.readBytes() }
-        when {
-            bytes == null -> null
-            bytes.isEmpty() -> null
-            bytes.size > MAX_FILE_BYTES -> {
-                Log.i(TAG, "file too large (${bytes.size} bytes): not sent")
-                null
+        val (name, size) = queryFileInfo(context, uri)
+        if (size > MAX_FILE_BYTES) {
+            Log.w(TAG, "file '$name' too large ($size bytes > $MAX_FILE_BYTES): not sent")
+            null
+        } else {
+            val bytes = cr.openInputStream(uri)?.use { it.readBytes() }
+            when {
+                bytes == null -> null
+                bytes.isEmpty() -> null
+                bytes.size > MAX_FILE_BYTES -> {
+                    Log.i(TAG, "file too large (${bytes.size} bytes): not sent")
+                    null
+                }
+                else -> ClipboardOutgoingFile(bytes, name, mime)
             }
-            else -> ClipboardOutgoingFile(bytes, name, mime)
         }
     } catch (e: Exception) {
         Log.w(TAG, "file read failed: ${e.message}")
         null
     }
 
-    private fun displayName(context: Context, uri: Uri): String? = try {
-        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-            ?.use { c ->
-                if (c.moveToFirst()) {
-                    val idx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                    if (idx >= 0) c.getString(idx) else null
-                } else {
-                    null
-                }
+    private fun queryFileInfo(context: Context, uri: Uri): Pair<String, Long> = try {
+        context.contentResolver.query(
+            uri,
+            arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+            null,
+            null,
+            null,
+        )?.use { c ->
+            if (c.moveToFirst()) {
+                val nameIdx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                val sizeIdx = c.getColumnIndex(OpenableColumns.SIZE)
+                val name = if (nameIdx >= 0) c.getString(nameIdx) else null
+                val size = if (sizeIdx >= 0) c.getLong(sizeIdx) else 0L
+                Pair(name ?: uri.lastPathSegment ?: "file", size)
+            } else {
+                Pair(uri.lastPathSegment ?: "file", 0L)
             }
-            ?: uri.lastPathSegment
+        } ?: Pair(uri.lastPathSegment ?: "file", 0L)
     } catch (_: Exception) {
-        uri.lastPathSegment
+        Pair(uri.lastPathSegment ?: "file", 0L)
     }
 }

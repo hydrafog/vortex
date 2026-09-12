@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.vortex.a3.ui.icons.SolarDuotoneIcon
 import com.vortex.a3.ui.icons.SolarIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -95,11 +96,6 @@ fun EarbudsPickerRow(
     row: BluetoothDeviceRow,
     onPick: () -> Unit,
 ) {
-    val iconTint = if (row.isAudio) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-    val iconBg = if (row.isAudio)
-        MaterialTheme.colorScheme.primaryContainer
-    else
-        MaterialTheme.colorScheme.surfaceContainerHighest
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -114,13 +110,12 @@ fun EarbudsPickerRow(
             modifier = Modifier
                 .size(34.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(iconBg),
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = SolarIcons.Headphones,
+            SolarDuotoneIcon(
+                icon = if (row.isAudio) SolarIcons.Headphones else SolarIcons.Cast,
                 contentDescription = null,
-                tint = iconTint,
                 modifier = Modifier.size(18.dp),
             )
         }

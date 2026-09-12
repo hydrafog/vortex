@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import com.vortex.a3.ui.icons.SolarDuotoneIcon
 import com.vortex.a3.ui.icons.SolarIcons
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -166,7 +167,7 @@ private fun NotesSegment(mode: String, onSelect: (String) -> Unit) {
                 .width(cellW)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .background(MaterialTheme.colorScheme.primary),
         )
         Row(Modifier.fillMaxSize()) {
             tabs.forEach { (key, label) ->
@@ -182,7 +183,7 @@ private fun NotesSegment(mode: String, onSelect: (String) -> Unit) {
                         label,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (mode == key) MaterialTheme.colorScheme.onPrimaryContainer
+                        color = if (mode == key) MaterialTheme.colorScheme.onPrimary
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -218,10 +219,10 @@ private fun NoteRow(n: Note, onOpen: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Icon(
-            SolarIcons.StickyNote2,
+        SolarDuotoneIcon(
+            icon = SolarIcons.StickyNote2,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(22.dp),
         )
         Column(Modifier.weight(1f)) {
             Text(
@@ -431,11 +432,10 @@ internal fun NoteEditor(note: Note, onClose: () -> Unit, onDelete: () -> Unit) {
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        SolarIcons.Notifications,
+                    SolarDuotoneIcon(
+                        icon = if (dueAt > 0L) SolarIcons.NotificationsActive else SolarIcons.Notifications,
                         contentDescription = str("notes.add_reminder"),
-                        tint = if (dueAt > 0L) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp),
                     )
                 }
             }

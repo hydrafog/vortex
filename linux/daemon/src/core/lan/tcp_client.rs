@@ -272,19 +272,32 @@ pub async fn run_lan_reconnect(
     })
 }
 
+async fn send_sealed_direct(
+    stream: &mut TcpStream,
+    transport: &mut snow::TransportState,
+    ty_byte: u8,
+    plain: &[u8],
+    flush: bool,
+) -> Result<(), LanError> {
+    let mut ct = vec![0u8; plain.len() + 16];
+    let n = transport.write_message(plain, &mut ct)?;
+    ct.truncate(n);
+    let header = [ty_byte, 0u8, ((n >> 8) & 0xFF) as u8, (n & 0xFF) as u8];
+    stream.write_all(&header).await?;
+    stream.write_all(&ct).await?;
+    if flush {
+        stream.flush().await?;
+    }
+    Ok(())
+}
+
 async fn send_sealed(
     stream: &mut TcpStream,
     transport: &mut snow::TransportState,
     ty_byte: u8,
     plain: &[u8],
 ) -> Result<(), LanError> {
-    let mut ct = vec![0u8; plain.len() + 16];
-    let n = transport.write_message(plain, &mut ct)?;
-    ct.truncate(n);
-    let frame = Frame::new(ty_byte, 0, ct);
-    stream.write_all(&frame.encode()).await?;
-    stream.flush().await?;
-    Ok(())
+    send_sealed_direct(stream, transport, ty_byte, plain, true).await
 }
 
 async fn recv_frame(stream: &mut TcpStream, wait: Duration) -> Result<Frame, LanError> {
@@ -336,6 +349,9 @@ async fn push_outgoing_batch(
     report_progress(OutProgress::Accepted);
 
     let mut sent: u64 = 0;
+    let mut uncommitted_bytes: u64 = 0;
+    const FLUSH_THRESHOLD: u64 = 2 * 1024 * 1024;
+
     for (fi, f) in files.iter().enumerate() {
         let total_chunks = f.size.div_ceil(PUSH_CHUNK_BYTES as u64).max(1);
         if let Some(ref path) = f.path {
@@ -373,9 +389,17 @@ async fn push_outgoing_batch(
                 payload.extend_from_slice(&header);
                 payload.extend_from_slice(&buf[..n]);
 
-                if let Err(e) = send_sealed(stream, transport, ty::FILE_PUSH, &payload).await {
+                uncommitted_bytes += payload.len() as u64;
+                let should_flush = uncommitted_bytes >= FLUSH_THRESHOLD || is_last;
+                if let Err(e) =
+                    send_sealed_direct(stream, transport, ty::FILE_PUSH, &payload, should_flush)
+                        .await
+                {
                     report_progress(OutProgress::Fail);
                     return Err(e);
+                }
+                if should_flush {
+                    uncommitted_bytes = 0;
                 }
                 sent += n as u64;
                 report_progress(OutProgress::Progress { sent, total: total_bytes });
@@ -387,9 +411,18 @@ async fn push_outgoing_batch(
                 payload.extend_from_slice(&header);
                 payload.extend_from_slice(chunk);
 
-                if let Err(e) = send_sealed(stream, transport, ty::FILE_PUSH, &payload).await {
+                uncommitted_bytes += payload.len() as u64;
+                let should_flush =
+                    uncommitted_bytes >= FLUSH_THRESHOLD || chunk_idx + 1 == total_chunks as usize;
+                if let Err(e) =
+                    send_sealed_direct(stream, transport, ty::FILE_PUSH, &payload, should_flush)
+                        .await
+                {
                     report_progress(OutProgress::Fail);
                     return Err(e);
+                }
+                if should_flush {
+                    uncommitted_bytes = 0;
                 }
                 sent += chunk.len() as u64;
                 report_progress(OutProgress::Progress { sent, total: total_bytes });
@@ -404,6 +437,9 @@ async fn push_outgoing_batch(
             }
         }
         info!("→ file push [{}/{count}] '{}' ({} bytes)", fi + 1, f.name, f.size);
+    }
+    if uncommitted_bytes > 0 {
+        let _ = stream.flush().await;
     }
     report_progress(OutProgress::Done);
     info!("→ file push batch done ({count} files, {total_bytes} bytes)");

@@ -57,8 +57,7 @@ fun ThisDeviceCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(CardCorner)
-            .background(MaterialTheme.colorScheme.surface)
+            .pillowCard()
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -66,13 +65,12 @@ fun ThisDeviceCard(
             modifier = Modifier
                 .size(42.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = SolarIcons.Smartphone,
+            com.vortex.a3.ui.icons.SolarDuotoneIcon(
+                icon = SolarIcons.Smartphone,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -90,12 +88,12 @@ fun ThisDeviceCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .background(MaterialTheme.colorScheme.primary)
                             .padding(horizontal = 8.dp, vertical = 3.dp),
                     ) {
                         Text(
                             text = thisDeviceText.uppercase(),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            color = MaterialTheme.colorScheme.onPrimary,
                             fontWeight = FW.SemiBold,
                             style = MaterialTheme.typography.labelSmall,
                         )

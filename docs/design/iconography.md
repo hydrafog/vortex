@@ -4,12 +4,12 @@ Interface icons render Solar duotone with two stroke layers: a neutral base line
 
 ## Duotone layers
 
-The base layer resolves to `onSurfaceVariant` on idle surfaces and to a high-contrast foreground on tinted `primaryContainer` tiles such as `CardHeader`. The accent layer resolves to `primary` in both placements. `onPrimaryContainer` is defined as a WCAG-compliant foreground against `softContainer`, not the accent itself. The pairing maintains highlight legibility on quiet fills and on tinted tiles without a second hue.
+Interface icons render with neutral tile backgrounds (`surfaceContainerHigh` or `surfaceContainerHighest`), never accented fills. Dual-tone vector paths are composed of a neutral foundational outline line and a vibrant accent highlight line. The base layer resolves to `onSurfaceVariant` to provide crisp structural geometry, while the accent layer resolves to `primary` (the vibrant accent color) across all themes and containers.
 
-| Layer | Idle surfaces | Tinted tiles |
-| :--- | :------------ | :----------- |
-| Base (outline geometry) | `onSurfaceVariant` | `onPrimaryContainer` |
-| Accent (highlight path) | `primary` | `primary` |
+| Layer | Tile / Surface Placement | Color Token |
+| :--- | :----------------------- | :---------- |
+| Base (outline geometry) | Neutral tile (`surfaceContainerHigh`/`Highest`) | `onSurfaceVariant` |
+| Accent (action / highlight path) | Neutral tile (`surfaceContainerHigh`/`Highest`) | `primary` (vibrant accent) |
 
 The battery glyph applies the same rule with a green accent: the outline shell uses the neutral base while the level fill plus percentage uses green.
 

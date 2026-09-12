@@ -255,6 +255,7 @@ in
 
     xdg.dataFile = {
       "vortex/file_auto_accept".text = if cfg.fileSharing.autoAccept then "1\n" else "0\n";
+      "vortex/incoming_dir".text = "${cfg.fileSharing.incomingDir}\n";
 
       "vortex/universal_control/placement".text = "${cfg.universalControl.placement}\n";
     }

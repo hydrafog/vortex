@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import com.vortex.a3.core.notes.Note
 import com.vortex.a3.core.notes.NoteStore
+import com.vortex.a3.ui.icons.SolarDuotoneIcon
 import com.vortex.a3.ui.icons.SolarIcons
 import com.vortex.a3.ui.str
 import java.text.SimpleDateFormat
@@ -124,8 +125,7 @@ private fun AddNoteSquare(
     Box(
         modifier = Modifier
             .size(size)
-            .clip(CardCorner)
-            .background(MaterialTheme.colorScheme.surface)
+            .pillowCard()
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(bounded = true),
@@ -142,14 +142,13 @@ private fun AddNoteSquare(
                 modifier = Modifier
                     .size(42.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = SolarIcons.Add,
+                SolarDuotoneIcon(
+                    icon = SolarIcons.Add,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             }
             Spacer(modifier = Modifier.height(10.dp))
@@ -183,8 +182,7 @@ private fun NoteSquare(
     Box(
         modifier = Modifier
             .size(size)
-            .clip(CardCorner)
-            .background(MaterialTheme.colorScheme.surface)
+            .pillowCard()
             .combinedClickable(
                 interactionSource = interaction,
                 indication = ripple(bounded = true),

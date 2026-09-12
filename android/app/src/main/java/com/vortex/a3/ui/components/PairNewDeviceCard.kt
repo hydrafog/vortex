@@ -40,8 +40,7 @@ fun PairNewDeviceCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(CardCorner)
-            .background(MaterialTheme.colorScheme.surface)
+            .pillowCard()
             .clickable(
                 interactionSource = interaction,
                 indication = ripple(bounded = true),
@@ -55,13 +54,12 @@ fun PairNewDeviceCard(
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = SolarIcons.Add,
+            com.vortex.a3.ui.icons.SolarDuotoneIcon(
+                icon = SolarIcons.Add,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(20.dp),
             )
         }

@@ -78,10 +78,10 @@ The app supports English, Uzbek, and Russian. RTL layouts mirror horizontally: n
 
 Focus follows visual order for each screen:
 
-- **Hub**: header, hint cards, this device card, endpoint cards, calendar, notes carousel, pair-new card.
-- **Settings**: category cards top to bottom, rows within each card left to right.
-- **Notifications**: laptop chip, audio chip, lock group, clipboard group (left to right).
-- **Carousel**: add-new-note square first, then existing notes in recency order.
+- Hub: header, hint cards, this device card, endpoint cards, calendar, notes carousel, pair-new card.
+- Settings: category cards top to bottom, rows within each card left to right.
+- Notifications: laptop chip, audio chip, lock group, clipboard group (left to right).
+- Carousel: add-new-note square first, then existing notes in recency order.
 
 Tabbed navigation between destinations follows the navbar order: Hub, Files, Settings.
 

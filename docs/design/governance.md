@@ -48,7 +48,7 @@ Cross-references in `## See also` sections are verified on commit. Broken links 
 
 ## Deprecation policy
 
-Deprecated tokens or components are marked in code with `@Deprecated` and in docs with a retired label. After one release cycle, deprecated items are removed. The docs never document retired components as active features.
+Tokens and components marked for retirement are annotated in code with `@Deprecated` and in docs with a retired label. After one release cycle, retired items are removed.
 
 When a component is retired:
 1. Add `@Deprecated` annotation with removal version.
@@ -68,7 +68,7 @@ Contribution rules:
 
 ## Changelog
 
-Design system changes are documented in the `docs/design/` files themselves. Each file describes the current state. There is no separate changelog — the files are the source of truth.
+Design system changes are documented in the `docs/design/` files themselves. Each file describes the current state.
 
 ## See also
 

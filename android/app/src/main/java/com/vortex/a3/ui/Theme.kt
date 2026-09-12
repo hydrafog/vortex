@@ -13,13 +13,9 @@ import androidx.compose.ui.graphics.lerp
 // NOTE: Flat design tokens. Depth comes from solid lightness steps on the
 // NOTE: surface-container ladder, never from translucency or shadows.
 
-// NOTE: Tinted soft container derived opaque: accent pulled toward the
-// NOTE: canvas so icon tiles and selected pills stay solid per accent.
-private fun softContainer(accent: Color, canvas: Color): Color = lerp(accent, canvas, 0.82f)
-
-// NOTE: Tinted surface helper: pulls neutral lightness levels toward the
-// NOTE: active accent to achieve chromatic harmony across all backgrounds.
-private fun tintedSurface(base: Color, accent: Color, amount: Float): Color = lerp(base, accent, amount)
+// NOTE: Tinted container derived opaque: preserves rich accent vibrancy
+// NOTE: matching switch active states throughout cards and interactive surfaces.
+private fun softContainer(accent: Color, canvas: Color): Color = lerp(accent, canvas, 0.35f)
 
 // NOTE: Dynamic accent contrast. Bright accents get near-black text,
 // NOTE: dark or saturated accents get white (WCAG relative luminance).
@@ -41,61 +37,32 @@ private fun buildScheme(
     themeMode: ThemeMode,
     primary: Color,
 ): ColorScheme {
-    val isLight = themeMode == ThemeMode.Light
-    val isOled = themeMode == ThemeMode.Oled
     val onPrimary = onAccentFor(primary)
 
-    return when {
-        isOled -> {
-            val canvas = tintedSurface(Color(0xFF000000), primary, 0.08f)
-            val canvasSurface = tintedSurface(Color(0xFF101013), primary, 0.14f)
+    return when (themeMode) {
+        ThemeMode.Oled -> {
+            val canvas = Color(0xFF000000)
+            val canvasSurface = Color(0xFF101013)
             darkColorScheme(
                 background = canvas,
                 onBackground = Color(0xFFF4F4F5),
                 surface = canvasSurface,
                 onSurface = Color(0xFFF4F4F5),
-                surfaceVariant = tintedSurface(Color(0xFF161619), primary, 0.20f),
-                onSurfaceVariant = Color(0xFFA8A8B0),
-                surfaceDim = tintedSurface(Color(0xFF0A0A0D), primary, 0.10f),
-                surfaceBright = tintedSurface(Color(0xFF222228), primary, 0.20f),
-                surfaceContainerLowest = tintedSurface(Color(0xFF0C0C0E), primary, 0.10f),
-                surfaceContainerLow = tintedSurface(Color(0xFF101013), primary, 0.14f),
-                surfaceContainer = canvasSurface,
-                surfaceContainerHigh = tintedSurface(Color(0xFF161619), primary, 0.20f),
-                surfaceContainerHighest = tintedSurface(Color(0xFF1C1C20), primary, 0.24f),
-                primary = primary,
-                onPrimary = onPrimary,
-                primaryContainer = softContainer(primary, canvas),
-                onPrimaryContainer = primary,
-                secondary = primary,
-                onSecondary = onPrimary,
-                error = BrandRed,
-                onError = BrandOnEmerald,
-                tertiary = Color(0xFFFBBF24),
-            )
-        }
-        themeMode == ThemeMode.Dark -> {
-            val canvas = tintedSurface(Color(0xFF141416), primary, 0.14f)
-            val canvasSurface = tintedSurface(Color(0xFF1C1C1F), primary, 0.18f)
-            val surfaceVariant = tintedSurface(Color(0xFF242428), primary, 0.24f)
-            darkColorScheme(
-                background = canvas,
-                onBackground = Color(0xFFF4F4F5),
-                surface = canvasSurface,
-                onSurface = Color(0xFFF4F4F5),
-                surfaceVariant = surfaceVariant,
+                surfaceVariant = Color(0xFF1A1A1E),
                 onSurfaceVariant = Color(0xFFA1A1AA),
-                surfaceDim = tintedSurface(Color(0xFF101013), primary, 0.12f),
-                surfaceBright = tintedSurface(Color(0xFF2E2E34), primary, 0.22f),
-                surfaceContainerLowest = tintedSurface(Color(0xFF161619), primary, 0.12f),
-                surfaceContainerLow = tintedSurface(Color(0xFF1A1A1E), primary, 0.15f),
-                surfaceContainer = canvasSurface,
-                surfaceContainerHigh = tintedSurface(Color(0xFF232329), primary, 0.22f),
-                surfaceContainerHighest = tintedSurface(Color(0xFF2A2A30), primary, 0.26f),
+                surfaceDim = Color(0xFF000000),
+                surfaceBright = Color(0xFF2A2A30),
+                surfaceContainerLowest = Color(0xFF0A0A0C),
+                surfaceContainerLow = Color(0xFF101013),
+                surfaceContainer = Color(0xFF141417),
+                surfaceContainerHigh = Color(0xFF1A1A1E),
+                surfaceContainerHighest = Color(0xFF222226),
+                outline = Color(0xFF27272A),
+                outlineVariant = Color(0xFF1E1E22),
                 primary = primary,
                 onPrimary = onPrimary,
                 primaryContainer = softContainer(primary, canvas),
-                onPrimaryContainer = primary,
+                onPrimaryContainer = onAccentFor(softContainer(primary, canvas)),
                 secondary = primary,
                 onSecondary = onPrimary,
                 error = BrandRed,
@@ -103,28 +70,59 @@ private fun buildScheme(
                 tertiary = Color(0xFFFBBF24),
             )
         }
-        else -> {
-            val canvas = tintedSurface(Color(0xFFFFFFFF), primary, 0.14f)
-            val canvasSurface = tintedSurface(Color(0xFFEFF0F3), primary, 0.18f)
-            val surfaceVariant = tintedSurface(Color(0xFFC3C3CE), primary, 0.24f)
+        ThemeMode.Dark -> {
+            val canvas = Color(0xFF141416)
+            val canvasSurface = Color(0xFF1C1C1F)
+            darkColorScheme(
+                background = canvas,
+                onBackground = Color(0xFFF4F4F5),
+                surface = canvasSurface,
+                onSurface = Color(0xFFF4F4F5),
+                surfaceVariant = Color(0xFF242428),
+                onSurfaceVariant = Color(0xFFA1A1AA),
+                surfaceDim = Color(0xFF101013),
+                surfaceBright = Color(0xFF2E2E34),
+                surfaceContainerLowest = Color(0xFF121214),
+                surfaceContainerLow = Color(0xFF18181B),
+                surfaceContainer = canvasSurface,
+                surfaceContainerHigh = Color(0xFF232328),
+                surfaceContainerHighest = Color(0xFF2B2B30),
+                outline = Color(0xFF2E2E33),
+                outlineVariant = Color(0xFF242429),
+                primary = primary,
+                onPrimary = onPrimary,
+                primaryContainer = softContainer(primary, canvas),
+                onPrimaryContainer = onAccentFor(softContainer(primary, canvas)),
+                secondary = primary,
+                onSecondary = onPrimary,
+                error = BrandRed,
+                onError = BrandOnEmerald,
+                tertiary = Color(0xFFFBBF24),
+            )
+        }
+        ThemeMode.Light -> {
+            val canvas = Color(0xFFF8F9FA)
+            val canvasSurface = Color(0xFFFFFFFF)
             lightColorScheme(
                 background = canvas,
                 onBackground = Color(0xFF18181B),
                 surface = canvasSurface,
                 onSurface = Color(0xFF18181B),
-                surfaceVariant = surfaceVariant,
+                surfaceVariant = Color(0xFFEBEDF0),
                 onSurfaceVariant = Color(0xFF52525B),
-                surfaceDim = tintedSurface(Color(0xFFE2E3E8), primary, 0.16f),
-                surfaceBright = tintedSurface(Color(0xFFFFFFFF), primary, 0.10f),
-                surfaceContainerLowest = tintedSurface(Color(0xFFFFFFFF), primary, 0.10f),
-                surfaceContainerLow = canvasSurface,
-                surfaceContainer = canvasSurface,
-                surfaceContainerHigh = surfaceVariant,
-                surfaceContainerHighest = tintedSurface(Color(0xFFB8B8C4), primary, 0.26f),
+                surfaceDim = Color(0xFFE0E2E7),
+                surfaceBright = Color(0xFFFFFFFF),
+                surfaceContainerLowest = Color(0xFFFFFFFF),
+                surfaceContainerLow = Color(0xFFF2F3F5),
+                surfaceContainer = Color(0xFFECEEF2),
+                surfaceContainerHigh = Color(0xFFE2E4E8),
+                surfaceContainerHighest = Color(0xFFD8DBE0),
+                outline = Color(0xFFE4E4E7),
+                outlineVariant = Color(0xFFE7E7EB),
                 primary = primary,
                 onPrimary = onPrimary,
-                primaryContainer = softContainer(primary, canvas),
-                onPrimaryContainer = primary,
+                primaryContainer = softContainer(primary, Color(0xFFFFFFFF)),
+                onPrimaryContainer = onAccentFor(softContainer(primary, Color(0xFFFFFFFF))),
                 secondary = primary,
                 onSecondary = onPrimary,
                 error = BrandRed,

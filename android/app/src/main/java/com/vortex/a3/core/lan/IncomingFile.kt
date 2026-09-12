@@ -25,7 +25,7 @@ class IncomingFileSink(
         initialized = true
         if (extractZip) {
             tempFile = java.io.File.createTempFile("vortex_extract_", ".zip", ctx.cacheDir)
-            outStream = java.io.FileOutputStream(tempFile!!)
+            outStream = java.io.BufferedOutputStream(java.io.FileOutputStream(tempFile!!), 1024 * 1024)
         } else {
             val resolver = ctx.contentResolver
             val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
@@ -35,7 +35,8 @@ class IncomingFileSink(
             }
             uri = resolver.insert(collection, values)
             if (uri != null) {
-                outStream = resolver.openOutputStream(uri!!)
+                val raw = resolver.openOutputStream(uri!!)
+                outStream = if (raw != null) java.io.BufferedOutputStream(raw, 1024 * 1024) else null
             } else {
                 Log.w("VortexIncomingFile", "MediaStore insert returned null for '$name'")
             }
@@ -85,6 +86,7 @@ class IncomingFileSink(
 
     override fun close() {
         try {
+            outStream?.flush()
             outStream?.close()
         } catch (_: Exception) {}
         outStream = null

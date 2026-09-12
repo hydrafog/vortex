@@ -4,11 +4,11 @@ The Hub shows upcoming dates above notes. The `CALENDAR` section sits between th
 
 ## Hub order
 
-Hub composes as a single scroll column with `20.dp` padding and `16.dp` section gaps. From top to bottom the order is the header, advisory hints, the `This device` card, the endpoints row, the `CALENDAR` header with `CalendarCard`, and the `NOTES` header with `NoteCarousel`. The calendar header uses the same label style with letter spacing as the notes header. `CalendarCard` uses `CardCorner` at `16.dp`, `12.dp` internal gaps, and theme tokens `surface`, `onSurface`, `primaryContainer`, and `error`.
+Hub composes as a single scroll column with `20.dp` padding and `16.dp` section gaps. From top to bottom the order is the header, advisory hints, the `This device` card, the endpoints row, the `CALENDAR` header with `CalendarCard`, and the `NOTES` header with `NoteCarousel`. The calendar header uses the same label style with letter spacing as the notes header. `CalendarCard` uses `CardCorner` at `16.dp`, `12.dp` internal gaps, and theme tokens `surface`, `onSurface`, `surfaceContainerHigh`, and `error`.
 
 ## Provider contract
 
-`CalendarProvider` exposes the event list as a `StateFlow` with `forDate`, `add`, and `remove`. `LocalCalendarProvider` delegates to `CalendarStore`, which persists `calendar.json` in `filesDir` with private mode. `RicelinFileProvider` reads a Ricelin `events.json` file and maps it to the same model. The backend choice persists in `UiSettingsStore` under `calendarBackend` with values `local` and `ricelin`. The default is `local`. The Settings screen holds the picker under the calendar section.
+`CalendarProvider` exposes the event list as a `StateFlow` with `forDate`, `add`, and `remove`. `LocalCalendarProvider` delegates to `CalendarStore`, which persists `calendar.json` in `filesDir` with private mode. `RicelinFileProvider` reads a Ricelin `events.json` file and maps it to the same model. The backend choice persists in `UiSettingsStore` under `calendarBackend` with values `local` and `ricelin`. The default is `local`. The Settings screen holds the picker under the calendar section, and `HomeScreen` instantiates the corresponding provider dynamically based on the active backend.
 
 ## Event model
 
@@ -16,7 +16,7 @@ Events carry `id`, `date`, `endDate`, `time`, `endTime`, `text`, and `recur`. Da
 
 ## Day matching
 
-`CalendarCard` filters events with `forDate` for the selected day and sorts empty times first, then lexicographic `HH:MM`. The week strip picks days by tap or horizontal drag, with the selection pill and day list animating on the press and travel beats. Due notes join the same list when the `dueAt` timestamp falls inside the selected day in the device default time zone. The match truncates each timestamp to its day window in that zone. Overdue notes render in `error`. Every day shows an add affordance that opens a dialog for title plus optional `HH:MM` time; saving persists through the provider and appears for the selected day. A corrupt `calendar.json` loads as an empty list. A corrupt Ricelin file keeps the last good in-memory list.
+`CalendarCard` filters events with `forDate` for the selected day and sorts empty times first, then lexicographic `HH:MM`. The week strip features continuous horizontal dragging with 1:1 finger tracking, fling momentum projection, and spring snapping to the nearest day card. Day cards are dynamically sized based on their continuous distance from the strip center: the active center card is largest (`50.dp` width, `72.dp` height, `20.sp` bold day numeral, `12.sp` weekday) and smoothly scales down toward the perimeter (`32.dp` width, `44.dp` height, `11.sp` day numeral). All cards sit on a downward parabolic curve ($y_{\text{dip}} = 14\text{dp} \cdot \max(0, 1 - (d/3)^2)$), causing the center card to dip down prominently toward the event list. Due notes join the list when the `dueAt` timestamp falls inside the selected day in the device default time zone. Overdue notes render in `error`. A single Add affordance resides in the card header with a neutral `surfaceContainerHigh` tile and duotone icon; saving persists through the provider and appears for the selected day. A corrupt `calendar.json` loads as an empty list. A corrupt Ricelin file keeps the last good in-memory list.
 
 ## See also
 
