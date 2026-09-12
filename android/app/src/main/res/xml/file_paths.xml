@@ -4,4 +4,7 @@
     <cache-path
         name="clipboard"
         path="clipboard/" />
+    <external-path
+        name="downloads"
+        path="Download/" />
 </paths>

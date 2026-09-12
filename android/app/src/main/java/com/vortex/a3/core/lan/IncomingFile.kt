@@ -111,6 +111,7 @@ data class TransferProgress(
     val totalFiles: Int,
     val bytesReceived: Long,
     val totalBytes: Long,
+    val speedBytesPerSec: Long = 0L,
 )
 
 object IncomingFile {
@@ -124,13 +125,24 @@ object IncomingFile {
     var isCancelled: Boolean = false
         private set
 
+    @Volatile
+    private var lastProgressBytes: Long = 0L
+    @Volatile
+    private var lastProgressTimeMs: Long = 0L
+    @Volatile
+    private var currentSpeedBytesPerSec: Long = 0L
+
     fun startTransfer() {
         isCancelled = false
+        lastProgressBytes = 0L
+        lastProgressTimeMs = System.currentTimeMillis()
+        currentSpeedBytesPerSec = 0L
     }
 
     fun requestCancel(ctx: Context? = null) {
         isCancelled = true
         _currentTransfer.value = null
+        currentSpeedBytesPerSec = 0L
         ctx?.let { cancelProgress(it) }
     }
 
@@ -266,12 +278,32 @@ object IncomingFile {
         bytesReceived: Long,
         totalBytes: Long,
     ) {
+        val now = System.currentTimeMillis()
+        if (lastProgressTimeMs == 0L) {
+            lastProgressTimeMs = now
+            lastProgressBytes = bytesReceived
+        } else {
+            val dt = now - lastProgressTimeMs
+            if (dt >= 300L) {
+                val bytesDelta = (bytesReceived - lastProgressBytes).coerceAtLeast(0L)
+                val instantSpeed = (bytesDelta * 1000L) / dt
+                currentSpeedBytesPerSec = if (currentSpeedBytesPerSec == 0L) {
+                    instantSpeed
+                } else {
+                    (currentSpeedBytesPerSec * 4 + instantSpeed * 6) / 10
+                }
+                lastProgressBytes = bytesReceived
+                lastProgressTimeMs = now
+            }
+        }
+
         _currentTransfer.value = TransferProgress(
             currentName = currentName,
             fileIndex = fileIndex,
             totalFiles = totalFiles,
             bytesReceived = bytesReceived,
             totalBytes = totalBytes,
+            speedBytesPerSec = currentSpeedBytesPerSec,
         )
         try {
             val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -283,6 +315,7 @@ object IncomingFile {
                 )
             }
             val percent = if (totalBytes > 0) ((bytesReceived * 100) / totalBytes).toInt().coerceIn(0, 100) else 0
+            val speedStr = formatTransferSpeed(currentSpeedBytesPerSec)
             val title = if (totalFiles > 1) {
                 "Receiving file $fileIndex of $totalFiles ($percent%)"
             } else {
@@ -290,7 +323,11 @@ object IncomingFile {
             }
             val receivedFormatted = formatBytes(bytesReceived)
             val totalFormatted = formatBytes(totalBytes)
-            val text = "$currentName • $receivedFormatted / $totalFormatted"
+            val text = if (currentSpeedBytesPerSec > 0L) {
+                "$currentName • $receivedFormatted / $totalFormatted • $speedStr"
+            } else {
+                "$currentName • $receivedFormatted / $totalFormatted"
+            }
 
             val cancelIntent = Intent(ctx, FileTransferCancelReceiver::class.java).apply {
                 action = FileTransferCancelReceiver.ACTION_CANCEL_TRANSFER
@@ -323,11 +360,25 @@ object IncomingFile {
 
     fun cancelProgress(ctx: Context) {
         _currentTransfer.value = null
+        currentSpeedBytesPerSec = 0L
+        lastProgressBytes = 0L
+        lastProgressTimeMs = 0L
         try {
             val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.cancel(PROGRESS_NOTIFICATION_ID)
         } catch (e: Exception) {
             Log.w(TAG, "cancelProgress failed: ${e.message}")
+        }
+    }
+
+    fun formatTransferSpeed(bytesPerSec: Long): String {
+        if (bytesPerSec <= 0L) return "0.0 MB/s"
+        val mb = bytesPerSec / (1024.0 * 1024.0)
+        return if (mb >= 1.0) {
+            String.format(java.util.Locale.US, "%.1f MB/s", mb)
+        } else {
+            val kb = bytesPerSec / 1024.0
+            String.format(java.util.Locale.US, "%.0f KB/s", kb)
         }
     }
 
