@@ -12,6 +12,7 @@ target/
 # ===== Android / Kotlin =====
 # Gradle
 .gradle/
+.kotlin/
 build/
 /build
 gradle-app.setting

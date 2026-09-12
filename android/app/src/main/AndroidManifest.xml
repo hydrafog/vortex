@@ -310,5 +310,14 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_vortex_info" />
         </receiver>
+
+        <!-- File transfer cancel action receiver -->
+        <receiver
+            android:name=".core.lan.FileTransferCancelReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.vortex.a3.ACTION_CANCEL_FILE_TRANSFER" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

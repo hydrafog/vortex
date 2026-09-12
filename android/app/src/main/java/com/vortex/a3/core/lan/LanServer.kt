@@ -16,6 +16,7 @@ import com.vortex.a3.core.ble.Frame
 import com.vortex.a3.core.ble.FrameSub
 import com.vortex.a3.core.ble.FrameType
 import com.vortex.a3.core.ble.MAX_FRAME_PAYLOAD
+import com.vortex.a3.core.crypto.NativeChaChaPolyCipherState
 import com.vortex.a3.core.crypto.NoiseRunner
 import com.vortex.a3.core.identity.IdentityRecord
 import com.vortex.a3.core.storage.PeerStore
@@ -28,6 +29,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.net.ServerSocket
@@ -306,10 +309,15 @@ class LanServer(
 
     private suspend fun handleClient(client: Socket) {
         try {
-            try { client.soTimeout = HANDSHAKE_TIMEOUT_MS } catch (_: Exception) {}
+            try {
+                client.soTimeout = HANDSHAKE_TIMEOUT_MS
+                client.tcpNoDelay = true
+                client.receiveBufferSize = 1024 * 1024
+                client.sendBufferSize = 1024 * 1024
+            } catch (_: Exception) {}
             client.use { sock ->
-                val input = DataInputStream(sock.getInputStream())
-                val output = DataOutputStream(sock.getOutputStream())
+                val input = DataInputStream(BufferedInputStream(sock.getInputStream(), 512 * 1024))
+                val output = DataOutputStream(BufferedOutputStream(sock.getOutputStream(), 512 * 1024))
 
                 val msg1 = readFrame(input) ?: return
                 if (msg1.type != FrameType.RECONNECT_HANDSHAKE
@@ -385,7 +393,7 @@ class LanServer(
                 val transcriptHash = handshake.handshakeHash.copyOf()
                 Log.i(TAG, "IK over TCP complete; transcript=${transcriptHash.toHexPrefix()}")
 
-                val pair: CipherStatePair = handshake.split()
+                val pair: CipherStatePair = NativeChaChaPolyCipherState.wrapPair(handshake.split())
                 handshake.destroy()
 
                 try { sock.soTimeout = IDLE_TIMEOUT_MS } catch (_: Exception) {}
@@ -665,18 +673,24 @@ class LanServer(
                                 Log.i(TAG, "file-push declined")
                                 continue
                             }
+                            IncomingFile.startTransfer()
                             var saved = 0
                             var aborted = false
                             var totalBytesReceived = 0L
                             var lastNotifAtMs = 0L
                             try {
                                 for ((fi, name) in names.withIndex()) {
-                                    if (aborted) break
+                                    if (aborted || IncomingFile.isCancelled) break
                                     val extract = extracts.getOrElse(fi) { false }
                                     val sink = IncomingFileSink(context, name, extract)
                                     var finished = false
                                     try {
                                         while (!finished) {
+                                            if (IncomingFile.isCancelled) {
+                                                Log.i(TAG, "file-push cancelled by user; aborting")
+                                                aborted = true
+                                                break
+                                            }
                                             val chunkFrame = readFrame(input)
                                             if (chunkFrame == null) {
                                                 aborted = true
@@ -745,7 +759,7 @@ class LanServer(
                                                 )
                                             }
                                         }
-                                        if (finished && sink.finish()) {
+                                        if (finished && !IncomingFile.isCancelled && sink.finish()) {
                                             saved++
                                         } else {
                                             Log.w(TAG, "file-push '$name' incomplete; discarded")
@@ -756,6 +770,11 @@ class LanServer(
                                 }
                             } finally {
                                 IncomingFile.cancelProgress(context)
+                            }
+                            if (IncomingFile.isCancelled) {
+                                Log.i(TAG, "file-push cancelled; closing socket")
+                                try { sock.close() } catch (_: Exception) {}
+                                break
                             }
                             if (saved > 0) {
                                 IncomingFile.notifyReceived(context, label, saved)

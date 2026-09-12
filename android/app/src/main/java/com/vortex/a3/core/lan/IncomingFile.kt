@@ -2,11 +2,16 @@ package com.vortex.a3.core.lan
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class IncomingFileSink(
     private val ctx: Context,
@@ -100,9 +105,34 @@ class IncomingFileSink(
     }
 }
 
+data class TransferProgress(
+    val currentName: String,
+    val fileIndex: Int,
+    val totalFiles: Int,
+    val bytesReceived: Long,
+    val totalBytes: Long,
+)
+
 object IncomingFile {
     private const val TAG = "VortexIncomingFile"
     private const val CHANNEL = "vortex_files"
+
+    private val _currentTransfer = MutableStateFlow<TransferProgress?>(null)
+    val currentTransfer: StateFlow<TransferProgress?> = _currentTransfer.asStateFlow()
+
+    @Volatile
+    var isCancelled: Boolean = false
+        private set
+
+    fun startTransfer() {
+        isCancelled = false
+    }
+
+    fun requestCancel(ctx: Context? = null) {
+        isCancelled = true
+        _currentTransfer.value = null
+        ctx?.let { cancelProgress(it) }
+    }
 
     fun sanitizeName(raw: String): String {
         val base = raw.substringAfterLast('/').substringAfterLast('\\')
@@ -236,6 +266,13 @@ object IncomingFile {
         bytesReceived: Long,
         totalBytes: Long,
     ) {
+        _currentTransfer.value = TransferProgress(
+            currentName = currentName,
+            fileIndex = fileIndex,
+            totalFiles = totalFiles,
+            bytesReceived = bytesReceived,
+            totalBytes = totalBytes,
+        )
         try {
             val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -255,6 +292,16 @@ object IncomingFile {
             val totalFormatted = formatBytes(totalBytes)
             val text = "$currentName • $receivedFormatted / $totalFormatted"
 
+            val cancelIntent = Intent(ctx, FileTransferCancelReceiver::class.java).apply {
+                action = FileTransferCancelReceiver.ACTION_CANCEL_TRANSFER
+            }
+            val cancelPendingIntent = PendingIntent.getBroadcast(
+                ctx,
+                0,
+                cancelIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
             val n = androidx.core.app.NotificationCompat.Builder(ctx, CHANNEL)
                 .setSmallIcon(com.vortex.a3.R.drawable.ic_notification_download)
                 .setContentTitle(title)
@@ -262,6 +309,11 @@ object IncomingFile {
                 .setProgress(100, percent, totalBytes <= 0)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
+                .addAction(
+                    android.R.drawable.ic_menu_close_clear_cancel,
+                    "Cancel",
+                    cancelPendingIntent,
+                )
                 .build()
             nm.notify(PROGRESS_NOTIFICATION_ID, n)
         } catch (e: Exception) {
@@ -270,6 +322,7 @@ object IncomingFile {
     }
 
     fun cancelProgress(ctx: Context) {
+        _currentTransfer.value = null
         try {
             val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.cancel(PROGRESS_NOTIFICATION_ID)

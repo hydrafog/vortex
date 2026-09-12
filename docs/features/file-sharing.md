@@ -8,11 +8,14 @@ The tray menu Send files entry is the primary desktop file action. It opens the 
 
 - Files of any size stream in 60 KB chunks from disk to network and back. Memory use stays near 60 KB.
 - Sockets batch frame writes and flush at batch boundaries or 2 MB thresholds to keep the TCP congestion window saturated.
+- Android accelerates Noise ChaCha20-Poly1305 transport frames via native `javax.crypto.Cipher` (Conscrypt/BoringSSL hardware vector instructions), bypassing pure-Java bytecode limits.
+- Sockets buffer TCP streams with 512 KB stream buffers, 1 MB socket windows, and TCP nodelay.
 - Android streams decrypted 60 KB frames through a 1 MB I/O buffer into `MediaStore.Downloads`, eliminating per-chunk FUSE IPC overhead.
 - Vortex picks Wi-Fi Direct or local subnet for the bytes; BLE carries control signals.
 - Folders go as a zip with `STORED` (no recompression) and 1 MB buffered I/O. The receiver unpacks the tree into Downloads.
 - Send from the tray menu, from the desktop pill by dropping files on it, from GNOME Files with Share via Vortex, from Dolphin, from Yazi with Shift+O, or from the Send files chip on the device card.
 - Android shows progress with file name, position in the queue (`X of Y`), byte counts, and a bar. Updates wait 250 ms between posts so the notification channel stays quiet.
+- Transfers can be cancelled in real time directly from the ongoing progress notification or via the Cancel action on the Android Files screen, cleanly discarding incomplete files and stopping the sender.
 - With auto-accept on in settings, files from a paired device save directly to the configured incoming directory (`~/.local/share/vortex/incoming_dir`, falling back to `XDG_DOWNLOAD_DIR` or Downloads). On NixOS and Home Manager, Vortex replaces the read-only store symlink with a user file first, so the setting sticks.
 
 ## See also
