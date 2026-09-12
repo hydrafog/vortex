@@ -15,7 +15,7 @@ BlueZ ties a bonded classic audio device to the BR/EDR bearer. A phone already p
 
 For a phone already paired for classic audio, use the one-click Remove Bond action in Vortex when pairing reports the classic-bearer error, or manually:
 
-1. Remove the classic entry from BlueZ:
+1. Clear the classic entry from BlueZ:
    ```bash
    bluetoothctl remove <device_mac_address>
    ```

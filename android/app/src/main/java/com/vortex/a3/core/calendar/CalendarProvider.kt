@@ -7,7 +7,7 @@ import java.io.File
 interface CalendarProvider {
     val events: StateFlow<List<CalendarEvent>>
     fun forDate(day: String): List<CalendarEvent>
-    fun add(date: String, time: String, text: String): CalendarEvent
+    fun add(date: String, time: String, text: String, endDate: String = "", endTime: String = "", recur: String = ""): CalendarEvent
     fun remove(id: String)
 }
 
@@ -17,8 +17,8 @@ class LocalCalendarProvider : CalendarProvider {
     override fun forDate(day: String): List<CalendarEvent> =
         CalendarEvent.forDate(CalendarStore.snapshot(), day)
 
-    override fun add(date: String, time: String, text: String): CalendarEvent =
-        CalendarStore.add(date = date, time = time, text = text)
+    override fun add(date: String, time: String, text: String, endDate: String, endTime: String, recur: String): CalendarEvent =
+        CalendarStore.add(date = date, time = time, text = text, endDate = endDate, endTime = endTime, recur = recur)
 
     override fun remove(id: String) = CalendarStore.remove(id)
 }
@@ -40,31 +40,15 @@ class RicelinFileProvider(private val file: File) : CalendarProvider {
             _events.value = lastGood
             return
         }
-        val parsed = try {
-            CalendarEvent.listFromBytes(file.readBytes()).also {
-                if (file.readBytes().isNotEmpty() && it.isEmpty()) {
-                    val raw = String(file.readBytes(), Charsets.UTF_8)
-                    if (raw.trim().isNotEmpty() && raw.trim() != "[]") {
-                        _events.value = lastGood
-                        return
-                    }
-                }
-            }
-        } catch (_: Throwable) {
+        val bytes = try {
+            file.readBytes()
+        } catch (_: Exception) {
             _events.value = lastGood
             return
         }
-        lastGood = parsed
-        _events.value = parsed
-    }
-
-    fun loadBytes(bytes: ByteArray) {
-        if (bytes.isEmpty()) {
-            lastGood = emptyList()
-            _events.value = lastGood
-            return
-        }
-        val raw = try { String(bytes, Charsets.UTF_8) } catch (_: Throwable) {
+        val raw = try {
+            String(bytes, Charsets.UTF_8)
+        } catch (_: Exception) {
             _events.value = lastGood
             return
         }
@@ -73,34 +57,81 @@ class RicelinFileProvider(private val file: File) : CalendarProvider {
             _events.value = lastGood
             return
         }
-        val parsed = CalendarEvent.listFromBytes(bytes)
+        val parsed = try {
+            CalendarEvent.listFromBytes(bytes)
+        } catch (_: CalendarParseFailure) {
+            _events.value = lastGood
+            return
+        } catch (_: Exception) {
+            _events.value = lastGood
+            return
+        }
+        lastGood = CalendarEvent.sortedForList(parsed)
+        _events.value = lastGood
+    }
+
+    fun mirrorFrom(items: List<CalendarEvent>) {
+        val merged = CalendarEvent.mergeUnion(_events.value, items)
+        if (merged.size > _events.value.size) {
+            lastGood = CalendarEvent.sortedForList(merged)
+            _events.value = lastGood
+            runCatching { file.writeBytes(CalendarEvent.listToBytes(lastGood)) }
+        }
+    }
+
+    fun loadBytes(bytes: ByteArray) {
+        if (bytes.isEmpty()) {
+            lastGood = emptyList()
+            _events.value = lastGood
+            return
+        }
+        val raw = try { String(bytes, Charsets.UTF_8) } catch (_: Exception) {
+            _events.value = lastGood
+            return
+        }
+        if (raw.isBlank()) {
+            lastGood = emptyList()
+            _events.value = lastGood
+            return
+        }
+        val parsed = try {
+            CalendarEvent.listFromBytes(bytes)
+        } catch (_: CalendarParseFailure) {
+            _events.value = lastGood
+            return
+        } catch (_: Exception) {
+            _events.value = lastGood
+            return
+        }
         if (parsed.isEmpty() && raw.trim() != "[]") {
             _events.value = lastGood
             return
         }
-        lastGood = parsed
-        _events.value = parsed
+        lastGood = CalendarEvent.sortedForList(parsed)
+        _events.value = lastGood
     }
 
     override fun forDate(day: String): List<CalendarEvent> =
         CalendarEvent.forDate(_events.value, day)
 
-    override fun add(date: String, time: String, text: String): CalendarEvent {
-        val clean = CalendarEvent.cleanTime(time)
+    override fun add(date: String, time: String, text: String, endDate: String, endTime: String, recur: String): CalendarEvent {
         val e = CalendarEvent(
             id = CalendarEvent.nextId(_events.value),
-            date = date,
-            time = clean,
+            date = date.trim(),
+            endDate = endDate.trim(),
+            time = CalendarEvent.cleanTime(time),
+            endTime = CalendarEvent.cleanTime(endTime),
             text = text.trim(),
+            recur = recur.trim(),
         )
-        lastGood = lastGood + e
+        lastGood = CalendarEvent.sortedForList(lastGood + e)
         _events.value = lastGood
         runCatching { file.writeBytes(CalendarEvent.listToBytes(lastGood)) }
         return e
     }
 
     override fun remove(id: String) {
-        lastGood = lastGood.filter { it.id != id }
+        lastGood = CalendarEvent.sortedForList(lastGood.filter { it.id != id })
         _events.value = lastGood
         runCatching { file.writeBytes(CalendarEvent.listToBytes(lastGood)) }
     }

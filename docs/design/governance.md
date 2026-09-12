@@ -48,23 +48,23 @@ Cross-references in `## See also` sections are verified on commit. Broken links 
 
 ## Deprecation policy
 
-Tokens and components marked for retirement are annotated in code with `@Deprecated` and in docs with a retired label. After one release cycle, retired items are removed.
+Tokens and components marked for retirement are annotated in code with `@Deprecated` and in docs with a retired label. After one release cycle, retired items are cleaned from active documentation.
 
 When a component is retired:
-1. Add `@Deprecated` annotation with removal version.
-2. Update the component doc to state it is retired.
-3. Remove from the active component table in `components.md`.
-4. Keep the `## See also` section but note the retirement.
+1. The `@Deprecated` annotation carries the removal version.
+2. The component doc states it is retired.
+3. The active component table in `components.md` lists only active components.
+4. The `## See also` section notes the retirement.
 
 ## Ownership and contribution
 
-The design system is owned by the Android app team. Changes to tokens, primitives, or the visual language require review by at least one maintainer.
+The design system is owned by the Android app team. Review by at least one maintainer is required for token, primitive, or visual language modifications.
 
 Contribution rules:
-1. Update the relevant token doc and the code source simultaneously.
-2. Add screenshot tests for any visual change.
-3. Update `docs/index.md` if adding or removing a design doc.
-4. Ensure the `## See also` sections link correctly.
+1. The token doc and the code source stay synchronized.
+2. Screenshot tests cover every visual variant.
+3. `docs/index.md` reflects the current design doc set.
+4. The `## See also` sections link correctly.
 
 ## Changelog
 

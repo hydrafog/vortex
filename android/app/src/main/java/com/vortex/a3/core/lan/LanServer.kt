@@ -771,10 +771,10 @@ class LanServer(
                             }
                             runCatching {
                                 val obj = org.json.JSONObject(String(plain, Charsets.UTF_8))
-                                val url = obj.optString("url", "")
+                                val url = obj.optString("url", "").trim()
                                 val openNow = obj.optBoolean("open_now", false)
-                                if (openNow && url.startsWith("http")) {
-                                    Log.i(TAG, "← handoff from laptop: opening $url")
+                                if (openNow && (url.startsWith("http://") || url.startsWith("https://"))) {
+                                    Log.i(TAG, "← handoff from laptop: opening ${url.take(60)}")
                                     dispatchIncomingUrl(context, url)
                                 } else {
                                     Log.i(TAG, "← handoff from laptop: open_now=$openNow url=${url.take(60)}; ignoring")
@@ -797,12 +797,24 @@ class LanServer(
     }
 
     private fun dispatchIncomingUrl(context: Context, url: String) {
-        val uri = Uri.parse(url)
+        val clean = url.trim()
+        if (!(clean.startsWith("http://") || clean.startsWith("https://"))) {
+            Log.w(TAG, "handoff rejected non-http(s) scheme")
+            return
+        }
+        val uri = Uri.parse(clean)
         val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-
-        runCatching { context.startActivity(intent) }
+        val resolved = runCatching { context.packageManager.resolveActivity(intent, 0) }.getOrNull()
+        if (resolved == null) {
+            Log.w(TAG, "handoff has no browser handler; keeping notification fallback")
+        } else {
+            runCatching { context.startActivity(intent) }.onFailure { e ->
+                Log.w(TAG, "handoff direct open blocked (${e.message}); keeping notification fallback")
+            }
+        }
 
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager ?: return
         val channelId = "vortex_handoff"
@@ -821,13 +833,13 @@ class LanServer(
 
         val flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
         val pi = android.app.PendingIntent.getActivity(context, 0x4C494E, intent, flags)
-        val host = runCatching { uri.host }.getOrNull() ?: url
+        val host = runCatching { uri.host }.getOrNull() ?: clean
 
         val notif = androidx.core.app.NotificationCompat.Builder(context, channelId)
             .setSmallIcon(com.vortex.a3.R.drawable.ic_notification_vortex)
             .setContentTitle("Open in browser")
             .setContentText(host)
-            .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(url))
+            .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(clean))
             .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
             .setCategory(androidx.core.app.NotificationCompat.CATEGORY_RECOMMENDATION)
             .setAutoCancel(true)

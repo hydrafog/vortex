@@ -75,14 +75,30 @@ data class CalendarEvent(
             if (!isValidTime(time) || !isValidTime(endTime)) {
                 throw CalendarParseFailure("invalid time: $time/$endTime")
             }
-            val recur = o.optString("recur", "")
+            var recur = o.optString("recur", "")
+            if (recur.isEmpty() && o.optBoolean("yearly", false)) {
+                recur = "year"
+            }
             if (recur.isNotEmpty() && recur != "year" && recur != "month") {
                 throw CalendarParseFailure("invalid recur: $recur")
             }
+            val endDate = o.optString("endDate", "")
+            if (endDate.isNotEmpty() && !isValidDate(endDate)) {
+                throw CalendarParseFailure("invalid endDate: $endDate")
+            }
+            val rawId = o.opt("id")
+            val id = when {
+                rawId == null || rawId == JSONObject.NULL -> ""
+                rawId is Number -> {
+                    val l = rawId.toLong()
+                    if (rawId.toDouble() == l.toDouble()) l.toString() else rawId.toString()
+                }
+                else -> rawId.toString()
+            }
             return CalendarEvent(
-                id = o.optString("id", ""),
+                id = id,
                 date = date,
-                endDate = o.optString("endDate", ""),
+                endDate = endDate,
                 time = time,
                 endTime = endTime,
                 text = o.optString("text", ""),
@@ -96,16 +112,29 @@ data class CalendarEvent(
             return arr.toString().toByteArray(Charsets.UTF_8)
         }
 
-        fun listFromBytes(bytes: ByteArray): List<CalendarEvent> = try {
+        fun sortedForList(items: List<CalendarEvent>): List<CalendarEvent> =
+            items.sortedWith(
+                compareBy<CalendarEvent> { it.date }.thenBy { if (it.time.isEmpty()) "" else "1" }.thenBy { it.time },
+            )
+
+        fun mergeUnion(into: List<CalendarEvent>, from: List<CalendarEvent>): List<CalendarEvent> {
+            val ids = into.map { it.id }.toSet()
+            return into + from.filter { it.id !in ids }
+        }
+
+        fun listFromBytes(bytes: ByteArray): List<CalendarEvent> {
             val raw = String(bytes, Charsets.UTF_8)
             if (raw.isBlank()) {
-                emptyList()
-            } else {
-                val arr = JSONArray(raw)
-                (0 until arr.length()).map { fromJson(arr.getJSONObject(it)) }
+                return emptyList()
             }
-        } catch (_: Throwable) {
-            emptyList()
+            try {
+                val arr = JSONArray(raw)
+                return (0 until arr.length()).map { fromJson(arr.getJSONObject(it)) }
+            } catch (e: CalendarParseFailure) {
+                throw e
+            } catch (e: Exception) {
+                throw CalendarParseFailure("corrupt calendar body", e)
+            }
         }
     }
 }

@@ -1,11 +1,21 @@
 package com.vortex.a3.core.calendar
 
+import org.json.JSONObject
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import java.io.File
+import java.nio.file.Files
 
 class CalendarLogicTest {
+
+    @AfterEach
+    fun tearDown() {
+        CalendarStore.resetForTest()
+    }
 
     private fun event(
         id: String = "1",
@@ -69,9 +79,10 @@ class CalendarLogicTest {
     }
 
     @Test
-    fun `AC2 corrupt bytes map to empty list`() {
-        val out = CalendarEvent.listFromBytes("{not json".toByteArray(Charsets.UTF_8))
-        assertEquals(emptyList<CalendarEvent>(), out)
+    fun `AC3 corrupt bytes throw CalendarParseFailure`() {
+        assertThrows<CalendarParseFailure> {
+            CalendarEvent.listFromBytes("{not json".toByteArray(Charsets.UTF_8))
+        }
     }
 
     @Test
@@ -87,5 +98,127 @@ class CalendarLogicTest {
         val events = listOf(event(id = "2"), event(id = "7"), event(id = "abc"))
         assertEquals("8", CalendarEvent.nextId(events))
         assertEquals("1", CalendarEvent.nextId(emptyList()))
+    }
+
+    @Test
+    fun `AC1 numeric id coerces to string`() {
+        val o = JSONObject().apply {
+            put("id", 7)
+            put("date", "2026-06-10")
+        }
+        assertEquals("7", CalendarEvent.fromJson(o).id)
+    }
+
+    @Test
+    fun `AC1 missing keys default to empty strings`() {
+        val o = JSONObject().apply {
+            put("id", "3")
+            put("date", "2026-06-10")
+        }
+        val e = CalendarEvent.fromJson(o)
+        assertEquals("", e.endDate)
+        assertEquals("", e.time)
+        assertEquals("", e.endTime)
+        assertEquals("", e.text)
+        assertEquals("", e.recur)
+    }
+
+    @Test
+    fun `AC1 yearly flag heals to year recur`() {
+        val healed = JSONObject().apply {
+            put("id", "4")
+            put("date", "2020-02-29")
+            put("yearly", true)
+        }
+        assertEquals("year", CalendarEvent.fromJson(healed).recur)
+        val plain = JSONObject().apply {
+            put("id", "5")
+            put("date", "2026-06-10")
+        }
+        assertEquals("", CalendarEvent.fromJson(plain).recur)
+    }
+
+    @Test
+    fun `AC2 seven-key round-trip with span year and month`() {
+        val items = listOf(
+            CalendarEvent(id = "1", date = "2026-06-10", endDate = "2026-06-12", time = "09:00", endTime = "10:00", text = "Span"),
+            CalendarEvent(id = "2", date = "2020-02-29", time = "", text = "Yearly", recur = "year"),
+            CalendarEvent(id = "3", date = "2026-01-31", time = "12:00", text = "Monthly", recur = "month"),
+        )
+        val bytes = CalendarEvent.listToBytes(items)
+        val arr = org.json.JSONArray(String(bytes, Charsets.UTF_8))
+        val first = arr.getJSONObject(0)
+        assertTrue(first.has("endDate") && first.has("endTime") && first.has("recur"))
+        assertTrue(first.has("id") && first.has("date") && first.has("time") && first.has("text"))
+        val back = CalendarEvent.listFromBytes(bytes)
+        assertEquals(items, back)
+    }
+
+    @Test
+    fun `AC1 cross-provider add parity keeps seven keys after reload`() {
+        val dir = Files.createTempDirectory("cal-parity").toFile()
+        try {
+            val localFile = File(dir, "calendar.json")
+            CalendarStore.initForTest(localFile)
+            val local = LocalCalendarProvider()
+            local.add("2026-06-10", "09:00", "Span", endDate = "2026-06-12", endTime = "10:00", recur = "")
+            CalendarStore.reload()
+            val listed = local.forDate("2026-06-11")
+            assertEquals(1, listed.size)
+            assertEquals("2026-06-12", listed[0].endDate)
+            assertEquals("10:00", listed[0].endTime)
+            val ricelinFile = File(dir, "events.json")
+            ricelinFile.writeBytes(CalendarEvent.listToBytes(CalendarStore.snapshot()))
+            val ricelin = RicelinFileProvider(ricelinFile)
+            assertTrue(ricelin.forDate("2026-06-11").any { it.text == "Span" })
+            ricelin.add("2021-03-15", "", "Annual", recur = "year")
+            ricelin.reload()
+            assertTrue(ricelin.forDate("2026-03-15").any { it.text == "Annual" })
+        } finally {
+            CalendarStore.resetForTest()
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `AC3 store keepsLastGood on corrupt body`() {
+        val dir = Files.createTempDirectory("cal-good").toFile()
+        try {
+            val f = File(dir, "calendar.json")
+            val seed = listOf(event(id = "1", date = "2026-06-10"))
+            f.writeBytes(CalendarEvent.listToBytes(seed))
+            CalendarStore.initForTest(f, seed)
+            f.writeBytes("{corrupt".toByteArray(Charsets.UTF_8))
+            CalendarStore.reload()
+            assertEquals(seed, CalendarStore.snapshot())
+            val rf = File(dir, "events.json")
+            rf.writeBytes(CalendarEvent.listToBytes(seed))
+            val provider = RicelinFileProvider(rf)
+            rf.writeBytes("{corrupt".toByteArray(Charsets.UTF_8))
+            provider.reload()
+            assertEquals(seed.map { it.id }, provider.events.value.map { it.id })
+        } finally {
+            CalendarStore.resetForTest()
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `AC3 missing file self-heals to empty`() {
+        val dir = Files.createTempDirectory("cal-missing").toFile()
+        try {
+            val missing = File(dir, "absent.json")
+            assertFalse(missing.exists())
+            CalendarStore.initForTest(missing, emptyList())
+            CalendarStore.reload()
+            assertEquals(emptyList<CalendarEvent>(), CalendarStore.snapshot())
+            val ricelinMissing = File(dir, "absent-events.json")
+            val provider = RicelinFileProvider(ricelinMissing)
+            assertEquals(emptyList<CalendarEvent>(), provider.events.value)
+            assertTrue(ricelinMissing.exists())
+        } finally {
+            CalendarStore.resetForTest()
+            dir.deleteRecursively()
+        }
     }
 }

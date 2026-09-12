@@ -25,7 +25,7 @@ Audio holds the smart-switch toggle in one card with its headset duotone glyph. 
 
 ## Notifications
 
-Notifications holds two toggles in one card: notification mirroring with its bell duotone glyph and peer notification display with its active-bell glyph. The first controls whether phone notifications appear on paired hosts; the second controls whether peer notifications surface on this device. Hints state each direction so the pair reads as a matched set.
+Notifications holds two toggles in one card: notification mirroring with its bell duotone glyph and peer notification display with its active-bell glyph. Notification mirroring controls whether phone notifications appear on paired hosts; peer notification display controls whether peer notifications surface on this device. Hints state each direction so the pair reads as a matched set.
 
 ## Sharing
 
@@ -37,7 +37,7 @@ Device holds the screen-control action row with its touch duotone glyph, status 
 
 ## Calendar
 
-Calendar holds the backend picker in one card with its calendar duotone glyph. The `local` backend reads `calendar.json` from `filesDir`. The `ricelin` backend reads a Ricelin `events.json` file. The default is `local`.
+Calendar holds the picker in one card with its calendar duotone glyph. `local` reads `calendar.json`, `ricelin` reads `events.json` in `filesDir`. Switching unions by `id` into the active file; values and the `local` default stay unchanged.
 
 ## Row anatomy
 

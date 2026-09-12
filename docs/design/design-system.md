@@ -2,7 +2,7 @@
 
 The Vortex design system defines the visual language of the Android app: color tokens, accent policy, typography, spacing, iconography, motion, states, navigation, and the shared primitives that compose every screen. The app renders solid opaque colors with depth expressed through lightness steps. The system is flat. The ten-accent model lives in the Android `AccentColor` enum, with the Linux host treated as a paired endpoint. A third OLED canvas extends the dark mode family with a pure-black base.
 
-This document is the entry point. Each section below summarizes one area and links to the dedicated file with the full in-depth specification. The [README](../../README.md) serves as the single design entry point.
+This document is the entry point for the design system. Each section below summarizes one area and links to the dedicated file with the full in-depth specification.
 
 ## Design principles
 
@@ -55,21 +55,6 @@ Design consistency rests on convention today. The `lefthook.yml` pre-commit hook
 
 ## See also
 
-- `typography.md` specifies fonts, scale, and fallbacks.
-- `color.md` specifies tokens, OLED, accents, and the flat invariant.
-- `spacing-layout.md` specifies spacing, corners, and the screen grid.
-- `components.md` specifies card contracts and the pair-new card.
-- `notes.md` specifies the notes carousel.
-- `iconography.md` specifies the duotone icon system.
-- `motion.md` specifies durations, easing, and choreography.
-- `states.md` specifies connection, data, and control states.
-- `navigation.md` specifies the navbar and Hub order.
-- `settings.md` specifies the settings categories.
-- `notifications.md` specifies the notification geometry and bounds.
-- `logo.md` specifies the brand mark and consumers.
-- `widgets.md` specifies the home-screen widget.
-- `accessibility.md` specifies touch targets, contrast, dynamic type, and screen-reader rules.
-- `governance.md` specifies automated enforcement, testing, and deprecation policy.
 - `docs/index.md` indexes the documentation families, including the design family.
 - `docs/architecture/overview.md` describes system components and layer boundaries outside presentation scope.
 - `docs/development/environment.md` details the toolchain, pre-commit hooks, and formatting standards.

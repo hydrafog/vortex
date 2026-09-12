@@ -34,8 +34,14 @@ if [[ ! $subject_clean =~ $valid_regex ]]; then
     exit 1
 fi
 
-if [ "${#subject_clean}" -gt 72 ]; then
-    echo "ERROR: Commit subject is too long (${#subject_clean} chars). Max 72 characters."
+if [ "${#subject_clean}" -gt 75 ] || [ "${#subject}" -gt 75 ]; then
+    echo "ERROR: Commit subject is too long (${#subject} chars). Max 75 characters."
+    exit 1
+fi
+
+body_lines=$(tail -n +2 "$commit_msg_file" | sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d')
+if [ -n "$body_lines" ]; then
+    echo "ERROR: Commit description/body is not allowed. Commits must be a single line (max 75 chars)."
     exit 1
 fi
 

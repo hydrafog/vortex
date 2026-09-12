@@ -10,6 +10,7 @@ object CalendarStore {
 
     private var file: File? = null
     private var all: List<CalendarEvent> = emptyList()
+    private var lastGood: List<CalendarEvent> = emptyList()
 
     private val _events = MutableStateFlow<List<CalendarEvent>>(emptyList())
     val events: StateFlow<List<CalendarEvent>> = _events
@@ -23,26 +24,94 @@ object CalendarStore {
     fun init(f: File) {
         if (file != null) return
         file = f
-        all = if (f.exists()) CalendarEvent.listFromBytes(runCatching { f.readBytes() }.getOrDefault(ByteArray(0))) else emptyList()
+        if (!f.exists()) {
+            all = emptyList()
+            lastGood = emptyList()
+            publish()
+            return
+        }
+        val bytes = runCatching { f.readBytes() }.getOrNull() ?: ByteArray(0)
+        val raw = runCatching { String(bytes, Charsets.UTF_8) }.getOrNull() ?: ""
+        if (raw.isBlank()) {
+            all = emptyList()
+            lastGood = emptyList()
+            publish()
+            return
+        }
+        try {
+            all = CalendarEvent.listFromBytes(bytes)
+            lastGood = all
+        } catch (_: CalendarParseFailure) {
+            all = lastGood
+        } catch (_: Exception) {
+            all = lastGood
+        }
         publish()
+    }
+
+    fun reload() {
+        val f = file ?: return
+        if (!f.exists()) {
+            all = emptyList()
+            lastGood = emptyList()
+            persist()
+            publish()
+            return
+        }
+        val bytes = try {
+            f.readBytes()
+        } catch (_: Exception) {
+            return
+        }
+        val raw = try {
+            String(bytes, Charsets.UTF_8)
+        } catch (_: Exception) {
+            return
+        }
+        if (raw.isBlank()) {
+            all = emptyList()
+            lastGood = emptyList()
+            publish()
+            return
+        }
+        try {
+            val parsed = CalendarEvent.listFromBytes(bytes)
+            all = parsed
+            lastGood = parsed
+            publish()
+        } catch (_: CalendarParseFailure) {
+            return
+        } catch (_: Exception) {
+            return
+        }
+    }
+
+    fun mirrorFrom(items: List<CalendarEvent>) {
+        val merged = CalendarEvent.mergeUnion(all, items)
+        if (merged.size > all.size) {
+            all = merged
+            lastGood = merged
+            persist()
+            publish()
+        }
     }
 
     fun initForTest(f: File, items: List<CalendarEvent> = emptyList()) {
         file = f
         all = items
+        lastGood = items
         publish()
     }
 
     fun resetForTest() {
         file = null
         all = emptyList()
+        lastGood = emptyList()
         _events.value = emptyList()
     }
 
     private fun publish() {
-        _events.value = all.sortedWith(
-            compareBy<CalendarEvent> { it.date }.thenBy { if (it.time.isEmpty()) "" else "1" }.thenBy { it.time },
-        )
+        _events.value = CalendarEvent.sortedForList(all)
     }
 
     private fun persist() {
@@ -53,6 +122,7 @@ object CalendarStore {
 
     fun replaceAll(items: List<CalendarEvent>) {
         all = items
+        lastGood = items
         persist(); publish()
     }
 
@@ -68,12 +138,14 @@ object CalendarStore {
             recur = recur.trim(),
         )
         all = all + e
+        lastGood = all
         persist(); publish()
         return e
     }
 
     fun remove(id: String) {
         all = all.filter { it.id != id }
+        lastGood = all
         persist(); publish()
     }
 

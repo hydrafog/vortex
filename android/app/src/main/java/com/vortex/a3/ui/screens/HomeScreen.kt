@@ -31,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -287,12 +288,67 @@ fun HomeScreen(
             )
             val context = androidx.compose.ui.platform.LocalContext.current
             val calendarProvider = remember(calendarBackend) {
+                val localFile = java.io.File(context.filesDir, "calendar.json")
+                val ricelinFile = java.io.File(context.filesDir, "events.json")
+                val readLocal: List<com.vortex.a3.core.calendar.CalendarEvent> = try {
+                    if (localFile.exists()) {
+                        com.vortex.a3.core.calendar.CalendarEvent.listFromBytes(localFile.readBytes())
+                    } else {
+                        com.vortex.a3.core.calendar.CalendarStore.snapshot()
+                    }
+                } catch (_: com.vortex.a3.core.calendar.CalendarParseFailure) {
+                    com.vortex.a3.core.calendar.CalendarStore.snapshot()
+                } catch (_: Exception) {
+                    com.vortex.a3.core.calendar.CalendarStore.snapshot()
+                }
+                val readRicelin: List<com.vortex.a3.core.calendar.CalendarEvent> = try {
+                    if (ricelinFile.exists()) {
+                        com.vortex.a3.core.calendar.CalendarEvent.listFromBytes(ricelinFile.readBytes())
+                    } else {
+                        emptyList()
+                    }
+                } catch (_: com.vortex.a3.core.calendar.CalendarParseFailure) {
+                    emptyList()
+                } catch (_: Exception) {
+                    emptyList()
+                }
                 if (calendarBackend == "ricelin") {
+                    val merged = com.vortex.a3.core.calendar.CalendarEvent.mergeUnion(readRicelin, readLocal)
+                    if (merged.size > readRicelin.size) {
+                        runCatching {
+                            ricelinFile.parentFile?.mkdirs()
+                            ricelinFile.writeBytes(
+                                com.vortex.a3.core.calendar.CalendarEvent.listToBytes(
+                                    com.vortex.a3.core.calendar.CalendarEvent.sortedForList(merged),
+                                ),
+                            )
+                        }
+                    }
                     com.vortex.a3.core.calendar.RicelinFileProvider(
-                        java.io.File(context.filesDir, "events.json"),
-                    )
+                        ricelinFile,
+                    ).also { it.reload() }
                 } else {
+                    val merged = com.vortex.a3.core.calendar.CalendarEvent.mergeUnion(readLocal, readRicelin)
+                    if (merged.size > readLocal.size) {
+                        runCatching {
+                            localFile.parentFile?.mkdirs()
+                            localFile.writeBytes(
+                                com.vortex.a3.core.calendar.CalendarEvent.listToBytes(
+                                    com.vortex.a3.core.calendar.CalendarEvent.sortedForList(merged),
+                                ),
+                            )
+                        }
+                    }
+                    com.vortex.a3.core.calendar.CalendarStore.reload()
                     com.vortex.a3.core.calendar.LocalCalendarProvider()
+                }
+            }
+            LaunchedEffect(calendarBackend) {
+                val p = calendarProvider
+                if (p is com.vortex.a3.core.calendar.RicelinFileProvider) {
+                    p.reload()
+                } else {
+                    com.vortex.a3.core.calendar.CalendarStore.reload()
                 }
             }
             var selectedDay by remember {
