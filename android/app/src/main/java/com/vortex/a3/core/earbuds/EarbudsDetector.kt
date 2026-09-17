@@ -23,10 +23,11 @@ object EarbudsDetector {
         if (!adapter.isEnabled) return null
 
         val saved = EarbudsStore.load(context) ?: return null
-        return readSavedRow(bm, adapter, saved)
+        return readSavedRow(context, bm, adapter, saved)
     }
 
     private fun readSavedRow(
+        context: Context,
         bm: BluetoothManager,
         adapter: BluetoothAdapter,
         saved: SavedEarbuds,
@@ -44,7 +45,7 @@ object EarbudsDetector {
         if (match == null) {
             return EarbudsInfo(name = displayName, address = saved.address, battery = null, connected = false)
         }
-        val connected = isConnected(bm, match)
+        val connected = isConnected(context, bm, adapter, match)
         val battery = if (connected) readBatteryLevel(match) else null
         return EarbudsInfo(name = displayName, address = saved.address, battery = battery, connected = connected)
     }
@@ -55,7 +56,42 @@ object EarbudsDetector {
         null
     }
 
-    private fun isConnected(bm: BluetoothManager, device: BluetoothDevice): Boolean {
+    private fun isAudioOutputConnected(context: Context, address: String): Boolean {
+        val am = context.getSystemService(android.media.AudioManager::class.java) ?: return false
+        val outputs = am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
+        for (out in outputs) {
+            val isBt = out.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                out.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                (android.os.Build.VERSION.SDK_INT >= 31 &&
+                    (out.type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET ||
+                     out.type == android.media.AudioDeviceInfo.TYPE_BLE_SPEAKER))
+            if (isBt && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                val outAddr = out.address
+                if (!outAddr.isNullOrBlank() && outAddr.equals(address, ignoreCase = true)) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private fun isConnected(
+        context: Context,
+        bm: BluetoothManager,
+        adapter: BluetoothAdapter,
+        device: BluetoothDevice,
+    ): Boolean {
+        if (isAudioOutputConnected(context, device.address)) return true
+        val reflectionConnected = try {
+            val m = BluetoothDevice::class.java.getMethod("isConnected")
+            (m.invoke(device) as? Boolean) ?: false
+        } catch (_: Throwable) {
+            false
+        }
+        if (reflectionConnected) return true
+        if (adapter.getProfileConnectionState(BluetoothProfile.A2DP) == BluetoothProfile.STATE_CONNECTED) {
+            if (reflectionConnected) return true
+        }
         for (profile in intArrayOf(BluetoothProfile.HEADSET, BluetoothProfile.GATT)) {
             val state = try {
                 bm.getConnectionState(device, profile)
@@ -66,12 +102,7 @@ object EarbudsDetector {
             }
             if (state == BluetoothProfile.STATE_CONNECTED) return true
         }
-        return try {
-            val m = BluetoothDevice::class.java.getMethod("isConnected")
-            (m.invoke(device) as? Boolean) ?: false
-        } catch (_: Throwable) {
-            false
-        }
+        return false
     }
 
     private fun readBatteryLevel(device: BluetoothDevice): Int? {

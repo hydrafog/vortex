@@ -68,7 +68,7 @@ object BluetoothScanner {
                 ).toInt().takeIf { it != Short.MIN_VALUE.toInt() }
                 val name = safeName(device) ?: device.address
                 val isAudio = isAudioClass(device)
-                val connected = isConnected(bm, device)
+                val connected = isConnected(ctx, bm, adapter, device)
                 found[device.address] = BluetoothDeviceRow(
                     address = device.address,
                     name = name,
@@ -146,7 +146,7 @@ object BluetoothScanner {
                 address = device.address,
                 name = safeName(device) ?: device.address,
                 rssi = null,
-                connected = isConnected(bm, device),
+                connected = isConnected(ctx, bm, adapter, device),
                 isAudio = isAudioClass(device),
             )
         }
@@ -171,7 +171,42 @@ object BluetoothScanner {
         false
     }
 
-    private fun isConnected(bm: BluetoothManager, device: BluetoothDevice): Boolean {
+    private fun isAudioOutputConnected(context: Context, address: String): Boolean {
+        val am = context.getSystemService(android.media.AudioManager::class.java) ?: return false
+        val outputs = am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
+        for (out in outputs) {
+            val isBt = out.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                out.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                (android.os.Build.VERSION.SDK_INT >= 31 &&
+                    (out.type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET ||
+                     out.type == android.media.AudioDeviceInfo.TYPE_BLE_SPEAKER))
+            if (isBt && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                val outAddr = out.address
+                if (!outAddr.isNullOrBlank() && outAddr.equals(address, ignoreCase = true)) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private fun isConnected(
+        context: Context,
+        bm: BluetoothManager,
+        adapter: BluetoothAdapter,
+        device: BluetoothDevice,
+    ): Boolean {
+        if (isAudioOutputConnected(context, device.address)) return true
+        val reflectionConnected = try {
+            val m = BluetoothDevice::class.java.getMethod("isConnected")
+            (m.invoke(device) as? Boolean) ?: false
+        } catch (_: Throwable) {
+            false
+        }
+        if (reflectionConnected) return true
+        if (adapter.getProfileConnectionState(BluetoothProfile.A2DP) == BluetoothProfile.STATE_CONNECTED) {
+            if (reflectionConnected) return true
+        }
         for (profile in intArrayOf(BluetoothProfile.HEADSET, BluetoothProfile.GATT)) {
             val state = try {
                 bm.getConnectionState(device, profile)
@@ -182,12 +217,7 @@ object BluetoothScanner {
             }
             if (state == BluetoothProfile.STATE_CONNECTED) return true
         }
-        return try {
-            val m = BluetoothDevice::class.java.getMethod("isConnected")
-            (m.invoke(device) as? Boolean) ?: false
-        } catch (_: Throwable) {
-            false
-        }
+        return false
     }
 
     private fun hasScanPermission(context: Context): Boolean {

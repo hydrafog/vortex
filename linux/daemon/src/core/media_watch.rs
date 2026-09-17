@@ -247,6 +247,28 @@ pub fn spawn(
                 }
             }
 
+            let peer_played_last = watch.peer_playing.load(Ordering::Relaxed) && {
+                let pe = watch.peer_play_epoch_mono.load(Ordering::Relaxed);
+                pe != 0 && (play_epoch_mono == 0 || pe > play_epoch_mono)
+            };
+            if own
+                && peer_played_last
+                && watch.enabled.load(Ordering::Relaxed)
+                && !in_call.load(Ordering::Relaxed)
+            {
+                if playing && !have_paused {
+                    paused = pause_all_playing(&conn).await;
+                    have_paused = true;
+                    paused_at = Some(now);
+                    info!("media-watch: peer played more recently while we own buds → pause local media + release buds");
+                }
+                let a = adapter.clone();
+                let m = mac.clone();
+                tokio::spawn(async move {
+                    let _ = disconnect_audio_initiate(&a, &m).await;
+                });
+            }
+
             if LAPTOP_AUTO_GRAB && playing && !own {
                 let suppressed = suppress_until.map(|s| now < s).unwrap_or(false);
                 let cooling =
